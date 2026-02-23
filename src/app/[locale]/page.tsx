@@ -34,10 +34,10 @@ export default function LandingPage() {
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
           <div className="flex items-center gap-2">
             <div className="flex h-9 w-9 items-center justify-center rounded-md bg-accent">
-              <span className="font-display text-lg font-bold text-white">S</span>
+              <span className="font-display text-lg font-bold text-white">J</span>
             </div>
             <span className="font-display text-xl font-bold text-text-primary">
-              {t('app.name')}
+              jadwali<span className="text-accent">.ai</span>
             </span>
           </div>
           <div className="flex items-center gap-3">
@@ -383,9 +383,9 @@ export default function LandingPage() {
               <span className="font-display text-lg font-bold text-text-primary">jadwali<span className="text-accent">.ai</span></span>
             </div>
             <div className="flex gap-6 text-sm text-text-muted">
-              <a href="#" className="transition hover:text-text-secondary">Privacy</a>
-              <a href="#" className="transition hover:text-text-secondary">Terms</a>
-              <a href="#" className="transition hover:text-text-secondary">Support</a>
+              <Link href="/privacy" className="transition hover:text-text-secondary">{t('legal.privacy')}</Link>
+              <Link href="/terms" className="transition hover:text-text-secondary">{t('legal.terms')}</Link>
+              <Link href="/support" className="transition hover:text-text-secondary">{t('legal.support')}</Link>
             </div>
           </div>
           <div className="mt-8 text-center text-sm text-text-muted">
