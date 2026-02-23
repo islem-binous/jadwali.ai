@@ -5,4 +5,4 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding = "DB"
 database_name = "jadwali-db"
-database_id = ""  # Fill after running: npx wrangler d1 create jadwali-db
+database_id = "0ab9fae0-8b3b-423d-8ae3-96d68dc2c985"
