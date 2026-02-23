@@ -1,0 +1,354 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ─── ORGANIZATION ───────────────────────────────────────────
+model School {
+  id                   String    @id @default(cuid())
+  name                 String
+  slug                 String    @unique
+  country              String?
+  timezone             String    @default("Europe/Paris")
+  language             String    @default("FR")
+  schoolDays           String    @default("[0,1,2,3,4,5]")
+  logoUrl              String?
+  plan                 String    @default("FREE")
+  paymentProvider      String?
+  subscriptionStatus   String    @default("INACTIVE")
+  subscriptionEndsAt   DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  users         User[]
+  classes       Class[]
+  teachers      Teacher[]
+  subjects      Subject[]
+  rooms         Room[]
+  periods       Period[]
+  timetables    Timetable[]
+  absences      Absence[]
+  events        SchoolEvent[]
+  terms         Term[]
+  leaveTypes    LeaveType[]
+  leaveRequests LeaveRequest[]
+  payments      Payment[]
+  grades        Grade[]
+}
+
+// ─── USERS ─────────────────────────────────────────────────
+model User {
+  id        String   @id @default(cuid())
+  authId    String   @unique
+  email     String   @unique
+  name      String
+  role      String   @default("ADMIN")
+  language  String   @default("FR")
+  avatarUrl String?
+  phone     String?
+  isActive  Boolean  @default(true)
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id])
+  createdAt DateTime @default(now())
+
+  teacherId String?  @unique
+  teacher   Teacher? @relation(fields: [teacherId], references: [id])
+  studentId String?  @unique
+  student   Student? @relation(fields: [studentId], references: [id])
+}
+
+// ─── ACADEMIC STRUCTURE ─────────────────────────────────────
+model Term {
+  id         String      @id @default(cuid())
+  schoolId   String
+  school     School      @relation(fields: [schoolId], references: [id])
+  name       String
+  nameAr     String?
+  nameFr     String?
+  startDate  DateTime
+  endDate    DateTime
+  timetables Timetable[]
+}
+
+model Class {
+  id       String    @id @default(cuid())
+  schoolId String
+  school   School    @relation(fields: [schoolId], references: [id])
+  name     String
+  gradeId  String?
+  grade    Grade?    @relation(fields: [gradeId], references: [id])
+  capacity Int       @default(30)
+  colorHex String    @default("#4f6ef7")
+  lessons  Lesson[]
+  students Student[]
+}
+
+model Teacher {
+  id                String                @id @default(cuid())
+  schoolId          String
+  school            School                @relation(fields: [schoolId], references: [id])
+  name              String
+  email             String?
+  phone             String?
+  avatarUrl         String?
+  colorHex          String                @default("#22c55e")
+  maxPeriodsPerDay  Int                   @default(6)
+  maxPeriodsPerWeek Int                   @default(24)
+  excludeFromCover  Boolean               @default(false)
+  subjects          TeacherSubject[]
+  lessons           Lesson[]
+  absences          Absence[]
+  availabilities    TeacherAvailability[]
+  leaveRequests     LeaveRequest[]
+  user              User?
+  grades            TeacherGrade[]
+}
+
+model TeacherSubject {
+  id        String  @id @default(cuid())
+  teacherId String
+  teacher   Teacher @relation(fields: [teacherId], references: [id])
+  subjectId String
+  subject   Subject @relation(fields: [subjectId], references: [id])
+  isPrimary Boolean @default(false)
+
+  @@unique([teacherId, subjectId])
+}
+
+model TeacherAvailability {
+  id          String  @id @default(cuid())
+  teacherId   String
+  teacher     Teacher @relation(fields: [teacherId], references: [id])
+  dayOfWeek   Int
+  periodId    String
+  isAvailable Boolean @default(true)
+}
+
+model Subject {
+  id       String           @id @default(cuid())
+  schoolId String
+  school   School           @relation(fields: [schoolId], references: [id])
+  name     String
+  nameAr   String?
+  nameFr   String?
+  colorHex String           @default("#4f6ef7")
+  category String           @default("OTHER")
+  lessons    Lesson[]
+  teachers   TeacherSubject[]
+  curriculum GradeCurriculum[]
+}
+
+model Room {
+  id       String   @id @default(cuid())
+  schoolId String
+  school   School   @relation(fields: [schoolId], references: [id])
+  name     String
+  building String?
+  capacity Int      @default(30)
+  type     String   @default("CLASSROOM")
+  lessons  Lesson[]
+}
+
+model Period {
+  id         String   @id @default(cuid())
+  schoolId   String
+  school     School   @relation(fields: [schoolId], references: [id])
+  name       String
+  startTime  String
+  endTime    String
+  order      Int
+  isBreak        Boolean  @default(false)
+  breakLabel     String?
+  applicableDays String   @default("[]")
+  lessons        Lesson[]
+}
+
+// ─── TIMETABLE ──────────────────────────────────────────────
+model Timetable {
+  id            String   @id @default(cuid())
+  schoolId      String
+  school        School   @relation(fields: [schoolId], references: [id])
+  termId        String?
+  term          Term?    @relation(fields: [termId], references: [id])
+  name          String
+  status        String   @default("DRAFT")
+  isActive      Boolean  @default(false)
+  generatedByAi Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  lessons       Lesson[]
+}
+
+model Lesson {
+  id           String      @id @default(cuid())
+  timetableId  String
+  timetable    Timetable   @relation(fields: [timetableId], references: [id])
+  classId      String
+  class        Class       @relation(fields: [classId], references: [id])
+  subjectId    String
+  subject      Subject     @relation(fields: [subjectId], references: [id])
+  teacherId    String
+  teacher      Teacher     @relation(fields: [teacherId], references: [id])
+  roomId       String?
+  room         Room?       @relation(fields: [roomId], references: [id])
+  periodId     String
+  period       Period      @relation(fields: [periodId], references: [id])
+  dayOfWeek    Int
+  isConflict   Boolean     @default(false)
+  conflictNote String?
+  substituteId String?
+  substitute   Substitute? @relation(fields: [substituteId], references: [id])
+}
+
+// ─── ABSENCES & SUBSTITUTES ─────────────────────────────────
+model Absence {
+  id           String      @id @default(cuid())
+  schoolId     String
+  school       School      @relation(fields: [schoolId], references: [id])
+  teacherId    String
+  teacher      Teacher     @relation(fields: [teacherId], references: [id])
+  date         DateTime
+  endDate      DateTime?
+  type         String      @default("SICK")
+  periods      String      @default("[]")
+  note         String?
+  substituteId String?
+  substitute   Substitute? @relation(fields: [substituteId], references: [id])
+  status       String      @default("PENDING")
+  createdAt    DateTime    @default(now())
+}
+
+model Substitute {
+  id         String    @id @default(cuid())
+  teacherId  String
+  date       DateTime
+  periodId   String
+  matchScore Int
+  assignedAt DateTime?
+  lessons    Lesson[]
+  absences   Absence[]
+}
+
+// ─── LEAVE MANAGEMENT ──────────────────────────────────────
+model LeaveType {
+  id               String         @id @default(cuid())
+  schoolId         String
+  school           School         @relation(fields: [schoolId], references: [id])
+  name             String
+  nameAr           String?
+  nameFr           String?
+  maxDaysPerYear   Int            @default(12)
+  colorHex         String         @default("#F59E0B")
+  requiresApproval Boolean        @default(true)
+  createdAt        DateTime       @default(now())
+  requests         LeaveRequest[]
+}
+
+model LeaveRequest {
+  id           String    @id @default(cuid())
+  schoolId     String
+  school       School    @relation(fields: [schoolId], references: [id])
+  teacherId    String
+  teacher      Teacher   @relation(fields: [teacherId], references: [id])
+  leaveTypeId  String
+  leaveType    LeaveType @relation(fields: [leaveTypeId], references: [id])
+  startDate    DateTime
+  endDate      DateTime
+  daysCount    Int
+  reason       String?
+  status       String    @default("PENDING")
+  approvedById String?
+  approvedAt   DateTime?
+  createdAt    DateTime  @default(now())
+}
+
+// ─── SCHOOL EVENTS ──────────────────────────────────────────
+model SchoolEvent {
+  id             String   @id @default(cuid())
+  schoolId       String
+  school         School   @relation(fields: [schoolId], references: [id])
+  title          String
+  titleAr        String?
+  titleFr        String?
+  description    String?
+  type           String   @default("OTHER")
+  startDate      DateTime
+  endDate        DateTime
+  colorHex       String   @default("#4f6ef7")
+  affectsClasses String   @default("[]")
+  isRecurring    Boolean  @default(false)
+  createdAt      DateTime @default(now())
+}
+
+// ─── STUDENTS ────────────────────────────────────────────
+model Student {
+  id        String @id @default(cuid())
+  schoolId  String
+  name      String
+  email     String?
+  classId   String
+  class     Class  @relation(fields: [classId], references: [id])
+  electives String @default("[]")
+  user      User?
+}
+
+// ─── GRADES & CURRICULUM ───────────────────────────────────
+model Grade {
+  id         String            @id @default(cuid())
+  schoolId   String
+  school     School            @relation(fields: [schoolId], references: [id])
+  name       String
+  nameAr     String?
+  nameFr     String?
+  level      Int               @default(1)
+  classes    Class[]
+  curriculum GradeCurriculum[]
+  teachers   TeacherGrade[]
+}
+
+model GradeCurriculum {
+  id           String  @id @default(cuid())
+  gradeId      String
+  grade        Grade   @relation(fields: [gradeId], references: [id])
+  subjectId    String
+  subject      Subject @relation(fields: [subjectId], references: [id])
+  hoursPerWeek Int     @default(2)
+
+  @@unique([gradeId, subjectId])
+}
+
+model TeacherGrade {
+  id        String  @id @default(cuid())
+  teacherId String
+  teacher   Teacher @relation(fields: [teacherId], references: [id])
+  gradeId   String
+  grade     Grade   @relation(fields: [gradeId], references: [id])
+
+  @@unique([teacherId, gradeId])
+}
+
+// ─── PAYMENTS ──────────────────────────────────────────────
+model Payment {
+  id           String    @id @default(cuid())
+  schoolId     String
+  school       School    @relation(fields: [schoolId], references: [id])
+  provider     String
+  providerRef  String
+  orderId      String    @unique
+  plan         String
+  billingCycle String
+  amount       Int
+  currency     String    @default("TND")
+  status       String    @default("PENDING")
+  paidAt       DateTime?
+  periodStart  DateTime?
+  periodEnd    DateTime?
+  firstName    String?
+  lastName     String?
+  email        String?
+  createdAt    DateTime  @default(now())
+}
