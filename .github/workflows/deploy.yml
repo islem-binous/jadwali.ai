@@ -23,6 +23,15 @@ jobs:
 
       - run: npx opennextjs-cloudflare build
 
+      - name: Stub unused WASM files to reduce bundle size
+        run: |
+          node -e "
+            const fs = require('fs');
+            const minimal = Buffer.from([0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00]);
+            fs.writeFileSync('node_modules/next/dist/compiled/@vercel/og/resvg.wasm', minimal);
+            fs.writeFileSync('node_modules/next/dist/compiled/@vercel/og/yoga.wasm', minimal);
+          "
+
       - uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}

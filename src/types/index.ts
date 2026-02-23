@@ -16,7 +16,7 @@ export type {
   Substitute,
   SchoolEvent,
   Student,
-} from '@/generated/prisma/client'
+} from '@prisma/client'
 
 // Enum-like string union types (SQLite doesn't support enums)
 export type Language = 'AR' | 'FR' | 'EN'
