@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getPrisma } from '@/lib/prisma'
 import { verifyKonnectPayment } from '@/lib/payment'
 import { activateSubscription, computePeriodEnd } from '@/lib/subscription'
 
@@ -11,6 +11,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    const prisma = await getPrisma()
     const payment = await prisma.payment.findFirst({
       where: { providerRef: paymentRef, provider: 'konnect' },
     })

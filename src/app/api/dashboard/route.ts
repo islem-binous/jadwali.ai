@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getPrisma } from '@/lib/prisma'
 
 export async function GET(req: NextRequest) {
   const schoolId = req.nextUrl.searchParams.get('schoolId')
@@ -11,6 +11,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    const prisma = await getPrisma()
     // Build lesson filter for today
     const todayDayIndex = (new Date().getDay() + 6) % 7 // Convert JS day (0=Sun) to our format (0=Mon)
     const lessonWhere: Record<string, unknown> = { dayOfWeek: todayDayIndex }

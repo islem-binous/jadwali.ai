@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getPrisma } from '@/lib/prisma'
 
 export async function GET(req: NextRequest) {
   try {
+    const prisma = await getPrisma()
     const schoolId = req.nextUrl.searchParams.get('schoolId')
     const filter = req.nextUrl.searchParams.get('filter') // 'today' | 'upcoming' | 'all'
     const teacherId = req.nextUrl.searchParams.get('teacherId')
@@ -45,6 +46,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const prisma = await getPrisma()
     const body = await req.json()
     const { schoolId, teacherId, date, endDate, type, periods, note } = body
 
@@ -77,6 +79,7 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
+    const prisma = await getPrisma()
     const body = await req.json()
     const { id, teacherId, date, endDate, type, periods, note, status, substituteId } = body
 
@@ -113,6 +116,7 @@ export async function DELETE(req: NextRequest) {
   }
 
   try {
+    const prisma = await getPrisma()
     await prisma.absence.delete({ where: { id } })
     return NextResponse.json({ success: true })
   } catch (err) {

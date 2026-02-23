@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getPrisma } from '@/lib/prisma'
 
 export async function GET(req: NextRequest) {
   const schoolId = req.nextUrl.searchParams.get('schoolId')
@@ -9,6 +9,7 @@ export async function GET(req: NextRequest) {
   const teacherId = req.nextUrl.searchParams.get('teacherId')
 
   try {
+    const prisma = await getPrisma()
     const where: Record<string, unknown> = { schoolId }
     if (status) where.status = status
     if (teacherId) where.teacherId = teacherId
@@ -32,6 +33,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const prisma = await getPrisma()
     const body = await req.json()
     const { schoolId, teacherId, leaveTypeId, startDate, endDate, reason } = body
 
@@ -78,6 +80,7 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
+    const prisma = await getPrisma()
     const body = await req.json()
     const { id, status, approvedById, reason, ...rest } = body
     if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
@@ -109,6 +112,7 @@ export async function DELETE(req: NextRequest) {
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
 
   try {
+    const prisma = await getPrisma()
     await prisma.leaveRequest.delete({ where: { id } })
     return NextResponse.json({ success: true })
   } catch (err) {

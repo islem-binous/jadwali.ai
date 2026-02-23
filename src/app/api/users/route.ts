@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getPrisma } from '@/lib/prisma'
 
 export async function GET(req: NextRequest) {
   const schoolId = req.nextUrl.searchParams.get('schoolId')
@@ -8,6 +8,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    const prisma = await getPrisma()
     const users = await prisma.user.findMany({
       where: { schoolId },
       orderBy: { createdAt: 'desc' },
@@ -24,6 +25,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const prisma = await getPrisma()
     const body = await req.json()
     const { email, name, role, phone, schoolId, teacherId, classId } = body
 
@@ -80,6 +82,7 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
+    const prisma = await getPrisma()
     const body = await req.json()
     const { id, role, isActive, name, email, phone } = body
 
@@ -115,6 +118,7 @@ export async function DELETE(req: NextRequest) {
   }
 
   try {
+    const prisma = await getPrisma()
     await prisma.user.delete({ where: { id } })
     return NextResponse.json({ success: true })
   } catch (err) {

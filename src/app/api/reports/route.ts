@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getPrisma } from '@/lib/prisma'
 
 export async function GET(req: NextRequest) {
   const schoolId = req.nextUrl.searchParams.get('schoolId')
@@ -10,6 +10,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    const prisma = await getPrisma()
     if (type === 'faculty') {
       const teachers = await prisma.teacher.findMany({
         where: { schoolId },

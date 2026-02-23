@@ -1,17 +1,9 @@
 import { PrismaClient } from '@/generated/prisma/client'
-import { PrismaLibSql } from '@prisma/adapter-libsql'
+import { PrismaD1 } from '@prisma/adapter-d1'
+import { getCloudflareContext } from '@opennextjs/cloudflare'
 
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined
-}
-
-function createPrismaClient() {
-  const adapter = new PrismaLibSql({
-    url: 'file:dev.db',
-  })
+export async function getPrisma(): Promise<PrismaClient> {
+  const { env } = await getCloudflareContext()
+  const adapter = new PrismaD1(env.DB)
   return new PrismaClient({ adapter })
 }
-
-export const prisma = globalForPrisma.prisma ?? createPrismaClient()
-
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma

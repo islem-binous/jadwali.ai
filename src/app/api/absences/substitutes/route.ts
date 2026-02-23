@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getPrisma } from '@/lib/prisma'
 import { findSubstitutes } from '@/lib/substitute-matcher'
 
 export async function GET(req: NextRequest) {
   try {
+    const prisma = await getPrisma()
     const absenceId = req.nextUrl.searchParams.get('absenceId')
     const schoolId = req.nextUrl.searchParams.get('schoolId')
     if (!absenceId || !schoolId) {

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getPrisma } from '@/lib/prisma'
 
 export async function GET(req: NextRequest) {
   try {
+    const prisma = await getPrisma()
     const schoolId = req.nextUrl.searchParams.get('schoolId')
     if (!schoolId) {
       return NextResponse.json({ error: 'Missing schoolId' }, { status: 400 })

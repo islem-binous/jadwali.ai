@@ -1,9 +1,10 @@
 import { NextRequest } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getPrisma } from '@/lib/prisma'
 
 // Build school context for the AI
 async function buildSchoolContext(schoolId: string) {
   try {
+    const prisma = await getPrisma()
     const [school, teachers, classes, rooms, subjects, periods, absences, lessons] = await Promise.all([
       prisma.school.findUnique({ where: { id: schoolId } }),
       prisma.teacher.findMany({

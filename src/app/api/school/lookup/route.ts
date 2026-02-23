@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getPrisma } from '@/lib/prisma'
 
 export async function GET(req: NextRequest) {
   try {
+    const prisma = await getPrisma()
     const slug = req.nextUrl.searchParams.get('slug')
     if (!slug) {
       return NextResponse.json({ error: 'Missing slug' }, { status: 400 })

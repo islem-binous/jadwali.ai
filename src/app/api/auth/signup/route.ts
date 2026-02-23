@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getPrisma } from '@/lib/prisma'
 
 function slugify(text: string): string {
   return text
@@ -10,6 +10,7 @@ function slugify(text: string): string {
 
 export async function POST(request: Request) {
   try {
+    const prisma = await getPrisma()
     const body = await request.json()
     const { email, password, name, language, role } = body
 

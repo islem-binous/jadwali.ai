@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getPrisma } from '@/lib/prisma'
 import { checkAndDowngradeExpired } from '@/lib/subscription'
 
 export async function POST(request: Request) {
   try {
+    const prisma = await getPrisma()
     const { email, password } = await request.json()
 
     if (!email || !password) {

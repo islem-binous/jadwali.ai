@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getPrisma } from '@/lib/prisma'
 
 export async function GET(req: NextRequest) {
   const schoolId = req.nextUrl.searchParams.get('schoolId')
@@ -8,6 +8,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    const prisma = await getPrisma()
     const school = await prisma.school.findUnique({
       where: { id: schoolId },
       include: { periods: { orderBy: { order: 'asc' } } },
@@ -29,6 +30,7 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
+    const prisma = await getPrisma()
     const body = await req.json()
     const { id, name, country, timezone, language, schoolDays } = body
 

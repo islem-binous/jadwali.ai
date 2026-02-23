@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getPrisma } from '@/lib/prisma'
 
 export async function GET(req: NextRequest) {
   try {
+    const prisma = await getPrisma()
     const timetableId = req.nextUrl.searchParams.get('timetableId')
     if (!timetableId) {
       return NextResponse.json({ error: 'Missing timetableId' }, { status: 400 })
@@ -31,6 +32,7 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
+    const prisma = await getPrisma()
     const body = await req.json()
     const { id, dayOfWeek, periodId, subjectId, teacherId, roomId, classId } = body
 
@@ -73,6 +75,7 @@ export async function PUT(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const prisma = await getPrisma()
     const body = await req.json()
     const { timetableId, classId, subjectId, teacherId, roomId, periodId, dayOfWeek } = body
 
@@ -114,6 +117,7 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
+    const prisma = await getPrisma()
     const id = req.nextUrl.searchParams.get('id')
     if (!id) {
       return NextResponse.json({ error: 'Missing lesson id' }, { status: 400 })

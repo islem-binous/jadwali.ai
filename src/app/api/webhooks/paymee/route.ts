@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getPrisma } from '@/lib/prisma'
 import { verifyPaymeePayment } from '@/lib/payment'
 import { activateSubscription, computePeriodEnd } from '@/lib/subscription'
 
 export async function POST(req: NextRequest) {
   try {
+    const prisma = await getPrisma()
     const body = await req.json()
     const token = body.token
 

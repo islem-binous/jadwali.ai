@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma'
+import { getPrisma } from '@/lib/prisma'
 
 export function computePeriodEnd(
   cycle: 'monthly' | 'annual',
@@ -20,6 +20,7 @@ export async function activateSubscription(
   billingCycle: 'monthly' | 'annual',
   provider: string
 ) {
+  const prisma = await getPrisma()
   const periodEnd = computePeriodEnd(billingCycle)
 
   await prisma.school.update({
@@ -38,6 +39,7 @@ export async function activateSubscription(
 export async function checkAndDowngradeExpired(
   schoolId: string
 ): Promise<boolean> {
+  const prisma = await getPrisma()
   const school = await prisma.school.findUnique({
     where: { id: schoolId },
     select: { plan: true, subscriptionStatus: true, subscriptionEndsAt: true },

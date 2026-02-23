@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getPrisma } from '@/lib/prisma'
 import {
   initPayment,
   generateOrderId,
@@ -9,6 +9,7 @@ import type { PaymentProvider, BillingCycle } from '@/lib/payment'
 
 export async function POST(req: NextRequest) {
   try {
+    const prisma = await getPrisma()
     const body = await req.json()
     const {
       schoolId,

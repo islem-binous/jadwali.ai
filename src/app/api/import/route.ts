@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getPrisma } from '@/lib/prisma'
 import { parseCSV, normalizeName, findColumn } from '@/lib/csv'
 
 type RowStatus = 'ok' | 'update' | 'error'
@@ -67,6 +67,7 @@ async function handleTeachers(
   rows: string[][],
   mode: string,
 ) {
+  const prisma = await getPrisma()
   const nameCol = findColumn(headers, ['name', 'full name', 'teacher name', 'nom'])
   const emailCol = findColumn(headers, ['email', 'e-mail', 'courriel'])
   const phoneCol = findColumn(headers, ['phone', 'telephone', 'tel', 'téléphone'])
@@ -189,6 +190,7 @@ async function handleSubjects(
   rows: string[][],
   mode: string,
 ) {
+  const prisma = await getPrisma()
   const nameCol = findColumn(headers, ['name', 'subject', 'nom', 'matière'])
   const frCol = findColumn(headers, ['name (french)', 'nom (français)', 'french', 'namefr'])
   const arCol = findColumn(headers, ['name (arabic)', 'nom (arabe)', 'arabic', 'namear'])
@@ -267,6 +269,7 @@ async function handleClasses(
   rows: string[][],
   mode: string,
 ) {
+  const prisma = await getPrisma()
   const nameCol = findColumn(headers, ['name', 'class', 'classe', 'nom'])
   const gradeCol = findColumn(headers, ['grade', 'niveau', 'level'])
   const capCol = findColumn(headers, ['capacity', 'capacité', 'students', 'size'])
@@ -356,6 +359,7 @@ async function handleRooms(
   rows: string[][],
   mode: string,
 ) {
+  const prisma = await getPrisma()
   const nameCol = findColumn(headers, ['name', 'room', 'salle', 'nom'])
   const buildingCol = findColumn(headers, ['building', 'bâtiment', 'batiment', 'block'])
   const capCol = findColumn(headers, ['capacity', 'capacité', 'seats', 'places'])
@@ -442,6 +446,7 @@ async function handleTimetable(
   rows: string[][],
   mode: string,
 ) {
+  const prisma = await getPrisma()
   if (!timetableId) {
     return NextResponse.json({ error: 'timetableId is required for timetable import' }, { status: 400 })
   }

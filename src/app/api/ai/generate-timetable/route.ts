@@ -1,11 +1,12 @@
 import { NextRequest } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getPrisma } from '@/lib/prisma'
 import { solveTimetable } from '@/lib/schedule-solver'
 import type { ScheduleConstraints } from '@/lib/schedule-engine'
 import { detectConflicts } from '@/lib/conflict-detector'
 
 export async function POST(req: NextRequest) {
   try {
+    const prisma = await getPrisma()
     const { schoolId } = await req.json()
 
     if (!schoolId || typeof schoolId !== 'string') {

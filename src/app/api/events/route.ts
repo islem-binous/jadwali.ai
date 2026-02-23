@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getPrisma } from '@/lib/prisma'
 
 export async function GET(req: NextRequest) {
   const schoolId = req.nextUrl.searchParams.get('schoolId')
@@ -12,6 +12,7 @@ export async function GET(req: NextRequest) {
   const recurring = req.nextUrl.searchParams.get('recurring')
 
   try {
+    const prisma = await getPrisma()
     // Build date range filter if month & year are provided
     const where: Record<string, unknown> = { schoolId }
 
@@ -51,6 +52,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const prisma = await getPrisma()
     const body = await req.json()
     const {
       schoolId,
@@ -94,6 +96,7 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
+    const prisma = await getPrisma()
     const body = await req.json()
     const {
       id,
@@ -146,6 +149,7 @@ export async function DELETE(req: NextRequest) {
   }
 
   try {
+    const prisma = await getPrisma()
     await prisma.schoolEvent.delete({ where: { id } })
     return NextResponse.json({ success: true })
   } catch (err) {

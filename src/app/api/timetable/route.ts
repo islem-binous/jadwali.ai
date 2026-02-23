@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getPrisma } from '@/lib/prisma'
 
 export async function GET(req: NextRequest) {
   try {
+    const prisma = await getPrisma()
     const schoolId = req.nextUrl.searchParams.get('schoolId')
     if (!schoolId) {
       return NextResponse.json({ error: 'Missing schoolId' }, { status: 400 })
@@ -26,6 +27,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const prisma = await getPrisma()
     const body = await req.json()
     const { schoolId, name, termId } = body
 
@@ -66,6 +68,7 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
+    const prisma = await getPrisma()
     const id = req.nextUrl.searchParams.get('id')
     if (!id) {
       return NextResponse.json({ error: 'Missing timetable id' }, { status: 400 })

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getPrisma } from '@/lib/prisma'
 
 export async function GET(req: NextRequest) {
   try {
+    const prisma = await getPrisma()
     const gradeId = req.nextUrl.searchParams.get('gradeId')
     if (!gradeId) {
       return NextResponse.json({ error: 'Missing gradeId' }, { status: 400 })
@@ -24,6 +25,7 @@ export async function GET(req: NextRequest) {
 /** Bulk upsert: receives { gradeId, subjects: [{ subjectId, hoursPerWeek }] } */
 export async function POST(req: NextRequest) {
   try {
+    const prisma = await getPrisma()
     const body = await req.json()
     const { gradeId, subjects } = body as {
       gradeId: string
