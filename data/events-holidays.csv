@@ -1,0 +1,29 @@
+Title,Title (French),Title (Arabic),Type,Start Date,End Date,Color,Recurring,Description
+New Year,Nouvel An,رأس السنة الميلادية,HOLIDAY,2025-01-01,2025-01-01,#22c55e,true,
+Independence Day,Fête de l'Indépendance,عيد الاستقلال,HOLIDAY,2025-03-20,2025-03-20,#22c55e,true,
+Eid al-Fitr,Aïd el-Fitr,عيد الفطر,HOLIDAY,2025-03-31,2025-04-02,#14b8a6,true,Dates change yearly (lunar calendar)
+Martyrs' Day,Journée des Martyrs,يوم الشهداء,HOLIDAY,2025-04-09,2025-04-09,#22c55e,true,
+Labour Day,Fête du Travail,عيد الشغل,HOLIDAY,2025-05-01,2025-05-01,#22c55e,true,
+Eid al-Adha,Aïd el-Adha,عيد الأضحى,HOLIDAY,2025-06-06,2025-06-07,#14b8a6,true,Dates change yearly (lunar calendar)
+Islamic New Year,Nouvel An Hégirien,رأس السنة الهجرية,HOLIDAY,2025-06-26,2025-06-26,#14b8a6,true,Dates change yearly (lunar calendar)
+Republic Day,Fête de la République,عيد الجمهورية,HOLIDAY,2025-07-25,2025-07-25,#22c55e,true,
+Women's Day,Journée de la Femme,عيد المرأة,HOLIDAY,2025-08-13,2025-08-13,#22c55e,true,
+Mouled,Mouled,المولد النبوي الشريف,HOLIDAY,2025-09-04,2025-09-04,#14b8a6,true,Dates change yearly (lunar calendar)
+Evacuation Day,Fête de l'Évacuation,عيد الجلاء,HOLIDAY,2025-10-15,2025-10-15,#22c55e,true,
+Revolution Day,Journée de la Révolution,عيد الثورة,HOLIDAY,2025-12-17,2025-12-17,#22c55e,true,
+Mid-1st Trimester Break,Vacances mi-1er trimestre,عطلة منتصف الثلاثي الأول,CLOSURE,2024-10-28,2024-11-03,#f59e0b,false,Mid-1st trimester break
+Winter Break,Vacances d'hiver,عطلة الشتاء,CLOSURE,2024-12-23,2025-01-05,#3b82f6,false,Winter / New Year break
+Mid-2nd Trimester Break,Vacances mi-2ème trimestre,عطلة منتصف الثلاثي الثاني,CLOSURE,2025-02-03,2025-02-09,#f59e0b,false,Mid-2nd trimester break
+Spring Break,Vacances de printemps,عطلة الربيع,CLOSURE,2025-03-24,2025-04-06,#84cc16,false,Spring / Eid al-Fitr break
+T1 Exams - Open Week,Examens T1 - Semaine ouverte,امتحانات ث1 - أسبوع مفتوح,EXAM,2024-12-02,2024-12-07,#ef4444,false,
+T1 Exams - Blocked Week,Examens T1 - Semaine bloquée,امتحانات ث1 - أسبوع مغلق,EXAM,2024-12-09,2024-12-14,#ef4444,false,
+T1 Class Councils,Conseils de classe T1,مجالس الأقسام ث1,MEETING,2025-01-06,2025-01-11,#f97316,false,
+T2 Exams - Open Week,Examens T2 - Semaine ouverte,امتحانات ث2 - أسبوع مفتوح,EXAM,2025-03-03,2025-03-08,#ef4444,false,
+T2 Exams - Blocked Week,Examens T2 - Semaine bloquée,امتحانات ث2 - أسبوع مغلق,EXAM,2025-03-10,2025-03-15,#ef4444,false,
+T2 Class Councils,Conseils de classe T2,مجالس الأقسام ث2,MEETING,2025-04-07,2025-04-12,#f97316,false,
+Baccalauréat - Practicals,Baccalauréat - Épreuves pratiques,البكالوريا - اختبارات تطبيقية,EXAM,2025-05-15,2025-05-26,#dc2626,false,
+Baccalauréat - Main Session,Baccalauréat - Session principale,البكالوريا - الدورة الرئيسية,EXAM,2025-06-02,2025-06-11,#dc2626,false,Break June 5-8 for Eid al-Adha
+6th Year Entrance Exam,Concours d'entrée en 6ème,مناظرة السيزيام,EXAM,2025-06-16,2025-06-18,#dc2626,false,
+9th Year Diploma (DFEEB),Diplôme de fin d'études de l'enseignement de base,مناظرة النوفيام,EXAM,2025-06-19,2025-06-21,#dc2626,false,
+First Day of School,Rentrée scolaire,الدخول المدرسي,OTHER,2024-09-16,2024-09-16,#4f6ef7,false,First day of school for students
+Last Day of School,Fin de l'année scolaire,نهاية السنة الدراسية,OTHER,2025-06-28,2025-06-28,#4f6ef7,false,Last day of school for students

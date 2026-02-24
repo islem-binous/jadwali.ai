@@ -1,0 +1,13 @@
+Name,Building,Capacity,Type
+Room 101,Main,30,CLASSROOM
+Room 102,Main,30,CLASSROOM
+Room 103,Main,30,CLASSROOM
+Room 104,Main,30,CLASSROOM
+Room 105,Main,30,CLASSROOM
+Room 106,Main,30,CLASSROOM
+Room 201,Main,30,CLASSROOM
+Room 202,Main,30,CLASSROOM
+Science Lab,Main,30,LAB_SCIENCE
+Computer Lab,Main,30,LAB_COMPUTER
+Gymnasium,,60,GYM
+Library,,40,OTHER

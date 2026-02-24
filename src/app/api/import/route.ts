@@ -50,6 +50,8 @@ export async function POST(req: NextRequest) {
         return handleTimetable(schoolId, timetableId, headers, dataRows, mode)
       case 'grades':
         return handleGrades(schoolId, headers, dataRows, mode)
+      case 'events':
+        return handleEvents(schoolId, headers, dataRows, mode)
       default:
         return NextResponse.json({ error: 'Invalid import type' }, { status: 400 })
     }
@@ -575,14 +577,13 @@ async function handleGrades(
   const hoursCol = findColumn(headers, ['hours/week', 'hours per week', 'heures/semaine', 'h/week', 'hoursperweek'])
 
   if (gradeCol === -1) {
-    return NextResponse.json({ error: 'CSV must have a "Grade" column' }, { status: 400 })
-  }
-  if (subjectCol === -1) {
-    return NextResponse.json({ error: 'CSV must have a "Subject" column' }, { status: 400 })
+    return NextResponse.json({ error: 'CSV must have a "Grade" or "Name" column' }, { status: 400 })
   }
 
+  const hasSubjects = subjectCol !== -1
+
   const existingGrades = await prisma.grade.findMany({ where: { schoolId } })
-  const existingSubjects = await prisma.subject.findMany({ where: { schoolId } })
+  const existingSubjects = hasSubjects ? await prisma.subject.findMany({ where: { schoolId } }) : []
 
   const validatedRows: ValidatedRow[] = rows.map((row, i) => {
     const gradeName = (row[gradeCol] || '').trim()
@@ -594,8 +595,7 @@ async function handleGrades(
     const level = levelStr ? parseInt(levelStr) : 1
     if (levelStr && (isNaN(level) || level < 1)) errors.push('Level must be a positive number')
 
-    const subjectName = (row[subjectCol] || '').trim()
-    if (!subjectName) errors.push('Subject is required')
+    const subjectName = hasSubjects ? (row[subjectCol] || '').trim() : ''
 
     const subjectMatch = subjectName
       ? existingSubjects.find((s) => normalizeName(s.name) === normalizeName(subjectName))
@@ -680,6 +680,120 @@ async function handleGrades(
       await prisma.gradeCurriculum.create({
         data: { gradeId, subjectId, hoursPerWeek },
       })
+    }
+  }
+
+  return NextResponse.json({ total: validatedRows.length, rows: validatedRows, created, updated, skipped })
+}
+
+// ---------------------------------------------------------------------------
+// Events (School Calendar)
+// ---------------------------------------------------------------------------
+
+const VALID_EVENT_TYPES = ['EXAM', 'HOLIDAY', 'TRIP', 'MEETING', 'SPORT', 'PARENT_DAY', 'CLOSURE', 'OTHER']
+
+async function handleEvents(
+  schoolId: string,
+  headers: string[],
+  rows: string[][],
+  mode: string,
+) {
+  const prisma = await getPrisma()
+  const titleCol = findColumn(headers, ['title', 'name', 'nom', 'event'])
+  const titleFrCol = findColumn(headers, ['title (french)', 'titre (français)', 'french', 'titlefr'])
+  const titleArCol = findColumn(headers, ['title (arabic)', 'titre (arabe)', 'arabic', 'titlear'])
+  const typeCol = findColumn(headers, ['type', 'event type'])
+  const startCol = findColumn(headers, ['start date', 'start', 'date', 'début', 'startdate'])
+  const endCol = findColumn(headers, ['end date', 'end', 'fin', 'enddate'])
+  const colorCol = findColumn(headers, ['color', 'couleur', 'colorhex'])
+  const recurringCol = findColumn(headers, ['recurring', 'isrecurring', 'récurrent'])
+  const descCol = findColumn(headers, ['description', 'note', 'notes'])
+
+  if (titleCol === -1) {
+    return NextResponse.json({ error: 'CSV must have a "Title" column' }, { status: 400 })
+  }
+  if (startCol === -1) {
+    return NextResponse.json({ error: 'CSV must have a "Start Date" column' }, { status: 400 })
+  }
+
+  const existing = await prisma.schoolEvent.findMany({ where: { schoolId } })
+
+  const validatedRows: ValidatedRow[] = rows.map((row, i) => {
+    const title = (row[titleCol] || '').trim()
+    const errors: string[] = []
+
+    if (!title) errors.push('Title is required')
+
+    const eventType = typeCol >= 0 ? (row[typeCol] || '').toUpperCase().replace(/ /g, '_') : 'OTHER'
+    if (eventType && !VALID_EVENT_TYPES.includes(eventType)) {
+      errors.push(`Invalid type: ${eventType}. Must be one of: ${VALID_EVENT_TYPES.join(', ')}`)
+    }
+
+    const startStr = (row[startCol] || '').trim()
+    const endStr = endCol >= 0 ? (row[endCol] || '').trim() : startStr
+
+    const startDate = new Date(startStr)
+    const endDate = new Date(endStr || startStr)
+    if (isNaN(startDate.getTime())) errors.push('Invalid start date')
+    if (isNaN(endDate.getTime())) errors.push('Invalid end date')
+    if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime()) && endDate < startDate) {
+      errors.push('End date must be after start date')
+    }
+
+    const recurringStr = recurringCol >= 0 ? (row[recurringCol] || '').trim().toLowerCase() : 'false'
+    const isRecurring = ['true', '1', 'yes', 'oui'].includes(recurringStr)
+
+    const match = existing.find(
+      (e) => normalizeName(e.title) === normalizeName(title)
+        && e.startDate.toISOString().slice(0, 10) === startStr,
+    )
+
+    return {
+      rowIndex: i + 1,
+      data: {
+        title,
+        titlefr: titleFrCol >= 0 ? (row[titleFrCol] || '').trim() : '',
+        titlear: titleArCol >= 0 ? (row[titleArCol] || '').trim() : '',
+        type: eventType || 'OTHER',
+        startdate: startStr,
+        enddate: endStr || startStr,
+        color: colorCol >= 0 ? (row[colorCol] || '').trim() || '#4f6ef7' : '#4f6ef7',
+        recurring: String(isRecurring),
+        description: descCol >= 0 ? (row[descCol] || '').trim() : '',
+      },
+      status: errors.length > 0 ? ('error' as RowStatus) : match ? ('update' as RowStatus) : ('ok' as RowStatus),
+      errors,
+      matchedId: match?.id,
+    }
+  })
+
+  if (mode === 'preview') {
+    return NextResponse.json({ total: validatedRows.length, rows: validatedRows })
+  }
+
+  let created = 0, updated = 0, skipped = 0
+  for (const row of validatedRows) {
+    if (row.status === 'error') { skipped++; continue }
+
+    const data = {
+      title: row.data.title,
+      titleFr: row.data.titlefr || null,
+      titleAr: row.data.titlear || null,
+      type: row.data.type,
+      startDate: new Date(row.data.startdate),
+      endDate: new Date(row.data.enddate),
+      colorHex: row.data.color,
+      isRecurring: row.data.recurring === 'true',
+      description: row.data.description || null,
+      affectsClasses: '[]',
+    }
+
+    if (row.matchedId) {
+      await prisma.schoolEvent.update({ where: { id: row.matchedId }, data })
+      updated++
+    } else {
+      await prisma.schoolEvent.create({ data: { ...data, schoolId } })
+      created++
     }
   }
 

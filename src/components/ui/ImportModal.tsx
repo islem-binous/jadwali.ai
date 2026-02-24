@@ -10,7 +10,7 @@ import { useToast } from './Toast'
 import { CSV_HEADERS } from '@/lib/csv'
 import { downloadTemplate } from '@/lib/export-helpers'
 
-type ImportType = 'teachers' | 'subjects' | 'classes' | 'rooms' | 'timetable' | 'grades'
+type ImportType = 'teachers' | 'subjects' | 'classes' | 'rooms' | 'timetable' | 'grades' | 'events'
 
 interface ImportModalProps {
   open: boolean
@@ -144,7 +144,9 @@ export function ImportModal({ open, onClose, type, schoolId, timetableId, onComp
           ? ['Name', 'Grade', 'Capacity']
           : type === 'grades'
             ? ['Grade', 'Level', 'Subject', 'Hours/Week']
-            : ['Name', 'Building', 'Type']
+            : type === 'events'
+              ? ['Title', 'Type', 'Start Date', 'End Date']
+              : ['Name', 'Building', 'Type']
 
   return (
     <Modal open={open} onClose={handleClose} title={`${t('import')} ${t(`type_${type}`)}`} size="lg">

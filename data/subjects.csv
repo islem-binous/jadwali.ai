@@ -1,0 +1,13 @@
+Name,Name (French),Name (Arabic),Category,Color
+Mathematics,Mathématiques,الرياضيات,CORE,#4f6ef7
+Physics,Physique,الفيزياء,SCIENCE,#22c55e
+Chemistry,Chimie,الكيمياء,SCIENCE,#06b6d4
+Biology,Biologie,علوم الحياة,SCIENCE,#84cc16
+Arabic,Arabe,اللغة العربية,LANGUAGE,#f59e0b
+French,Français,الفرنسية,LANGUAGE,#f97316
+English,Anglais,الإنجليزية,LANGUAGE,#ec4899
+History,Histoire,التاريخ,CORE,#a78bfa
+Geography,Géographie,الجغرافيا,CORE,#8b5cf6
+Islamic Studies,Éducation Islamique,التربية الإسلامية,OTHER,#14b8a6
+Physical Education,Éducation Physique,التربية البدنية,SPORTS,#ef4444
+Technology,Technologie,التكنولوجيا,OTHER,#64748b
