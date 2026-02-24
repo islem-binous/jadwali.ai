@@ -20,6 +20,15 @@ const fadeUp = {
   }),
 }
 
+const FEATURE_KEYS = [
+  { icon: Sparkles, key: 'ai', color: 'text-accent' },
+  { icon: Calendar, key: 'timetable', color: 'text-success' },
+  { icon: Users, key: 'substitute', color: 'text-warning' },
+  { icon: Shield, key: 'absence', color: 'text-violet' },
+  { icon: Globe, key: 'multilingual', color: 'text-info' },
+  { icon: Zap, key: 'pwa', color: 'text-danger' },
+] as const
+
 export default function LandingPage() {
   const t = useTranslations()
   const locale = useLocale() as Locale
@@ -36,7 +45,7 @@ export default function LandingPage() {
             <div className="flex h-9 w-9 items-center justify-center rounded-md bg-accent">
               <span className="font-display text-lg font-bold text-white">J</span>
             </div>
-            <span className="font-display text-xl font-bold text-text-primary">
+            <span className="hidden sm:inline font-display text-xl font-bold text-text-primary">
               jadwali<span className="text-accent">.ai</span>
             </span>
           </div>
@@ -52,7 +61,7 @@ export default function LandingPage() {
               href="/auth/signup"
               className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white transition hover:bg-accent-hover"
             >
-              {t('auth.sign_up')}
+              {t('landing.start_free')}
             </Link>
           </div>
         </div>
@@ -70,7 +79,7 @@ export default function LandingPage() {
           >
             <motion.div variants={fadeUp} custom={0} className="mb-6 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent-dim px-4 py-1.5 text-sm text-accent-light">
               <Sparkles className="h-4 w-4" />
-              AI-Powered Scheduling
+              {t('landing.badge')}
             </motion.div>
 
             <motion.h1 variants={fadeUp} custom={1} className="font-display text-4xl font-bold leading-tight text-text-primary sm:text-6xl lg:text-7xl">
@@ -78,7 +87,7 @@ export default function LandingPage() {
             </motion.h1>
 
             <motion.p variants={fadeUp} custom={2} className="mx-auto mt-6 max-w-2xl text-lg text-text-secondary">
-              Jadwali uses AI to generate conflict-free timetables, manage substitutes, and streamline your entire school scheduling workflow.
+              {t('landing.hero_desc')}
             </motion.p>
 
             <motion.div variants={fadeUp} custom={3} className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
@@ -86,14 +95,14 @@ export default function LandingPage() {
                 href="/auth/signup"
                 className="group flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-8 py-3.5 text-base font-semibold text-white shadow-accent-glow transition hover:bg-accent-hover sm:w-auto"
               >
-                {t('auth.sign_up')}
+                {t('landing.start_free')}
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Link>
               <Link
                 href="/dashboard"
                 className="w-full rounded-xl border border-border-default bg-bg-elevated px-8 py-3.5 text-base font-semibold text-text-primary transition hover:bg-bg-surface sm:w-auto"
               >
-                {t('dashboard.quick_view_timetable')}
+                {t('landing.view_timetable')}
               </Link>
             </motion.div>
           </motion.div>
@@ -110,24 +119,17 @@ export default function LandingPage() {
               transition={{ duration: 0.5 }}
             >
               <h2 className="font-display text-3xl font-bold text-text-primary sm:text-4xl">
-                Everything you need
+                {t('landing.features_title')}
               </h2>
               <p className="mx-auto mt-3 max-w-xl text-text-secondary">
-                A complete platform for school schedule management
+                {t('landing.features_subtitle')}
               </p>
             </motion.div>
 
             <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {[
-                { icon: Sparkles, title: 'AI Generation', desc: 'Generate conflict-free timetables with one click using Claude AI', color: 'text-accent' },
-                { icon: Calendar, title: 'Smart Timetable', desc: 'Drag-and-drop scheduling with real-time conflict detection', color: 'text-success' },
-                { icon: Users, title: 'Substitute Matching', desc: 'AI-powered substitute teacher recommendations with match scores', color: 'text-warning' },
-                { icon: Shield, title: 'Absence Management', desc: 'Track absences, manage coverage, and notify staff instantly', color: 'text-violet' },
-                { icon: Globe, title: 'Multilingual', desc: 'Full support for Arabic (RTL), French, and English', color: 'text-info' },
-                { icon: Zap, title: 'PWA Ready', desc: 'Install on any device. Works offline. Lightning fast.', color: 'text-danger' },
-              ].map((feature, i) => (
+              {FEATURE_KEYS.map((feature, i) => (
                 <motion.div
-                  key={feature.title}
+                  key={feature.key}
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
@@ -138,10 +140,10 @@ export default function LandingPage() {
                     <feature.icon className={`h-5 w-5 ${feature.color}`} />
                   </div>
                   <h3 className="font-display text-lg font-semibold text-text-primary">
-                    {feature.title}
+                    {t(`landing.feat_${feature.key}_title`)}
                   </h3>
                   <p className="mt-2 text-sm leading-relaxed text-text-secondary">
-                    {feature.desc}
+                    {t(`landing.feat_${feature.key}_desc`)}
                   </p>
                 </motion.div>
               ))}
@@ -211,7 +213,7 @@ export default function LandingPage() {
                   >
                     {plan.highlighted && (
                       <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-accent px-3 py-0.5 text-xs font-semibold text-white">
-                        Most Popular
+                        {t('landing.most_popular')}
                       </div>
                     )}
 
@@ -226,17 +228,17 @@ export default function LandingPage() {
                             {billingCycle === 'annual' ? Math.round(price / 12) : price}
                           </span>
                           <span className="ml-1 text-sm text-text-muted">
-                            DT/{billingCycle === 'annual' ? 'mo' : 'mo'}
+                            {t('landing.price_per_month')}
                           </span>
                           {billingCycle === 'annual' && price > 0 && (
                             <p className="mt-1 text-xs text-success">
-                              {price} DT/yr — save 20%
+                              {t('landing.price_per_year_savings', { price })}
                             </p>
                           )}
                         </>
                       ) : (
                         <span className="font-display text-2xl font-bold text-text-primary">
-                          Contact us
+                          {t('landing.contact_us')}
                         </span>
                       )}
                     </div>
@@ -259,9 +261,9 @@ export default function LandingPage() {
                       }`}
                     >
                       {price === 0
-                        ? t('auth.sign_up')
+                        ? t('landing.start_free')
                         : price === null
-                          ? 'Contact Sales'
+                          ? t('landing.contact_sales')
                           : t('billing.upgrade')}
                     </Link>
                   </motion.div>
@@ -280,32 +282,13 @@ export default function LandingPage() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
             >
-              Trusted by school administrators
+              {t('landing.testimonials_title')}
             </motion.h2>
 
             <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {[
-                {
-                  name: 'Amira Bensalem',
-                  role: 'Directrice, Lycée El-Feth',
-                  text: "Jadwali a révolutionné notre planification. On gagne 2 jours par semaine sur la gestion des emplois du temps.",
-                  stars: 5,
-                },
-                {
-                  name: 'Youssef Khaldi',
-                  role: 'Coordinateur, École Les Palmiers',
-                  text: "Le système de remplacement par IA est incroyable. Plus besoin de passer des heures au téléphone pour trouver un remplaçant.",
-                  stars: 5,
-                },
-                {
-                  name: 'Dr. Sarah Hamdi',
-                  role: 'Proviseure, Groupe Scolaire Al-Nour',
-                  text: "L'interface en arabe avec support RTL est parfaite. Enfin un outil qui comprend nos besoins régionaux.",
-                  stars: 5,
-                },
-              ].map((testimonial, i) => (
+              {[1, 2, 3].map((n, i) => (
                 <motion.div
-                  key={testimonial.name}
+                  key={n}
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
@@ -313,20 +296,20 @@ export default function LandingPage() {
                   className="rounded-xl border border-border-subtle bg-bg-card p-6"
                 >
                   <div className="flex gap-0.5">
-                    {Array.from({ length: testimonial.stars }).map((_, j) => (
+                    {Array.from({ length: 5 }).map((_, j) => (
                       <Star key={j} className="h-4 w-4 fill-warning text-warning" />
                     ))}
                   </div>
                   <p className="mt-4 text-sm leading-relaxed text-text-secondary">
-                    &ldquo;{testimonial.text}&rdquo;
+                    &ldquo;{t(`landing.testimonial_${n}_text`)}&rdquo;
                   </p>
                   <div className="mt-4 flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-dim text-sm font-semibold text-accent">
-                      {testimonial.name.split(' ').map(n => n[0]).join('')}
+                      {t(`landing.testimonial_${n}_name`).split(' ').map(w => w[0]).join('')}
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-text-primary">{testimonial.name}</p>
-                      <p className="text-xs text-text-muted">{testimonial.role}</p>
+                      <p className="text-sm font-medium text-text-primary">{t(`landing.testimonial_${n}_name`)}</p>
+                      <p className="text-xs text-text-muted">{t(`landing.testimonial_${n}_role`)}</p>
                     </div>
                   </div>
                 </motion.div>
@@ -357,7 +340,7 @@ export default function LandingPage() {
                 href="/auth/signup"
                 className="group flex items-center gap-2 rounded-xl bg-accent px-8 py-3.5 text-base font-semibold text-white shadow-accent-glow transition hover:bg-accent-hover"
               >
-                {t('auth.sign_up')}
+                {t('landing.start_free')}
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Link>
               <Link
@@ -389,7 +372,7 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="mt-8 text-center text-sm text-text-muted">
-            &copy; 2026 jadwali.ai. All rights reserved.
+            &copy; 2026 jadwali.ai. {t('landing.footer_rights')}
           </div>
         </div>
       </footer>
