@@ -10,6 +10,9 @@ binding = "ASSETS"
 
 [vars]
 GOOGLE_CLIENT_ID = "557377504260-r8b419gcjdtbta4hbj7v768fbeqqujsv.apps.googleusercontent.com"
+NEXT_PUBLIC_APP_URL = "https://jadwali.ai"
+KONNECT_API_URL = "https://api.konnect.network/api/v2"
+PAYMEE_API_URL = "https://api.paymee.tn/api/v2"
 
 [[d1_databases]]
 binding = "DB"

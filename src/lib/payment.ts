@@ -1,3 +1,5 @@
+import { getCloudflareContext } from '@opennextjs/cloudflare'
+
 export type PaymentProvider = 'konnect' | 'paymee'
 export type BillingCycle = 'monthly' | 'annual'
 
@@ -20,6 +22,16 @@ export interface InitPaymentResult {
   providerRef: string
 }
 
+async function getEnv(key: string): Promise<string> {
+  if (process.env[key]) return process.env[key]!
+  try {
+    const { env } = await getCloudflareContext()
+    return (env as unknown as Record<string, string>)[key] || ''
+  } catch {
+    return ''
+  }
+}
+
 export function generateOrderId(schoolId: string): string {
   return `SCQ-${schoolId.slice(-6)}-${Date.now().toString(36).toUpperCase()}`
 }
@@ -35,10 +47,14 @@ export function computeAmount(plan: string, cycle: BillingCycle): number {
 // ── Konnect ─────────────────────────────────────────────────
 
 async function initKonnect(params: InitPaymentParams): Promise<InitPaymentResult> {
-  const apiUrl = process.env.KONNECT_API_URL!
-  const apiKey = process.env.KONNECT_API_KEY!
-  const walletId = process.env.KONNECT_WALLET_ID!
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL!
+  const apiUrl = await getEnv('KONNECT_API_URL')
+  const apiKey = await getEnv('KONNECT_API_KEY')
+  const walletId = await getEnv('KONNECT_WALLET_ID')
+  const appUrl = await getEnv('NEXT_PUBLIC_APP_URL')
+
+  if (!apiUrl || !apiKey || !walletId) {
+    throw new Error('Konnect not configured: missing API_URL, API_KEY, or WALLET_ID')
+  }
 
   const res = await fetch(`${apiUrl}/payments/init-payment`, {
     method: 'POST',
@@ -52,6 +68,8 @@ async function initKonnect(params: InitPaymentParams): Promise<InitPaymentResult
       acceptedPaymentMethods: ['bank_card', 'e-DINAR', 'wallet'],
       lifespan: 30,
       webhook: `${appUrl}/api/webhooks/konnect`,
+      successUrl: `${appUrl}/${params.locale}/billing?status=success&orderId=${params.orderId}`,
+      failUrl: `${appUrl}/${params.locale}/billing?status=failed&orderId=${params.orderId}`,
       orderId: params.orderId,
       firstName: params.firstName,
       lastName: params.lastName,
@@ -73,10 +91,14 @@ async function initKonnect(params: InitPaymentParams): Promise<InitPaymentResult
 // ── Paymee ──────────────────────────────────────────────────
 
 async function initPaymee(params: InitPaymentParams): Promise<InitPaymentResult> {
-  const apiUrl = process.env.PAYMEE_API_URL!
-  const apiToken = process.env.PAYMEE_API_TOKEN!
-  const vendorId = process.env.PAYMEE_VENDOR_ID!
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL!
+  const apiUrl = await getEnv('PAYMEE_API_URL')
+  const apiToken = await getEnv('PAYMEE_API_TOKEN')
+  const vendorId = await getEnv('PAYMEE_VENDOR_ID')
+  const appUrl = await getEnv('NEXT_PUBLIC_APP_URL')
+
+  if (!apiUrl || !apiToken || !vendorId) {
+    throw new Error('Paymee not configured: missing API_URL, API_TOKEN, or VENDOR_ID')
+  }
 
   const res = await fetch(`${apiUrl}/payments/create`, {
     method: 'POST',
@@ -113,8 +135,8 @@ async function initPaymee(params: InitPaymentParams): Promise<InitPaymentResult>
 export async function verifyKonnectPayment(
   paymentRef: string
 ): Promise<{ status: string; amount: number }> {
-  const apiUrl = process.env.KONNECT_API_URL!
-  const apiKey = process.env.KONNECT_API_KEY!
+  const apiUrl = await getEnv('KONNECT_API_URL')
+  const apiKey = await getEnv('KONNECT_API_KEY')
 
   const res = await fetch(`${apiUrl}/payments/${paymentRef}`, {
     headers: { 'x-api-key': apiKey },
@@ -129,8 +151,8 @@ export async function verifyKonnectPayment(
 export async function verifyPaymeePayment(
   token: string
 ): Promise<{ status: string; amount: number }> {
-  const apiUrl = process.env.PAYMEE_API_URL!
-  const apiToken = process.env.PAYMEE_API_TOKEN!
+  const apiUrl = await getEnv('PAYMEE_API_URL')
+  const apiToken = await getEnv('PAYMEE_API_TOKEN')
 
   const res = await fetch(`${apiUrl}/payments/${token}/check`, {
     headers: { Authorization: `Bearer ${apiToken}` },
