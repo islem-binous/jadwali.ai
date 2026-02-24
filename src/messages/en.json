@@ -51,7 +51,8 @@
     "type_classes": "Classes",
     "type_rooms": "Rooms",
     "type_timetable": "Timetable",
-    "type_grades": "Grades & Curriculum"
+    "type_grades": "Grades & Curriculum",
+    "type_events": "Events & Holidays"
   },
   "nav": {
     "dashboard": "Dashboard",

@@ -51,7 +51,8 @@
     "type_classes": "الفصول",
     "type_rooms": "القاعات",
     "type_timetable": "الجدول الزمني",
-    "type_grades": "المستويات والمنهج"
+    "type_grades": "المستويات والمنهج",
+    "type_events": "الأحداث والعطل"
   },
   "nav": {
     "dashboard": "لوحة التحكم",

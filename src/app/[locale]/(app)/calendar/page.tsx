@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Plus, CalendarDays, Pencil, Trash2, Star } from 'lucide-react'
+import { Plus, CalendarDays, Pencil, Trash2, Star, Upload } from 'lucide-react'
 import { useUserStore } from '@/store/userStore'
 import { isAdmin as checkIsAdmin } from '@/lib/permissions'
 import { Button } from '@/components/ui/Button'
@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { useToast } from '@/components/ui/Toast'
 import { MiniCalendar, type CalendarEvent } from '@/components/calendar/MiniCalendar'
 import { EventModal, type EventFormData } from '@/components/calendar/EventModal'
+import { ImportModal } from '@/components/ui/ImportModal'
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -123,6 +124,7 @@ export default function CalendarPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editingEvent, setEditingEvent] = useState<SchoolEventData | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<SchoolEventData | null>(null)
+  const [importOpen, setImportOpen] = useState(false)
 
   /* ---------------------------------------------------------------- */
   /*  Data Fetching                                                    */
@@ -297,10 +299,16 @@ export default function CalendarPage() {
           {t('calendar.title')}
         </h1>
         {adminUser && (
-          <Button variant="primary" size="md" onClick={openCreate}>
-            <Plus size={16} />
-            {t('calendar.add_event')}
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" size="md" onClick={() => setImportOpen(true)}>
+              <Upload size={16} />
+              {t('app.import')}
+            </Button>
+            <Button variant="primary" size="md" onClick={openCreate}>
+              <Plus size={16} />
+              {t('calendar.add_event')}
+            </Button>
+          </div>
         )}
       </div>
 
@@ -510,6 +518,17 @@ export default function CalendarPage() {
         schoolId={schoolId ?? ''}
         classes={classes}
         onSave={handleSave}
+      />
+
+      {/* Import Modal */}
+      <ImportModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        type="events"
+        schoolId={schoolId ?? ''}
+        onComplete={() => {
+          Promise.all([fetchEvents(), fetchHolidays()])
+        }}
       />
 
       {/* Delete Confirmation Modal */}
