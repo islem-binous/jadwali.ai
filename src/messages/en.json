@@ -50,7 +50,8 @@
     "type_subjects": "Subjects",
     "type_classes": "Classes",
     "type_rooms": "Rooms",
-    "type_timetable": "Timetable"
+    "type_timetable": "Timetable",
+    "type_grades": "Grades & Curriculum"
   },
   "nav": {
     "dashboard": "Dashboard",

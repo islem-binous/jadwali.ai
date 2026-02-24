@@ -50,7 +50,8 @@
     "type_subjects": "Matières",
     "type_classes": "Classes",
     "type_rooms": "Salles",
-    "type_timetable": "Emploi du temps"
+    "type_timetable": "Emploi du temps",
+    "type_grades": "Niveaux & Programme"
   },
   "nav": {
     "dashboard": "Tableau de bord",

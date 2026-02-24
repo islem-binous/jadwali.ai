@@ -50,7 +50,8 @@
     "type_subjects": "المواد",
     "type_classes": "الفصول",
     "type_rooms": "القاعات",
-    "type_timetable": "الجدول الزمني"
+    "type_timetable": "الجدول الزمني",
+    "type_grades": "المستويات والمنهج"
   },
   "nav": {
     "dashboard": "لوحة التحكم",

@@ -48,6 +48,8 @@ export async function POST(req: NextRequest) {
         return handleRooms(schoolId, headers, dataRows, mode)
       case 'timetable':
         return handleTimetable(schoolId, timetableId, headers, dataRows, mode)
+      case 'grades':
+        return handleGrades(schoolId, headers, dataRows, mode)
       default:
         return NextResponse.json({ error: 'Invalid import type' }, { status: 400 })
     }
@@ -554,4 +556,132 @@ async function handleTimetable(
   }
 
   return NextResponse.json({ total: validatedRows.length, rows: validatedRows, created, updated: 0, skipped })
+}
+
+// ---------------------------------------------------------------------------
+// Grades & Curriculum
+// ---------------------------------------------------------------------------
+
+async function handleGrades(
+  schoolId: string,
+  headers: string[],
+  rows: string[][],
+  mode: string,
+) {
+  const prisma = await getPrisma()
+  const gradeCol = findColumn(headers, ['grade', 'name', 'nom', 'niveau'])
+  const levelCol = findColumn(headers, ['level', 'ordre', 'order'])
+  const subjectCol = findColumn(headers, ['subject', 'matière', 'matiere'])
+  const hoursCol = findColumn(headers, ['hours/week', 'hours per week', 'heures/semaine', 'h/week', 'hoursperweek'])
+
+  if (gradeCol === -1) {
+    return NextResponse.json({ error: 'CSV must have a "Grade" column' }, { status: 400 })
+  }
+  if (subjectCol === -1) {
+    return NextResponse.json({ error: 'CSV must have a "Subject" column' }, { status: 400 })
+  }
+
+  const existingGrades = await prisma.grade.findMany({ where: { schoolId } })
+  const existingSubjects = await prisma.subject.findMany({ where: { schoolId } })
+
+  const validatedRows: ValidatedRow[] = rows.map((row, i) => {
+    const gradeName = (row[gradeCol] || '').trim()
+    const errors: string[] = []
+
+    if (!gradeName) errors.push('Grade name is required')
+
+    const levelStr = levelCol >= 0 ? (row[levelCol] || '').trim() : ''
+    const level = levelStr ? parseInt(levelStr) : 1
+    if (levelStr && (isNaN(level) || level < 1)) errors.push('Level must be a positive number')
+
+    const subjectName = (row[subjectCol] || '').trim()
+    if (!subjectName) errors.push('Subject is required')
+
+    const subjectMatch = subjectName
+      ? existingSubjects.find((s) => normalizeName(s.name) === normalizeName(subjectName))
+      : null
+    if (subjectName && !subjectMatch) errors.push(`Unknown subject: ${subjectName}`)
+
+    const hoursStr = hoursCol >= 0 ? (row[hoursCol] || '').trim() : ''
+    const hours = hoursStr ? parseInt(hoursStr) : 2
+    if (hoursStr && (isNaN(hours) || hours < 1 || hours > 20)) errors.push('Hours/Week must be between 1 and 20')
+
+    const gradeMatch = gradeName
+      ? existingGrades.find((g) => normalizeName(g.name) === normalizeName(gradeName))
+      : null
+
+    return {
+      rowIndex: i + 1,
+      data: {
+        grade: gradeName,
+        level: String(level || 1),
+        subject: subjectName,
+        'hours/week': String(hours || 2),
+        subjectId: subjectMatch?.id || '',
+        gradeId: gradeMatch?.id || '',
+      },
+      status: errors.length > 0 ? ('error' as RowStatus) : gradeMatch ? ('update' as RowStatus) : ('ok' as RowStatus),
+      errors,
+      matchedId: gradeMatch?.id,
+    }
+  })
+
+  if (mode === 'preview') {
+    return NextResponse.json({ total: validatedRows.length, rows: validatedRows })
+  }
+
+  // Group valid rows by grade name
+  const gradeGroups = new Map<string, {
+    gradeName: string
+    level: number
+    subjects: Map<string, number> // subjectId → hoursPerWeek (dedup)
+    matchedId?: string
+  }>()
+
+  for (const row of validatedRows) {
+    if (row.status === 'error') continue
+    const key = normalizeName(row.data.grade)
+    if (!gradeGroups.has(key)) {
+      gradeGroups.set(key, {
+        gradeName: row.data.grade,
+        level: parseInt(row.data.level) || 1,
+        subjects: new Map(),
+        matchedId: row.matchedId,
+      })
+    }
+    if (row.data.subjectId) {
+      gradeGroups.get(key)!.subjects.set(row.data.subjectId, parseInt(row.data['hours/week']) || 2)
+    }
+  }
+
+  let created = 0, updated = 0
+  const skipped = validatedRows.filter((r) => r.status === 'error').length
+
+  for (const group of gradeGroups.values()) {
+    let gradeId: string
+
+    if (group.matchedId) {
+      await prisma.grade.update({
+        where: { id: group.matchedId },
+        data: { level: group.level },
+      })
+      await prisma.gradeCurriculum.deleteMany({ where: { gradeId: group.matchedId } })
+      gradeId = group.matchedId
+      updated++
+    } else {
+      const newGrade = await prisma.grade.create({
+        data: { schoolId, name: group.gradeName, level: group.level },
+      })
+      gradeId = newGrade.id
+      created++
+    }
+
+    for (const [subjectId, hoursPerWeek] of group.subjects) {
+      await prisma.gradeCurriculum.create({
+        data: { gradeId, subjectId, hoursPerWeek },
+      })
+    }
+  }
+
+  return NextResponse.json({ total: validatedRows.length, rows: validatedRows, created, updated, skipped })
 }

@@ -112,7 +112,7 @@ export default function SettingsPage() {
 
   const [showExportPicker, setShowExportPicker] = useState(false)
   const [showImportPicker, setShowImportPicker] = useState(false)
-  const [importType, setImportType] = useState<'teachers' | 'subjects' | 'classes' | 'rooms' | null>(null)
+  const [importType, setImportType] = useState<'teachers' | 'subjects' | 'classes' | 'rooms' | 'grades' | null>(null)
 
   const toast = useToast()
 
@@ -1042,13 +1042,22 @@ export default function SettingsPage() {
           <div className="border-t border-border-subtle px-6 pb-6 pt-4">
             <div className="mb-4 flex items-center justify-between">
               <p className="text-sm text-text-muted">{t('settings.grades_desc')}</p>
-              <button
-                onClick={() => openGradeForm()}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white transition hover:bg-accent-hover"
-              >
-                <Plus className="h-4 w-4" />
-                {t('settings.add_grade')}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setImportType('grades')}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm font-medium text-text-primary hover:bg-bg-surface2 transition"
+                >
+                  <Upload className="h-4 w-4" />
+                  {t('app.import')}
+                </button>
+                <button
+                  onClick={() => openGradeForm()}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white transition hover:bg-accent-hover"
+                >
+                  <Plus className="h-4 w-4" />
+                  {t('settings.add_grade')}
+                </button>
+              </div>
             </div>
 
             {gradesLoading ? (
@@ -1833,7 +1842,9 @@ export default function SettingsPage() {
           onClose={() => setImportType(null)}
           type={importType}
           schoolId={user!.schoolId!}
-          onComplete={() => {}}
+          onComplete={() => {
+            if (importType === 'grades') fetchGrades()
+          }}
         />
       )}
     </div>
