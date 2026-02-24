@@ -12,14 +12,24 @@ export async function POST(request: Request) {
   try {
     const prisma = await getPrisma()
     const body = await request.json()
-    const { email, password, name, language, role } = body
+    const { email, password, name, language, role, googleId } = body
 
-    if (!email || !password || !name) {
+    if (!email || !name) {
       return NextResponse.json(
-        { error: 'Email, password and name are required' },
+        { error: 'Email and name are required' },
         { status: 400 }
       )
     }
+
+    // Password required unless signing up with Google
+    if (!googleId && !password) {
+      return NextResponse.json(
+        { error: 'Password is required' },
+        { status: 400 }
+      )
+    }
+
+    const authId = googleId ? `google_${googleId}` : `local_${crypto.randomUUID()}`
 
     // Check if email already exists
     const existing = await prisma.user.findUnique({ where: { email } })
@@ -69,7 +79,7 @@ export async function POST(request: Request) {
 
       const user = await prisma.user.create({
         data: {
-          authId: `local_${crypto.randomUUID()}`,
+          authId,
           email,
           name,
           role: 'TEACHER',
@@ -145,7 +155,7 @@ export async function POST(request: Request) {
 
       const user = await prisma.user.create({
         data: {
-          authId: `local_${crypto.randomUUID()}`,
+          authId,
           email,
           name,
           role: 'STUDENT',
@@ -194,7 +204,7 @@ export async function POST(request: Request) {
         plan: 'FREE',
         users: {
           create: {
-            authId: `local_${crypto.randomUUID()}`,
+            authId,
             email,
             name,
             role: 'ADMIN',

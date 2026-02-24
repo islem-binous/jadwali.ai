@@ -513,7 +513,10 @@
     "school_code": "School Code",
     "school_code_hint": "Ask your school admin for the code",
     "select_class": "Select your class",
-    "school_not_found": "School not found. Check the code and try again."
+    "school_not_found": "School not found. Check the code and try again.",
+    "google_no_account": "No account found with this Google email. Please sign up first.",
+    "google_denied": "Google sign-in was cancelled.",
+    "google_error": "Something went wrong with Google sign-in. Please try again."
   },
   "help": {
     "title": "Help Center",

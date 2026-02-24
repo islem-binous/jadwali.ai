@@ -1,18 +1,22 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import { Link, useRouter } from '@/i18n/navigation'
+import { useSearchParams } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { Eye, EyeOff, Loader2, Shield, GraduationCap, BookOpen } from 'lucide-react'
 
 type SignupRole = 'ADMIN' | 'TEACHER' | 'STUDENT'
 
-export default function SignupPage() {
+function SignupForm() {
   const t = useTranslations()
   const locale = useLocale()
   const router = useRouter()
-  const { signUp } = useAuth()
+  const searchParams = useSearchParams()
+  const { signUp, signInWithGoogle } = useAuth()
+  const isGoogleSignup = searchParams.get('google') === 'true'
+  const oauthError = searchParams.get('error')
 
   const [role, setRole] = useState<SignupRole>('ADMIN')
   const [name, setName] = useState('')
@@ -24,6 +28,29 @@ export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Google signup state
+  const [googleId, setGoogleId] = useState('')
+
+  // Read Google pre-fill cookie on mount
+  useEffect(() => {
+    if (!isGoogleSignup) return
+    try {
+      const match = document.cookie
+        .split('; ')
+        .find((c) => c.startsWith('auth_result='))
+      if (!match) return
+      const value = decodeURIComponent(match.split('=')[1])
+      const data = JSON.parse(atob(value))
+      if (data.newUser) {
+        setName(data.name || '')
+        setEmail(data.email || '')
+        setGoogleId(data.googleId || '')
+      }
+    } catch {
+      // Ignore parse errors
+    }
+  }, [isGoogleSignup])
 
   // School lookup state (for teacher/student)
   const [schoolLookup, setSchoolLookup] = useState<{ id: string; name: string; classes: { id: string; name: string; grade: string | null }[] } | null>(null)
@@ -55,14 +82,16 @@ export default function SignupPage() {
     e.preventDefault()
     setError('')
 
-    if (password !== confirmPassword) {
-      setError('Passwords do not match')
-      return
-    }
+    if (!googleId) {
+      if (password !== confirmPassword) {
+        setError('Passwords do not match')
+        return
+      }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters')
-      return
+      if (password.length < 6) {
+        setError('Password must be at least 6 characters')
+        return
+      }
     }
 
     if (role === 'ADMIN' && !schoolName.trim()) {
@@ -85,13 +114,14 @@ export default function SignupPage() {
     try {
       await signUp({
         email,
-        password,
+        password: googleId ? undefined : password,
         name,
         language: locale.toUpperCase(),
         role,
         schoolName: role === 'ADMIN' ? schoolName : undefined,
         schoolId: schoolLookup?.id,
         classId: role === 'STUDENT' ? selectedClassId : undefined,
+        googleId: googleId || undefined,
       })
       router.push('/dashboard')
     } catch (err) {
@@ -161,9 +191,17 @@ export default function SignupPage() {
             </div>
           </div>
 
+          {/* OAuth error */}
+          {oauthError && (
+            <div className="mb-4 rounded-md bg-danger-dim p-3 text-sm text-danger">
+              {t(`auth.${oauthError}` as Parameters<typeof t>[0])}
+            </div>
+          )}
+
           {/* Google OAuth */}
           <button
             type="button"
+            onClick={() => signInWithGoogle('signup', role)}
             className="flex w-full items-center justify-center gap-3 rounded-md border border-border-default bg-bg-elevated px-4 py-2.5 text-sm font-medium text-text-primary transition hover:bg-bg-surface"
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24">
@@ -291,55 +329,59 @@ export default function SignupPage() {
                 type="email"
                 autoComplete="email"
                 required
+                readOnly={!!googleId}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className={inputClass}
+                className={`${inputClass}${googleId ? ' opacity-60 cursor-not-allowed' : ''}`}
                 placeholder={role === 'ADMIN' ? 'admin@school.com' : 'name@email.com'}
               />
             </div>
 
-            {/* Password */}
-            <div>
-              <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-text-secondary">
-                {t('auth.password')}
-              </label>
-              <div className="relative">
-                <input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete="new-password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-md border border-border-default bg-bg-elevated px-3 py-2.5 pr-10 text-sm text-text-primary placeholder:text-text-muted outline-none transition focus:border-accent focus:ring-1 focus:ring-accent"
-                  placeholder="••••••••"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-secondary"
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
+            {/* Password fields (hidden for Google signup) */}
+            {!googleId && (
+              <>
+                <div>
+                  <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-text-secondary">
+                    {t('auth.password')}
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="password"
+                      type={showPassword ? 'text' : 'password'}
+                      autoComplete="new-password"
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full rounded-md border border-border-default bg-bg-elevated px-3 py-2.5 pr-10 text-sm text-text-primary placeholder:text-text-muted outline-none transition focus:border-accent focus:ring-1 focus:ring-accent"
+                      placeholder="••••••••"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-secondary"
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
 
-            {/* Confirm Password */}
-            <div>
-              <label htmlFor="confirm-password" className="mb-1.5 block text-sm font-medium text-text-secondary">
-                {t('auth.confirm_password')}
-              </label>
-              <input
-                id="confirm-password"
-                type={showPassword ? 'text' : 'password'}
-                autoComplete="new-password"
-                required
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className={inputClass}
-                placeholder="••••••••"
-              />
-            </div>
+                <div>
+                  <label htmlFor="confirm-password" className="mb-1.5 block text-sm font-medium text-text-secondary">
+                    {t('auth.confirm_password')}
+                  </label>
+                  <input
+                    id="confirm-password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    required
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className={inputClass}
+                    placeholder="••••••••"
+                  />
+                </div>
+              </>
+            )}
 
             {/* Terms */}
             <p className="text-xs text-text-muted">
@@ -367,5 +409,13 @@ export default function SignupPage() {
         </p>
       </div>
     </div>
+  )
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense>
+      <SignupForm />
+    </Suspense>
   )
 }

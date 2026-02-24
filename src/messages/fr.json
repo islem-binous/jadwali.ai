@@ -513,7 +513,10 @@
     "school_code": "Code de l'école",
     "school_code_hint": "Demandez le code à votre administrateur",
     "select_class": "Sélectionnez votre classe",
-    "school_not_found": "École introuvable. Vérifiez le code et réessayez."
+    "school_not_found": "École introuvable. Vérifiez le code et réessayez.",
+    "google_no_account": "Aucun compte trouvé avec cet e-mail Google. Veuillez vous inscrire d'abord.",
+    "google_denied": "La connexion Google a été annulée.",
+    "google_error": "Une erreur est survenue avec la connexion Google. Veuillez réessayer."
   },
   "help": {
     "title": "Centre d'aide",

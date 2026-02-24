@@ -8,6 +8,9 @@ minify = true
 directory = ".open-next/assets"
 binding = "ASSETS"
 
+[vars]
+GOOGLE_CLIENT_ID = "557377504260-r8b419gcjdtbta4hbj7v768fbeqqujsv.apps.googleusercontent.com"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "jadwali-db"

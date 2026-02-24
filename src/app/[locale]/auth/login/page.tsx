@@ -1,15 +1,18 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { useTranslations } from 'next-intl'
 import { Link, useRouter } from '@/i18n/navigation'
+import { useSearchParams } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
 
-export default function LoginPage() {
+function LoginForm() {
   const t = useTranslations()
   const router = useRouter()
-  const { signIn } = useAuth()
+  const searchParams = useSearchParams()
+  const { signIn, signInWithGoogle } = useAuth()
+  const oauthError = searchParams.get('error')
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -50,9 +53,17 @@ export default function LoginPage() {
 
         {/* Form Card */}
         <div className="rounded-xl border border-border-subtle bg-bg-card p-6 shadow-card">
+          {/* OAuth error */}
+          {oauthError && (
+            <div className="mb-4 rounded-md bg-danger-dim p-3 text-sm text-danger">
+              {t(`auth.${oauthError}` as Parameters<typeof t>[0])}
+            </div>
+          )}
+
           {/* Google OAuth */}
           <button
             type="button"
+            onClick={() => signInWithGoogle('login')}
             className="flex w-full items-center justify-center gap-3 rounded-md border border-border-default bg-bg-elevated px-4 py-2.5 text-sm font-medium text-text-primary transition hover:bg-bg-surface"
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24">
@@ -160,5 +171,13 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   )
 }
