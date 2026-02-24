@@ -36,9 +36,16 @@ export async function POST(req: NextRequest) {
       return Response.json({ success: false, error: 'School not found' }, { status: 404 })
     }
 
-    if (classes.length === 0 || teachers.length === 0 || subjects.length === 0 || periods.length === 0) {
+    const missing = [
+      classes.length === 0 && 'classes',
+      teachers.length === 0 && 'teachers',
+      subjects.length === 0 && 'subjects',
+      periods.length === 0 && 'periods',
+    ].filter(Boolean)
+
+    if (missing.length > 0) {
       return Response.json(
-        { success: false, error: 'Insufficient school data. Add classes, teachers, subjects, and periods first.' },
+        { success: false, error: `Insufficient school data. Missing: ${missing.join(', ')}. Add them first.` },
         { status: 400 },
       )
     }
@@ -105,58 +112,52 @@ export async function POST(req: NextRequest) {
     const conflicts = detectConflicts(lessonsWithTempIds)
     const conflictTempIds = new Set(conflicts.flatMap((c) => c.lessonIds))
 
-    // Save to database
-    const dbResult = await prisma.$transaction(async (tx) => {
-      // Deactivate old active timetables
-      await tx.timetable.updateMany({
-        where: { schoolId, isActive: true },
-        data: { isActive: false },
-      })
+    // Save to database — D1 doesn't support interactive transactions
+    await prisma.timetable.updateMany({
+      where: { schoolId, isActive: true },
+      data: { isActive: false },
+    })
 
-      // Create new timetable
-      const timetable = await tx.timetable.create({
+    const timetable = await prisma.timetable.create({
+      data: {
+        schoolId,
+        name: `AI Generated ${new Date().toLocaleDateString('en-GB')}`,
+        generatedByAi: true,
+        isActive: true,
+        status: 'DRAFT',
+      },
+    })
+
+    // Insert lessons in batches
+    let created = 0
+    for (const lesson of result.lessons) {
+      const tempId = `temp-${created}`
+      const hasConflict = conflictTempIds.has(tempId)
+      const conflictInfo = hasConflict
+        ? conflicts.find((c) => c.lessonIds.includes(tempId))
+        : null
+
+      await prisma.lesson.create({
         data: {
-          schoolId,
-          name: `AI Generated ${new Date().toLocaleDateString('en-GB')}`,
-          generatedByAi: true,
-          isActive: true,
-          status: 'DRAFT',
+          timetableId: timetable.id,
+          classId: lesson.classId,
+          subjectId: lesson.subjectId,
+          teacherId: lesson.teacherId,
+          roomId: lesson.roomId,
+          periodId: lesson.periodId,
+          dayOfWeek: lesson.dayOfWeek,
+          isConflict: hasConflict,
+          conflictNote: conflictInfo?.description ?? null,
         },
       })
-
-      // Insert lessons
-      let created = 0
-      for (const lesson of result.lessons) {
-        const tempId = `temp-${created}`
-        const hasConflict = conflictTempIds.has(tempId)
-        const conflictInfo = hasConflict
-          ? conflicts.find((c) => c.lessonIds.includes(tempId))
-          : null
-
-        await tx.lesson.create({
-          data: {
-            timetableId: timetable.id,
-            classId: lesson.classId,
-            subjectId: lesson.subjectId,
-            teacherId: lesson.teacherId,
-            roomId: lesson.roomId,
-            periodId: lesson.periodId,
-            dayOfWeek: lesson.dayOfWeek,
-            isConflict: hasConflict,
-            conflictNote: conflictInfo?.description ?? null,
-          },
-        })
-        created++
-      }
-
-      return { timetable, created }
-    })
+      created++
+    }
 
     return Response.json({
       success: true,
-      timetableId: dbResult.timetable.id,
-      timetableName: dbResult.timetable.name,
-      lessonsCreated: dbResult.created,
+      timetableId: timetable.id,
+      timetableName: timetable.name,
+      lessonsCreated: created,
       conflictsFound: conflicts.length,
       solveTimeMs: solveMs,
       stats: result.stats,

@@ -38,22 +38,20 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const timetable = await prisma.$transaction(async (tx) => {
-      // Deactivate all existing active timetables first
-      await tx.timetable.updateMany({
-        where: { schoolId, isActive: true },
-        data: { isActive: false },
-      })
-      return tx.timetable.create({
-        data: {
-          schoolId,
-          name,
-          termId: termId || null,
-          status: 'DRAFT',
-          isActive: true,
-        },
-        include: { term: true },
-      })
+    // D1 doesn't support interactive transactions — use sequential ops
+    await prisma.timetable.updateMany({
+      where: { schoolId, isActive: true },
+      data: { isActive: false },
+    })
+    const timetable = await prisma.timetable.create({
+      data: {
+        schoolId,
+        name,
+        termId: termId || null,
+        status: 'DRAFT',
+        isActive: true,
+      },
+      include: { term: true },
     })
 
     return NextResponse.json(timetable)

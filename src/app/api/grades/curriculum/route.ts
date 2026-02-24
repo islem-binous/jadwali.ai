@@ -36,19 +36,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'gradeId and subjects array required' }, { status: 400 })
     }
 
-    await prisma.$transaction(async (tx) => {
-      // Remove existing entries for this grade
-      await tx.gradeCurriculum.deleteMany({ where: { gradeId } })
-
-      // Insert new entries
-      for (const s of subjects) {
-        if (s.hoursPerWeek > 0) {
-          await tx.gradeCurriculum.create({
-            data: { gradeId, subjectId: s.subjectId, hoursPerWeek: s.hoursPerWeek },
-          })
-        }
+    // D1 doesn't support interactive transactions — use sequential ops
+    await prisma.gradeCurriculum.deleteMany({ where: { gradeId } })
+    for (const s of subjects) {
+      if (s.hoursPerWeek > 0) {
+        await prisma.gradeCurriculum.create({
+          data: { gradeId, subjectId: s.subjectId, hoursPerWeek: s.hoursPerWeek },
+        })
       }
-    })
+    }
 
     const updated = await prisma.gradeCurriculum.findMany({
       where: { gradeId },
