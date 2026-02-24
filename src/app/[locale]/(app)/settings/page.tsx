@@ -24,6 +24,8 @@ import {
   Pencil,
   X,
   BookOpen,
+  Copy,
+  Check,
 } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
@@ -47,6 +49,7 @@ interface PeriodData {
 interface SchoolData {
   id: string
   name: string
+  slug: string
   country: string | null
   timezone: string
   language: string
@@ -195,6 +198,9 @@ export default function SettingsPage() {
   const [allSubjects, setAllSubjects] = useState<SubjectItem[]>([])
   const [allTeachers, setAllTeachers] = useState<TeacherItem[]>([])
   const [gradeSaving, setGradeSaving] = useState(false)
+
+  // School code copy state
+  const [codeCopied, setCodeCopied] = useState(false)
 
   // Delete confirmation
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -605,6 +611,38 @@ export default function SettingsPage() {
                     className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
                   />
                 </div>
+
+                {/* School Code */}
+                {school?.slug && (
+                  <div>
+                    <label className="block text-sm font-medium text-text-secondary mb-1.5">
+                      {t('settings.school_code')}
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        readOnly
+                        value={school.slug}
+                        className="w-full rounded-lg border border-border-default bg-bg-elevated px-3 py-2 text-sm text-text-primary font-mono cursor-default"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(school.slug)
+                          setCodeCopied(true)
+                          setTimeout(() => setCodeCopied(false), 2000)
+                        }}
+                        className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm font-medium text-text-primary hover:bg-bg-surface2 transition"
+                      >
+                        {codeCopied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
+                        {codeCopied ? t('settings.copied') : t('settings.copy')}
+                      </button>
+                    </div>
+                    <p className="mt-1.5 text-xs text-text-muted">
+                      {t('settings.school_code_desc')}
+                    </p>
+                  </div>
+                )}
 
                 {/* Country */}
                 <div>

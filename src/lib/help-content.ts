@@ -18,7 +18,7 @@ export const HELP_SECTIONS: HelpSection[] = [
   { id: 'resources', icon: 'Database', roles: ['OWNER', 'ADMIN'], faqCount: 4 },
   { id: 'reports', icon: 'BarChart3', roles: ['OWNER', 'ADMIN'], faqCount: 3 },
   { id: 'ai', icon: 'Sparkles', roles: ['OWNER', 'ADMIN', 'TEACHER'], faqCount: 4 },
-  { id: 'settings', icon: 'Settings', roles: ['OWNER', 'ADMIN', 'TEACHER', 'STUDENT'], faqCount: 5 },
+  { id: 'settings', icon: 'Settings', roles: ['OWNER', 'ADMIN', 'TEACHER', 'STUDENT'], faqCount: 6 },
   { id: 'billing', icon: 'CreditCard', roles: ['OWNER', 'ADMIN'], faqCount: 4 },
 ]
 
