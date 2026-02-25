@@ -19,7 +19,7 @@ async function buildSchoolContext(schoolId: string) {
       prisma.lesson.findMany({ where: { timetable: { schoolId } }, include: { class: true, subject: true, teacher: true, room: true, period: true } }),
     ])
 
-    const activePeriods = periods.filter(p => !p.isBreak)
+    const activePeriods = periods.filter((p: any) => !p.isBreak)
 
     return `## Current School Context
 School: ${school?.name || 'Unknown'}
@@ -27,19 +27,19 @@ Country: ${school?.country || 'Not set'}
 Timezone: ${school?.timezone || 'UTC'}
 
 ## Resources
-- ${teachers.length} teachers: ${teachers.map(t => `${t.name} (${t.subjects.map(s => s.subject.name).join(', ')})`).join('; ')}
-- ${classes.length} classes: ${classes.map(c => c.name).join(', ')}
-- ${rooms.length} rooms: ${rooms.map(r => `${r.name} (${r.type})`).join(', ')}
-- ${subjects.length} subjects: ${subjects.map(s => s.name).join(', ')}
-- ${activePeriods.length} periods per day: ${activePeriods.map(p => `${p.name} ${p.startTime}-${p.endTime}`).join(', ')}
+- ${teachers.length} teachers: ${teachers.map((t: any) => `${t.name} (${t.subjects.map((s: any) => s.subject.name).join(', ')})`).join('; ')}
+- ${classes.length} classes: ${classes.map((c: any) => c.name).join(', ')}
+- ${rooms.length} rooms: ${rooms.map((r: any) => `${r.name} (${r.type})`).join(', ')}
+- ${subjects.length} subjects: ${subjects.map((s: any) => s.name).join(', ')}
+- ${activePeriods.length} periods per day: ${activePeriods.map((p: any) => `${p.name} ${p.startTime}-${p.endTime}`).join(', ')}
 
 ## Today's Status
-- Absences today: ${absences.length > 0 ? absences.map(a => `${a.teacher.name} (${a.type})`).join(', ') : 'None'}
+- Absences today: ${absences.length > 0 ? absences.map((a: any) => `${a.teacher.name} (${a.type})`).join(', ') : 'None'}
 - Total lessons configured: ${lessons.length}
-- Teachers near max workload: ${teachers.filter(t => t.lessons.length >= t.maxPeriodsPerWeek - 2).map(t => t.name).join(', ') || 'None'}
+- Teachers near max workload: ${teachers.filter((t: any) => t.lessons.length >= t.maxPeriodsPerWeek - 2).map((t: any) => t.name).join(', ') || 'None'}
 
 ## Teacher Workloads
-${teachers.map(t => `- ${t.name}: ${t.lessons.length}/${t.maxPeriodsPerWeek} periods/week`).join('\n')}`
+${teachers.map((t: any) => `- ${t.name}: ${t.lessons.length}/${t.maxPeriodsPerWeek} periods/week`).join('\n')}`
   } catch (err) {
     console.error('[AI Chat] buildSchoolContext error:', err)
     return 'Unable to load school context.'

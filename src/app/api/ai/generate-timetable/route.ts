@@ -68,18 +68,18 @@ export async function POST(req: NextRequest) {
 
     // Build constraints
     const constraints: ScheduleConstraints = {
-      classes: classes.map((c) => ({ id: c.id, name: c.name, capacity: c.capacity ?? 30, gradeId: c.gradeId })),
-      teachers: teachers.map((t) => ({
+      classes: classes.map((c: any) => ({ id: c.id, name: c.name, capacity: c.capacity ?? 30, gradeId: c.gradeId })),
+      teachers: teachers.map((t: any) => ({
         id: t.id,
         name: t.name,
         maxPeriodsPerDay: t.maxPeriodsPerDay,
         maxPeriodsPerWeek: t.maxPeriodsPerWeek,
-        subjects: t.subjects.map((ts) => ts.subjectId),
+        subjects: t.subjects.map((ts: any) => ts.subjectId),
         grades: teacherGrades.get(t.id) ?? [],
       })),
-      subjects: subjects.map((s) => ({ id: s.id, name: s.name, category: s.category })),
-      rooms: rooms.map((r) => ({ id: r.id, name: r.name, type: r.type ?? 'CLASSROOM', capacity: r.capacity ?? 30 })),
-      periods: periods.map((p) => {
+      subjects: subjects.map((s: any) => ({ id: s.id, name: s.name, category: s.category })),
+      rooms: rooms.map((r: any) => ({ id: r.id, name: r.name, type: r.type ?? 'CLASSROOM', capacity: r.capacity ?? 30 })),
+      periods: periods.map((p: any) => {
         let applicableDays: number[] = []
         try { applicableDays = JSON.parse(p.applicableDays || '[]') } catch (err) {
     console.error('[API Error]', err) /* default empty */ }
@@ -101,11 +101,11 @@ export async function POST(req: NextRequest) {
     const lessonsWithTempIds = result.lessons.map((l, idx) => ({
       ...l,
       id: `temp-${idx}`,
-      teacher: teachers.find((t) => t.id === l.teacherId)
+      teacher: teachers.find((t: any) => t.id === l.teacherId)
         ? {
-            name: teachers.find((t) => t.id === l.teacherId)!.name,
-            maxPeriodsPerDay: teachers.find((t) => t.id === l.teacherId)!.maxPeriodsPerDay,
-            maxPeriodsPerWeek: teachers.find((t) => t.id === l.teacherId)!.maxPeriodsPerWeek,
+            name: (teachers.find((t: any) => t.id === l.teacherId) as any)!.name,
+            maxPeriodsPerDay: (teachers.find((t: any) => t.id === l.teacherId) as any)!.maxPeriodsPerDay,
+            maxPeriodsPerWeek: (teachers.find((t: any) => t.id === l.teacherId) as any)!.maxPeriodsPerWeek,
           }
         : undefined,
     }))

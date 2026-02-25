@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
 
     const totalLessons = timetable?.lessons.length ?? 0
     const coveredLessons =
-      timetable?.lessons.filter((l) => !l.isConflict).length ?? 0
+      timetable?.lessons.filter((l: any) => !l.isConflict).length ?? 0
     const coverage =
       totalLessons > 0
         ? Math.round((coveredLessons / totalLessons) * 100)
@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
 
     // Today's lessons sorted by period order
     const todayLessons = (timetable?.lessons ?? []).sort(
-      (a, b) => a.period.order - b.period.order
+      (a: any, b: any) => a.period.order - b.period.order
     )
 
     return NextResponse.json({
