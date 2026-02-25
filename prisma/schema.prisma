@@ -338,6 +338,8 @@ model Governorate {
   id       String           @id @default(cuid())
   code     String           @unique
   nameAr   String
+  nameFr   String?
+  nameEn   String?
   schools  TunisianSchool[]
 }
 
@@ -345,6 +347,8 @@ model TunisianSchool {
   id              String      @id @default(cuid())
   code            String      @unique
   nameAr          String
+  nameFr          String?
+  nameEn          String?
   governorateCode String
   governorate     Governorate @relation(fields: [governorateCode], references: [code])
   zipCode         String
@@ -355,6 +359,8 @@ model TunisianSessionType {
   id       String            @id @default(cuid())
   code     Int               @unique
   nameAr   String
+  nameFr   String?
+  nameEn   String?
   subjects TunisianSubject[]
 }
 
@@ -362,6 +368,8 @@ model TunisianSubject {
   id              String              @id @default(cuid())
   code            String              @unique
   nameAr          String
+  nameFr          String?
+  nameEn          String?
   sessionTypeCode Int
   sessionType     TunisianSessionType @relation(fields: [sessionTypeCode], references: [code])
 }
@@ -370,6 +378,8 @@ model TunisianGradeLevel {
   id     String @id @default(cuid())
   code   String @unique
   nameAr String
+  nameFr String?
+  nameEn String?
 }
 
 // ─── PAYMENTS ──────────────────────────────────────────────
