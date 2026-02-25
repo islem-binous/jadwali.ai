@@ -351,6 +351,27 @@ model TunisianSchool {
   registeredSchools School[]
 }
 
+model TunisianSessionType {
+  id       String            @id @default(cuid())
+  code     Int               @unique
+  nameAr   String
+  subjects TunisianSubject[]
+}
+
+model TunisianSubject {
+  id              String              @id @default(cuid())
+  code            String              @unique
+  nameAr          String
+  sessionTypeCode Int
+  sessionType     TunisianSessionType @relation(fields: [sessionTypeCode], references: [code])
+}
+
+model TunisianGradeLevel {
+  id     String @id @default(cuid())
+  code   String @unique
+  nameAr String
+}
+
 // ─── PAYMENTS ──────────────────────────────────────────────
 model Payment {
   id           String    @id @default(cuid())
