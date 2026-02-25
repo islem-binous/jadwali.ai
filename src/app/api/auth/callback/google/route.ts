@@ -53,17 +53,27 @@ export async function GET(request: NextRequest) {
   }
 
   if (!code) {
-    return NextResponse.redirect(`${origin}/${locale}/auth/login?error=google_error`)
+    console.error('Google callback: no code parameter')
+    return NextResponse.redirect(`${origin}/${locale}/auth/login?error=google_error&step=no_code`)
   }
 
   // Verify CSRF nonce
   const storedNonce = request.cookies.get('oauth_state')?.value
   if (!storedNonce || storedNonce !== nonce) {
-    return NextResponse.redirect(`${origin}/${locale}/auth/login?error=google_error`)
+    console.error('Google callback: nonce mismatch', { storedNonce: !!storedNonce, nonce: !!nonce, match: storedNonce === nonce })
+    return NextResponse.redirect(`${origin}/${locale}/auth/login?error=google_error&step=nonce`)
   }
 
   try {
     const redirectUri = `${origin}/api/auth/callback/google`
+
+    const clientId = await getEnv('GOOGLE_CLIENT_ID')
+    const clientSecret = await getEnv('GOOGLE_CLIENT_SECRET')
+
+    if (!clientId || !clientSecret) {
+      console.error('Google callback: missing credentials', { hasClientId: !!clientId, hasClientSecret: !!clientSecret })
+      return NextResponse.redirect(`${origin}/${locale}/auth/login?error=google_error&step=creds`)
+    }
 
     // Exchange code for tokens
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
@@ -71,8 +81,8 @@ export async function GET(request: NextRequest) {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
         code,
-        client_id: await getEnv('GOOGLE_CLIENT_ID'),
-        client_secret: await getEnv('GOOGLE_CLIENT_SECRET'),
+        client_id: clientId,
+        client_secret: clientSecret,
         redirect_uri: redirectUri,
         grant_type: 'authorization_code',
       }),
@@ -80,7 +90,7 @@ export async function GET(request: NextRequest) {
 
     if (!tokenRes.ok) {
       console.error('Token exchange failed:', await tokenRes.text())
-      return NextResponse.redirect(`${origin}/${locale}/auth/login?error=google_error`)
+      return NextResponse.redirect(`${origin}/${locale}/auth/login?error=google_error&step=token`)
     }
 
     const tokenData = await tokenRes.json()
@@ -93,7 +103,7 @@ export async function GET(request: NextRequest) {
 
     if (!profileRes.ok) {
       console.error('Profile fetch failed:', await profileRes.text())
-      return NextResponse.redirect(`${origin}/${locale}/auth/login?error=google_error`)
+      return NextResponse.redirect(`${origin}/${locale}/auth/login?error=google_error&step=profile`)
     }
 
     const profile: GoogleProfile = await profileRes.json()
@@ -232,7 +242,7 @@ export async function GET(request: NextRequest) {
     return response
   } catch (error) {
     console.error('Google OAuth callback error:', error)
-    const response = NextResponse.redirect(`${origin}/${locale}/auth/login?error=google_error`)
+    const response = NextResponse.redirect(`${origin}/${locale}/auth/login?error=google_error&step=exception`)
     response.cookies.delete('oauth_state')
     return response
   }

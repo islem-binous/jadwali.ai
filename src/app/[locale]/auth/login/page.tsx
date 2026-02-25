@@ -13,6 +13,7 @@ function LoginForm() {
   const searchParams = useSearchParams()
   const { signIn, signInWithGoogle } = useAuth()
   const oauthError = searchParams.get('error')
+  const oauthStep = searchParams.get('step')
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -57,6 +58,7 @@ function LoginForm() {
           {oauthError && (
             <div className="mb-4 rounded-md bg-danger-dim p-3 text-sm text-danger">
               {t(`auth.${oauthError}` as Parameters<typeof t>[0])}
+              {oauthStep && <span className="block mt-1 text-xs opacity-60">debug: {oauthStep}</span>}
             </div>
           )}
 
