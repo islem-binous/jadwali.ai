@@ -108,6 +108,7 @@ const LANG_TO_LOCALE: Record<string, string> = { AR: 'ar', FR: 'fr', EN: 'en' }
 export default function SettingsPage() {
   const t = useTranslations()
   const user = useUserStore((s) => s.user)
+  const setUser = useUserStore((s) => s.setUser)
   const router = useRouter()
   const adminUser = checkIsAdmin(user?.role || '')
 
@@ -377,6 +378,10 @@ export default function SettingsPage() {
         setPendingUnlink(false)
         setSaveSuccess(true)
         setTimeout(() => setSaveSuccess(false), 3000)
+        // Sync user store so dropdown/header reflects new school name
+        if (user) {
+          setUser({ ...user, schoolName: updatedSchool.name, language })
+        }
         // Switch locale if language changed
         const newLocale = LANG_TO_LOCALE[language]
         if (newLocale) {
