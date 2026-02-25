@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
+import { Prisma } from '@/generated/prisma/client'
 
 export async function GET(request: Request) {
   try {
@@ -12,28 +13,30 @@ export async function GET(request: Request) {
 
     const prisma = await getPrisma()
 
-    const schools = await prisma.tunisianSchool.findMany({
-      where: {
-        nameAr: { contains: q },
-      },
-      include: {
-        governorate: { select: { nameAr: true } },
-      },
-      take: 20,
-    })
+    const schools: any[] = await prisma.$queryRaw`
+      SELECT s.id, s.code, s."nameAr", s."zipCode", g."nameAr" as "governorate"
+      FROM "TunisianSchool" s
+      JOIN "Governorate" g ON g."code" = s."governorateCode"
+      WHERE s."nameAr" LIKE ${'%' + q + '%'}
+      LIMIT 20
+    `
 
     return NextResponse.json(
       schools.map((s: any) => ({
         id: s.id,
         code: s.code,
         nameAr: s.nameAr,
-        governorate: s.governorate.nameAr,
+        governorate: s.governorate,
         zipCode: s.zipCode,
       }))
     )
   } catch (error: any) {
     // Table may not exist yet if migrations haven't been applied
-    if (error?.message?.includes('no such table') || error?.code === 'P2021') {
+    if (
+      error?.message?.includes('no such table') ||
+      error?.message?.includes('D1_ERROR') ||
+      error?.code === 'P2021'
+    ) {
       return NextResponse.json([])
     }
     console.error('School search error:', error)
