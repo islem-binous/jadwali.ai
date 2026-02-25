@@ -4,11 +4,12 @@ import React from 'react'
 import { useDraggable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import { AlertTriangle } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
+import { getLocalizedName } from '@/lib/locale-name'
 
 export interface LessonPillData {
   id: string
-  subject: { name: string; colorHex: string }
+  subject: { name: string; nameAr?: string | null; nameFr?: string | null; colorHex: string }
   teacher: { name: string }
   room?: { name: string } | null
   class: { name: string }
@@ -23,6 +24,8 @@ interface LessonPillProps {
 
 export function LessonPill({ lesson, isAbsent = false, onClick }: LessonPillProps) {
   const t = useTranslations('timetable')
+  const locale = useLocale()
+  const subjectName = getLocalizedName(lesson.subject, locale)
 
   const {
     attributes,
@@ -60,7 +63,7 @@ export function LessonPill({ lesson, isAbsent = false, onClick }: LessonPillProp
       `}
       role="button"
       tabIndex={0}
-      aria-label={`${lesson.subject.name} - ${lesson.teacher.name}`}
+      aria-label={`${subjectName} - ${lesson.teacher.name}`}
     >
       {/* Conflict icon */}
       {lesson.isConflict && (
@@ -71,7 +74,7 @@ export function LessonPill({ lesson, isAbsent = false, onClick }: LessonPillProp
 
       {/* Subject name */}
       <p className="text-sm font-medium text-text-primary truncate leading-tight">
-        {lesson.subject.name}
+        {subjectName}
       </p>
 
       {/* Teacher name */}

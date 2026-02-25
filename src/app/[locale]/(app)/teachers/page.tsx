@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useCallback, useEffect, useState } from 'react'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import { Plus, Search, Users, Download, Upload } from 'lucide-react'
 import { useUserStore } from '@/store/userStore'
 import { Button } from '@/components/ui/Button'
@@ -20,6 +20,8 @@ import { triggerExport } from '@/lib/export-helpers'
 interface SubjectOption {
   id: string
   name: string
+  nameAr?: string | null
+  nameFr?: string | null
   colorHex: string
 }
 
@@ -29,6 +31,7 @@ interface SubjectOption {
 
 export default function TeachersPage() {
   const t = useTranslations()
+  const locale = useLocale()
   const toast = useToast()
   const user = useUserStore((s) => s.user)
   const schoolId = user?.schoolId
@@ -210,7 +213,7 @@ export default function TeachersPage() {
             {subjects.map((subject) => (
               <FilterPill
                 key={subject.id}
-                label={subject.name}
+                label={(locale === 'ar' && subject.nameAr) ? subject.nameAr : (locale === 'fr' && subject.nameFr) ? subject.nameFr : subject.name}
                 active={subjectFilter === subject.id}
                 onClick={() =>
                   setSubjectFilter(

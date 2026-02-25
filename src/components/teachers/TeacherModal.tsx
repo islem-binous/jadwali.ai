@@ -1,7 +1,8 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
+import { getLocalizedName } from '@/lib/locale-name'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { HelpTooltip } from '@/components/ui/HelpTooltip'
@@ -14,6 +15,8 @@ import type { TeacherData } from './TeacherCard'
 interface SubjectOption {
   id: string
   name: string
+  nameAr?: string | null
+  nameFr?: string | null
   colorHex: string
 }
 
@@ -65,6 +68,7 @@ export function TeacherModal({
   onSave,
 }: TeacherModalProps) {
   const t = useTranslations()
+  const locale = useLocale()
   const isEdit = !!teacher
 
   const [name, setName] = useState('')
@@ -238,7 +242,7 @@ export function TeacherModal({
                       className="h-2.5 w-2.5 shrink-0 rounded-full"
                       style={{ backgroundColor: subject.colorHex }}
                     />
-                    <span className="text-text-primary">{subject.name}</span>
+                    <span className="text-text-primary">{getLocalizedName(subject, locale)}</span>
                     {isChecked && idx === 0 && (
                       <span className="ml-auto text-[10px] font-medium text-accent">
                         {t('teachers.primary_subject')}

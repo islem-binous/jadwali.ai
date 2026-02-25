@@ -38,7 +38,7 @@ export interface Lesson {
   periodId: string
   isConflict: boolean
   conflictNote?: string | null
-  subject: { id: string; name: string; colorHex: string }
+  subject: { id: string; name: string; nameAr?: string | null; nameFr?: string | null; colorHex: string }
   teacher: { id: string; name: string }
   class: { id: string; name: string }
   room?: { id: string; name: string } | null

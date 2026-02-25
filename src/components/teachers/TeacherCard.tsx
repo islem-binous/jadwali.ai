@@ -1,7 +1,8 @@
 'use client'
 
 import React from 'react'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
+import { getLocalizedName } from '@/lib/locale-name'
 import { Pencil, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { ProgressBar } from '@/components/ui/ProgressBar'
@@ -17,6 +18,8 @@ interface TeacherSubject {
   subject: {
     id: string
     name: string
+    nameAr?: string | null
+    nameFr?: string | null
     colorHex: string
   }
 }
@@ -68,6 +71,7 @@ function getInitials(name: string): string {
 
 export function TeacherCard({ teacher, onEdit, onDelete }: TeacherCardProps) {
   const t = useTranslations()
+  const locale = useLocale()
 
   const lessonsCount = teacher.lessons.length
   const maxWeek = teacher.maxPeriodsPerWeek
@@ -109,7 +113,7 @@ export function TeacherCard({ teacher, onEdit, onDelete }: TeacherCardProps) {
           <p className="truncate font-semibold text-text-primary">{teacher.name}</p>
           {primarySubject && (
             <Badge size="sm" variant="accent">
-              {primarySubject.subject.name}
+              {getLocalizedName(primarySubject.subject, locale)}
             </Badge>
           )}
         </div>

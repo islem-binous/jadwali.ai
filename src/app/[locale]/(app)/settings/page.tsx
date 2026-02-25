@@ -195,11 +195,11 @@ export default function SettingsPage() {
     nameAr?: string | null
     nameFr?: string | null
     level: number
-    curriculum: { id: string; subjectId: string; hoursPerWeek: number; subject: { id: string; name: string } }[]
+    curriculum: { id: string; subjectId: string; hoursPerWeek: number; subject: { id: string; name: string; nameAr?: string | null; nameFr?: string | null } }[]
     teachers: { id: string; teacherId: string; teacher: { id: string; name: string } }[]
     _count: { classes: number }
   }
-  interface SubjectItem { id: string; name: string; category: string }
+  interface SubjectItem { id: string; name: string; nameAr?: string | null; nameFr?: string | null; category: string }
   interface TeacherItem { id: string; name: string }
 
   const [grades, setGrades] = useState<GradeItem[]>([])
@@ -599,10 +599,11 @@ export default function SettingsPage() {
     } catch { toast.error('Failed to delete grade') }
   }
 
-  const getLocaleName = (row: { nameAr: string; nameFr?: string | null; nameEn?: string | null }) => {
+  const getLocaleName = (row: { name?: string; nameAr?: string | null; nameFr?: string | null; nameEn?: string | null }) => {
+    if (locale === 'ar' && row.nameAr) return row.nameAr
     if (locale === 'fr' && row.nameFr) return row.nameFr
     if (locale === 'en' && row.nameEn) return row.nameEn
-    return row.nameAr
+    return row.name || row.nameAr || ''
   }
 
   const openTunisianGradesModal = async () => {
@@ -1342,7 +1343,7 @@ export default function SettingsPage() {
                   <div key={g.id} className="rounded-lg border border-border-subtle bg-bg-surface px-4 py-3">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-medium text-text-primary">{g.name}</p>
+                        <p className="text-sm font-medium text-text-primary">{getLocaleName(g)}</p>
                         <div className="mt-1 flex flex-wrap gap-2 text-xs text-text-muted">
                           <span>{g.curriculum.length} {t('settings.grade_subjects').toLowerCase()}</span>
                           <span>·</span>
@@ -1354,7 +1355,7 @@ export default function SettingsPage() {
                           <div className="mt-2 flex flex-wrap gap-1">
                             {g.curriculum.map(c => (
                               <span key={c.id} className="inline-flex items-center gap-1 rounded-full bg-bg-surface2 px-2 py-0.5 text-[10px] font-medium text-text-secondary">
-                                {c.subject.name} <span className="text-accent">{c.hoursPerWeek}h</span>
+                                {getLocaleName(c.subject)} <span className="text-accent">{c.hoursPerWeek}h</span>
                               </span>
                             ))}
                           </div>
@@ -1441,7 +1442,7 @@ export default function SettingsPage() {
                         <div className={`h-4 w-4 rounded border ${isEnabled ? 'border-accent bg-accent' : 'border-border-default bg-bg-surface'} flex items-center justify-center`}>
                           {isEnabled && <span className="text-[10px] text-white font-bold">✓</span>}
                         </div>
-                        {sub.name}
+                        {getLocaleName(sub)}
                       </button>
                       {isEnabled && (
                         <div className="flex items-center gap-1.5">

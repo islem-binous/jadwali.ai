@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState, useCallback } from 'react'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import {
   CalendarDays,
   Upload,
@@ -61,6 +61,8 @@ interface RoomItem {
 interface SubjectItem {
   id: string
   name: string
+  nameAr?: string | null
+  nameFr?: string | null
   colorHex: string
 }
 
@@ -76,11 +78,18 @@ export default function TimetablePage() {
   const t = useTranslations('timetable')
   const tApp = useTranslations('app')
   const tTooltips = useTranslations('tooltips')
+  const locale = useLocale()
   const user = useUserStore((s) => s.user)
   const schoolId = user?.schoolId
   const toast = useToast()
   const adminUser = checkIsAdmin(user?.role || '')
   const readOnly = !adminUser
+
+  const getLocaleName = (row: { name: string; nameAr?: string | null; nameFr?: string | null }) => {
+    if (locale === 'ar' && row.nameAr) return row.nameAr
+    if (locale === 'fr' && row.nameFr) return row.nameFr
+    return row.name
+  }
 
   /* ---------- State ---------- */
   const [viewMode, setViewMode] = useState<ViewMode>('class')
@@ -203,7 +212,7 @@ export default function TimetablePage() {
     : lessons
 
   /* ---------- Filter pill items ---------- */
-  const filterItems: { id: string; name: string }[] =
+  const filterItems: { id: string; name: string; nameAr?: string | null; nameFr?: string | null }[] =
     viewMode === 'class'
       ? classes
       : viewMode === 'teacher'
@@ -434,7 +443,7 @@ export default function TimetablePage() {
           <option value="">{t('select_subject')}</option>
           {subjects.map((s) => (
             <option key={s.id} value={s.id}>
-              {s.name}
+              {getLocaleName(s)}
             </option>
           ))}
         </select>
@@ -639,7 +648,7 @@ export default function TimetablePage() {
           {filterItems.map((item) => (
             <FilterPill
               key={item.id}
-              label={item.name}
+              label={getLocaleName(item)}
               active={selectedFilter === item.id}
               onClick={() =>
                 setSelectedFilter(

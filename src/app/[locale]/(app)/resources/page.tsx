@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import { Plus, Database, Pencil, Trash2, Download, Upload, Loader2 } from 'lucide-react'
 import { useUserStore } from '@/store/userStore'
+import { getLocalizedName } from '@/lib/locale-name'
 import { Button } from '@/components/ui/Button'
 import { FilterPill } from '@/components/ui/FilterPill'
 import { Badge } from '@/components/ui/Badge'
@@ -22,6 +23,8 @@ type Tab = 'classes' | 'rooms' | 'subjects'
 interface GradeData {
   id: string
   name: string
+  nameAr?: string | null
+  nameFr?: string | null
   level: number
 }
 
@@ -171,7 +174,7 @@ export default function ResourcesPage() {
       const res = await fetch(`/api/grades?schoolId=${schoolId}`)
       if (res.ok) {
         const data = await res.json()
-        setGrades(data.map((g: GradeData) => ({ id: g.id, name: g.name, level: g.level })))
+        setGrades(data.map((g: GradeData) => ({ id: g.id, name: g.name, nameAr: g.nameAr, nameFr: g.nameFr, level: g.level })))
       }
     } catch { /* silent */ }
   }, [schoolId])
@@ -289,10 +292,11 @@ export default function ResourcesPage() {
   /*  Tunisian Subjects Reference                                      */
   /* ---------------------------------------------------------------- */
 
-  const getLocaleName = (row: { nameAr: string; nameFr?: string | null; nameEn?: string | null }) => {
+  const getLocaleName = (row: { name?: string; nameAr?: string | null; nameFr?: string | null; nameEn?: string | null }) => {
+    if (locale === 'ar' && row.nameAr) return row.nameAr
     if (locale === 'fr' && row.nameFr) return row.nameFr
     if (locale === 'en' && row.nameEn) return row.nameEn
-    return row.nameAr
+    return row.name || row.nameAr || ''
   }
 
   const openTunisianSubjectsModal = async () => {
@@ -410,6 +414,7 @@ export default function ResourcesPage() {
           onDelete={(c) => setDeleteTarget({ id: c.id, name: c.name, tab: 'classes' })}
           t={t}
           openCreate={openCreate}
+          locale={locale}
         />
       ) : activeTab === 'rooms' ? (
         <RoomsTable
@@ -428,6 +433,7 @@ export default function ResourcesPage() {
           categoryLabel={categoryLabel}
           t={t}
           openCreate={openCreate}
+          locale={locale}
         />
       )}
 
@@ -440,6 +446,7 @@ export default function ResourcesPage() {
           onSave={handleSaveClass}
           grades={grades}
           t={t}
+          locale={locale}
         />
       )}
       {activeTab === 'rooms' && (
@@ -668,12 +675,14 @@ function ClassesTable({
   onDelete,
   t,
   openCreate,
+  locale,
 }: {
   classes: ClassData[]
   onEdit: (c: ClassData) => void
   onDelete: (c: ClassData) => void
   t: ReturnType<typeof useTranslations>
   openCreate: () => void
+  locale: string
 }) {
   if (classes.length === 0) {
     return (
@@ -717,7 +726,7 @@ function ClassesTable({
                 {cls.name}
               </td>
               <td className="px-4 py-3 text-text-secondary">
-                {cls.grade?.name || '—'}
+                {cls.grade ? getLocalizedName(cls.grade, locale) : '—'}
               </td>
               <td className="px-4 py-3 text-text-secondary">{cls.capacity}</td>
               <td className="px-4 py-3">
@@ -860,6 +869,7 @@ function SubjectsTable({
   categoryLabel,
   t,
   openCreate,
+  locale,
 }: {
   subjects: SubjectData[]
   onEdit: (s: SubjectData) => void
@@ -867,6 +877,7 @@ function SubjectsTable({
   categoryLabel: (cat: string) => string
   t: ReturnType<typeof useTranslations>
   openCreate: () => void
+  locale: string
 }) {
   if (subjects.length === 0) {
     return (
@@ -904,7 +915,7 @@ function SubjectsTable({
               className="border-b border-border-subtle last:border-b-0 transition-colors hover:bg-bg-surface"
             >
               <td className="px-4 py-3 font-medium text-text-primary">
-                {subj.name}
+                {getLocalizedName(subj, locale)}
               </td>
               <td className="px-4 py-3">
                 <span
@@ -986,6 +997,7 @@ function ClassModal({
   onSave,
   grades,
   t,
+  locale,
 }: {
   isOpen: boolean
   onClose: () => void
@@ -993,6 +1005,7 @@ function ClassModal({
   onSave: (data: Partial<ClassData>) => Promise<void>
   grades: GradeData[]
   t: ReturnType<typeof useTranslations>
+  locale: string
 }) {
   const isEdit = !!item
 
@@ -1068,7 +1081,7 @@ function ClassModal({
           >
             <option value="">— {t('app.optional')} —</option>
             {grades.map(g => (
-              <option key={g.id} value={g.id}>{g.name}</option>
+              <option key={g.id} value={g.id}>{getLocalizedName(g, locale)}</option>
             ))}
           </select>
         </div>

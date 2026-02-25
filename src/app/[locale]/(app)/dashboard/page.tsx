@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import { useUserStore } from '@/store/userStore'
 import { isAdmin as checkIsAdmin } from '@/lib/permissions'
 import { Link } from '@/i18n/navigation'
@@ -26,7 +26,7 @@ interface DashboardLesson {
   dayOfWeek: number
   isConflict: boolean
   conflictNote: string | null
-  subject: { id: string; name: string; colorHex: string }
+  subject: { id: string; name: string; nameAr?: string | null; nameFr?: string | null; colorHex: string }
   teacher: { id: string; name: string }
   class: { id: string; name: string }
   room: { id: string; name: string } | null
@@ -45,11 +45,18 @@ interface DashboardData {
 
 export default function DashboardPage() {
   const t = useTranslations()
+  const locale = useLocale()
   const user = useUserStore((s) => s.user)
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
 
   const adminUser = checkIsAdmin(user?.role || '')
+
+  const getLocaleName = (row: { name: string; nameAr?: string | null; nameFr?: string | null }) => {
+    if (locale === 'ar' && row.nameAr) return row.nameAr
+    if (locale === 'fr' && row.nameFr) return row.nameFr
+    return row.name
+  }
 
   useEffect(() => {
     if (!user?.schoolId) return
@@ -391,7 +398,7 @@ export default function DashboardPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <p className="truncate text-sm font-semibold text-text-primary">
-                      {lesson.subject.name}
+                      {getLocaleName(lesson.subject)}
                     </p>
                     {lesson.isConflict && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-warning/20 px-2 py-0.5 text-[10px] font-medium text-warning">
