@@ -31,7 +31,11 @@ export async function GET(request: Request) {
         zipCode: s.zipCode,
       }))
     )
-  } catch (error) {
+  } catch (error: any) {
+    // Table may not exist yet if migrations haven't been applied
+    if (error?.message?.includes('no such table') || error?.code === 'P2021') {
+      return NextResponse.json([])
+    }
     console.error('School search error:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
