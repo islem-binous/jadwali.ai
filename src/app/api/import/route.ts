@@ -101,7 +101,7 @@ async function handleTeachers(
     }
 
     const match = existingTeachers.find(
-      (t) => normalizeName(t.name) === normalizeName(name),
+      (t: any) => normalizeName(t.name) === normalizeName(name),
     )
 
     const subjectNames =
@@ -110,7 +110,7 @@ async function handleTeachers(
         : []
 
     const unmatched = subjectNames.filter(
-      (sn) => !existingSubjects.find((es) => normalizeName(es.name) === normalizeName(sn)),
+      (sn) => !existingSubjects.find((es: any) => normalizeName(es.name) === normalizeName(sn)),
     )
     if (unmatched.length > 0) {
       errors.push(`Unknown subjects: ${unmatched.join(', ')}`)
@@ -142,7 +142,7 @@ async function handleTeachers(
 
     const subjectNames = row.data.subjects.split(';').map((s) => s.trim()).filter(Boolean)
     const subjectIds = subjectNames
-      .map((sn) => existingSubjects.find((es) => normalizeName(es.name) === normalizeName(sn))?.id)
+      .map((sn) => existingSubjects.find((es: any) => normalizeName(es.name) === normalizeName(sn))?.id)
       .filter(Boolean) as string[]
 
     if (row.matchedId) {
@@ -218,7 +218,7 @@ async function handleSubjects(
       errors.push(`Invalid category: ${category}. Must be one of: ${VALID_CATEGORIES.join(', ')}`)
     }
 
-    const match = existing.find((s) => normalizeName(s.name) === normalizeName(name))
+    const match = existing.find((s: any) => normalizeName(s.name) === normalizeName(name))
 
     return {
       rowIndex: i + 1,
@@ -299,7 +299,7 @@ async function handleClasses(
     const gradeName = gradeCol >= 0 ? row[gradeCol] || '' : ''
     let gradeId: string | null = null
     if (gradeName.trim()) {
-      const gradeMatch = grades.find((g) => normalizeName(g.name) === normalizeName(gradeName))
+      const gradeMatch = grades.find((g: any) => normalizeName(g.name) === normalizeName(gradeName))
       if (!gradeMatch) {
         errors.push(`Unknown grade: ${gradeName}`)
       } else {
@@ -307,7 +307,7 @@ async function handleClasses(
       }
     }
 
-    const match = existing.find((c) => normalizeName(c.name) === normalizeName(name))
+    const match = existing.find((c: any) => normalizeName(c.name) === normalizeName(name))
 
     return {
       rowIndex: i + 1,
@@ -390,7 +390,7 @@ async function handleRooms(
       errors.push(`Invalid type: ${roomType}. Must be one of: ${VALID_ROOM_TYPES.join(', ')}`)
     }
 
-    const match = existing.find((r) => normalizeName(r.name) === normalizeName(name))
+    const match = existing.find((r: any) => normalizeName(r.name) === normalizeName(name))
 
     return {
       rowIndex: i + 1,
@@ -491,25 +491,25 @@ async function handleTimetable(
     }
 
     const periodName = (row[periodCol] || '').trim()
-    const periodMatch = periods.find((p) => normalizeName(p.name) === normalizeName(periodName))
+    const periodMatch = periods.find((p: any) => normalizeName(p.name) === normalizeName(periodName))
     if (!periodMatch) errors.push(`Unknown period: ${periodName}`)
 
     const className = (row[classCol] || '').trim()
-    const classMatch = classes.find((c) => normalizeName(c.name) === normalizeName(className))
+    const classMatch = classes.find((c: any) => normalizeName(c.name) === normalizeName(className))
     if (!classMatch) errors.push(`Unknown class: ${className}`)
 
     const subjectName = (row[subjectCol] || '').trim()
-    const subjectMatch = subjects.find((s) => normalizeName(s.name) === normalizeName(subjectName))
+    const subjectMatch = subjects.find((s: any) => normalizeName(s.name) === normalizeName(subjectName))
     if (!subjectMatch) errors.push(`Unknown subject: ${subjectName}`)
 
     const teacherName = (row[teacherCol] || '').trim()
-    const teacherMatch = teachers.find((t) => normalizeName(t.name) === normalizeName(teacherName))
+    const teacherMatch = teachers.find((t: any) => normalizeName(t.name) === normalizeName(teacherName))
     if (!teacherMatch) errors.push(`Unknown teacher: ${teacherName}`)
 
     const roomName = roomCol >= 0 ? (row[roomCol] || '').trim() : ''
     let roomId = ''
     if (roomName) {
-      const roomMatch = rooms.find((r) => normalizeName(r.name) === normalizeName(roomName))
+      const roomMatch = rooms.find((r: any) => normalizeName(r.name) === normalizeName(roomName))
       if (!roomMatch) errors.push(`Unknown room: ${roomName}`)
       else roomId = roomMatch.id
     }
@@ -598,7 +598,7 @@ async function handleGrades(
     const subjectName = hasSubjects ? (row[subjectCol] || '').trim() : ''
 
     const subjectMatch = subjectName
-      ? existingSubjects.find((s) => normalizeName(s.name) === normalizeName(subjectName))
+      ? existingSubjects.find((s: any) => normalizeName(s.name) === normalizeName(subjectName))
       : null
     if (subjectName && !subjectMatch) errors.push(`Unknown subject: ${subjectName}`)
 
@@ -607,7 +607,7 @@ async function handleGrades(
     if (hoursStr && (isNaN(hours) || hours < 1 || hours > 20)) errors.push('Hours/Week must be between 1 and 20')
 
     const gradeMatch = gradeName
-      ? existingGrades.find((g) => normalizeName(g.name) === normalizeName(gradeName))
+      ? existingGrades.find((g: any) => normalizeName(g.name) === normalizeName(gradeName))
       : null
 
     return {

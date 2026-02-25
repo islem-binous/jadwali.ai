@@ -24,10 +24,10 @@ export async function GET(req: NextRequest) {
         orderBy: { name: 'asc' },
       })
 
-      const data = teachers.map((t) => {
+      const data = teachers.map((t: any) => {
         // Count periods per day (0=Mon..4=Fri)
         const periodsPerDay = [0, 0, 0, 0, 0]
-        t.lessons.forEach((l) => {
+        t.lessons.forEach((l: any) => {
           if (l.dayOfWeek >= 0 && l.dayOfWeek <= 4) {
             periodsPerDay[l.dayOfWeek]++
           }
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
           totalPeriods: t.lessons.length,
           maxPerDay: t.maxPeriodsPerDay,
           maxPerWeek: t.maxPeriodsPerWeek,
-          subjects: t.subjects.map((ts) => ({
+          subjects: t.subjects.map((ts: any) => ({
             name: ts.subject.name,
             colorHex: ts.subject.colorHex,
             isPrimary: ts.isPrimary,
@@ -69,11 +69,11 @@ export async function GET(req: NextRequest) {
         orderBy: { name: 'asc' },
       })
 
-      const data = classes.map((c) => {
+      const data = classes.map((c: any) => {
         const periodsPerDay = [0, 0, 0, 0, 0]
         const subjectMap: Record<string, { name: string; colorHex: string; count: number }> = {}
 
-        c.lessons.forEach((l) => {
+        c.lessons.forEach((l: any) => {
           if (l.dayOfWeek >= 0 && l.dayOfWeek <= 4) {
             periodsPerDay[l.dayOfWeek]++
           }
@@ -113,15 +113,15 @@ export async function GET(req: NextRequest) {
 
       const summary = {
         total: leaveRequests.length,
-        pending: leaveRequests.filter((r) => r.status === 'PENDING').length,
-        approved: leaveRequests.filter((r) => r.status === 'APPROVED').length,
-        rejected: leaveRequests.filter((r) => r.status === 'REJECTED').length,
+        pending: leaveRequests.filter((r: any) => r.status === 'PENDING').length,
+        approved: leaveRequests.filter((r: any) => r.status === 'APPROVED').length,
+        rejected: leaveRequests.filter((r: any) => r.status === 'REJECTED').length,
         totalDays: leaveRequests
-          .filter((r) => r.status === 'APPROVED')
-          .reduce((sum, r) => sum + r.daysCount, 0),
+          .filter((r: any) => r.status === 'APPROVED')
+          .reduce((sum: number, r: any) => sum + r.daysCount, 0),
       }
 
-      const requests = leaveRequests.map((r) => ({
+      const requests = leaveRequests.map((r: any) => ({
         id: r.id,
         teacherName: r.teacher.name,
         teacherColor: r.teacher.colorHex,
@@ -147,7 +147,7 @@ export async function GET(req: NextRequest) {
         orderBy: { date: 'desc' },
       })
 
-      const data = absences.map((a) => ({
+      const data = absences.map((a: any) => ({
         id: a.id,
         date: a.date.toISOString(),
         endDate: a.endDate?.toISOString() ?? null,

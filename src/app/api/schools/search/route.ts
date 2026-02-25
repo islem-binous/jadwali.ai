@@ -23,7 +23,7 @@ export async function GET(request: Request) {
     })
 
     return NextResponse.json(
-      schools.map((s) => ({
+      schools.map((s: any) => ({
         id: s.id,
         code: s.code,
         nameAr: s.nameAr,

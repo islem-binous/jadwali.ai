@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
 
         if (format === 'csv') {
           const headers = ['Day', 'Period', 'Time', 'Class', 'Subject', 'Teacher', 'Room']
-          const rows = lessons.map(l => [
+          const rows = lessons.map((l: any) => [
             dayNames[l.dayOfWeek] || `Day ${l.dayOfWeek}`,
             l.period.name,
             `${l.period.startTime}-${l.period.endTime}`,
@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
 
           const csvContent = [
             headers.join(','),
-            ...rows.map(row => row.map(cell => `"${cell}"`).join(',')),
+            ...rows.map((row: any) => row.map((cell: any) => `"${cell}"`).join(',')),
           ].join('\n')
 
           return new NextResponse(csvContent, {
@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
         }
 
         // JSON format
-        return NextResponse.json(lessons.map(l => ({
+        return NextResponse.json(lessons.map((l: any) => ({
           day: dayNames[l.dayOfWeek],
           period: l.period.name,
           time: `${l.period.startTime}-${l.period.endTime}`,
@@ -79,18 +79,18 @@ export async function GET(req: NextRequest) {
 
         if (format === 'csv') {
           const headers = ['Name', 'Email', 'Phone', 'Subjects', 'Max/Day', 'Max/Week']
-          const rows = teachers.map(t => [
+          const rows = teachers.map((t: any) => [
             t.name,
             t.email || '',
             t.phone || '',
-            t.subjects.map(s => s.subject.name).join('; '),
+            t.subjects.map((s: any) => s.subject.name).join('; '),
             String(t.maxPeriodsPerDay),
             String(t.maxPeriodsPerWeek),
           ])
 
           const csvContent = [
             headers.join(','),
-            ...rows.map(row => row.map(cell => `"${cell}"`).join(',')),
+            ...rows.map((row: any) => row.map((cell: any) => `"${cell}"`).join(',')),
           ].join('\n')
 
           return new NextResponse(csvContent, {
@@ -113,7 +113,7 @@ export async function GET(req: NextRequest) {
 
         if (format === 'csv') {
           const headers = ['Teacher', 'Leave Type', 'Start Date', 'End Date', 'Days', 'Status', 'Reason']
-          const rows = leaveRequests.map(r => [
+          const rows = leaveRequests.map((r: any) => [
             r.teacher.name,
             r.leaveType.name,
             new Date(r.startDate).toLocaleDateString(),
@@ -125,7 +125,7 @@ export async function GET(req: NextRequest) {
 
           const csvContent = [
             headers.join(','),
-            ...rows.map(row => row.map(cell => `"${cell}"`).join(',')),
+            ...rows.map((row: any) => row.map((cell: any) => `"${cell}"`).join(',')),
           ].join('\n')
 
           return new NextResponse(csvContent, {
@@ -148,7 +148,7 @@ export async function GET(req: NextRequest) {
 
         if (format === 'csv') {
           const headers = ['Date', 'Teacher', 'Type', 'Status', 'Note']
-          const rows = absences.map(a => [
+          const rows = absences.map((a: any) => [
             new Date(a.date).toLocaleDateString(),
             a.teacher.name,
             a.type,
@@ -158,7 +158,7 @@ export async function GET(req: NextRequest) {
 
           const csvContent = [
             headers.join(','),
-            ...rows.map(row => row.map(cell => `"${cell}"`).join(',')),
+            ...rows.map((row: any) => row.map((cell: any) => `"${cell}"`).join(',')),
           ].join('\n')
 
           return new NextResponse(csvContent, {
@@ -180,7 +180,7 @@ export async function GET(req: NextRequest) {
 
         if (format === 'csv') {
           const headers = ['Name', 'Name (French)', 'Name (Arabic)', 'Category', 'Color']
-          const rows = subjects.map(s => [
+          const rows = subjects.map((s: any) => [
             s.name,
             s.nameFr || '',
             s.nameAr || '',
@@ -190,7 +190,7 @@ export async function GET(req: NextRequest) {
 
           const csvContent = [
             headers.join(','),
-            ...rows.map(row => row.map(cell => `"${cell}"`).join(',')),
+            ...rows.map((row: any) => row.map((cell: any) => `"${cell}"`).join(',')),
           ].join('\n')
 
           return new NextResponse(csvContent, {
@@ -213,7 +213,7 @@ export async function GET(req: NextRequest) {
 
         if (format === 'csv') {
           const headers = ['Name', 'Grade', 'Capacity', 'Color']
-          const rows = classes.map(c => [
+          const rows = classes.map((c: any) => [
             c.name,
             c.grade?.name || '',
             String(c.capacity),
@@ -222,7 +222,7 @@ export async function GET(req: NextRequest) {
 
           const csvContent = [
             headers.join(','),
-            ...rows.map(row => row.map(cell => `"${cell}"`).join(',')),
+            ...rows.map((row: any) => row.map((cell: any) => `"${cell}"`).join(',')),
           ].join('\n')
 
           return new NextResponse(csvContent, {
@@ -244,7 +244,7 @@ export async function GET(req: NextRequest) {
 
         if (format === 'csv') {
           const headers = ['Name', 'Building', 'Capacity', 'Type']
-          const rows = rooms.map(r => [
+          const rows = rooms.map((r: any) => [
             r.name,
             r.building || '',
             String(r.capacity),
@@ -253,7 +253,7 @@ export async function GET(req: NextRequest) {
 
           const csvContent = [
             headers.join(','),
-            ...rows.map(row => row.map(cell => `"${cell}"`).join(',')),
+            ...rows.map((row: any) => row.map((cell: any) => `"${cell}"`).join(',')),
           ].join('\n')
 
           return new NextResponse(csvContent, {
