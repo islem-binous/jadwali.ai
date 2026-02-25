@@ -59,7 +59,7 @@ interface SchoolData {
   schoolDays: string
   periods: PeriodData[]
   tunisianSchoolId: string | null
-  tunisianSchool: { id: string; code: string; nameAr: string } | null
+  tunisianSchool: { id: string; code: string; nameAr: string; zipCode: string; governorate: { nameAr: string } } | null
 }
 
 type TunisianSchoolResult = {
@@ -833,18 +833,34 @@ export default function SettingsPage() {
                   </div>
                 )}
 
-                {/* Country */}
+                {/* Governorate / Country */}
                 <div>
                   <label className="block text-sm font-medium text-text-secondary mb-1.5">
-                    {t('settings.country')}
+                    {(school?.tunisianSchool && !pendingUnlink) || selectedTunisianSchool
+                      ? t('settings.governorate')
+                      : t('settings.country')}
                   </label>
-                  <input
-                    type="text"
-                    value={country}
-                    onChange={(e) => setCountry(e.target.value)}
-                    placeholder="Tunisia"
-                    className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none"
-                  />
+                  {(school?.tunisianSchool && !pendingUnlink) || selectedTunisianSchool ? (
+                    <div className="flex items-center gap-2 w-full rounded-lg border border-border-default bg-bg-elevated px-3 py-2 text-sm text-text-primary cursor-default">
+                      <Lock className="h-3.5 w-3.5 text-text-muted shrink-0" />
+                      <span>
+                        {selectedTunisianSchool?.governorate || school?.tunisianSchool?.governorate?.nameAr}
+                        {(selectedTunisianSchool?.zipCode || school?.tunisianSchool?.zipCode) && (
+                          <span className="text-text-muted ms-1.5 text-xs">
+                            ({selectedTunisianSchool?.zipCode || school?.tunisianSchool?.zipCode})
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  ) : (
+                    <input
+                      type="text"
+                      value={country}
+                      onChange={(e) => setCountry(e.target.value)}
+                      placeholder="Tunisia"
+                      className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none"
+                    />
+                  )}
                 </div>
 
                 {/* Timezone */}

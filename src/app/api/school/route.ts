@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
       where: { id: schoolId },
       include: {
         periods: { orderBy: { order: 'asc' } },
-        tunisianSchool: true,
+        tunisianSchool: { include: { governorate: true } },
       },
     })
 
@@ -93,7 +93,7 @@ export async function PUT(req: NextRequest) {
       data,
       include: {
         periods: { orderBy: { order: 'asc' } },
-        tunisianSchool: true,
+        tunisianSchool: { include: { governorate: true } },
       },
     })
 
