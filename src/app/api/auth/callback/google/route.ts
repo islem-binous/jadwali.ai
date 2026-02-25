@@ -64,9 +64,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/${locale}/auth/login?error=google_error&step=nonce`)
   }
 
+  let step = 'init'
   try {
     const redirectUri = `${origin}/api/auth/callback/google`
 
+    step = 'env'
     const clientId = await getEnv('GOOGLE_CLIENT_ID')
     const clientSecret = await getEnv('GOOGLE_CLIENT_SECRET')
 
@@ -76,6 +78,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Exchange code for tokens
+    step = 'token'
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -97,6 +100,7 @@ export async function GET(request: NextRequest) {
     const accessToken = tokenData.access_token
 
     // Fetch user profile
+    step = 'profile'
     const profileRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
       headers: { Authorization: `Bearer ${accessToken}` },
     })
@@ -108,9 +112,11 @@ export async function GET(request: NextRequest) {
 
     const profile: GoogleProfile = await profileRes.json()
 
+    step = 'prisma'
     const prisma = await getPrisma()
 
     // Look up existing user by email
+    step = 'db_find'
     const existingUser = await prisma.user.findUnique({
       where: { email: profile.email },
       include: {
@@ -128,6 +134,7 @@ export async function GET(request: NextRequest) {
       }
 
       // Account linking: update authId + avatar
+      step = 'db_update'
       await prisma.user.update({
         where: { id: existingUser.id },
         data: {
@@ -137,11 +144,13 @@ export async function GET(request: NextRequest) {
       })
 
       // Check subscription expiry
+      step = 'subscription'
       if (existingUser.schoolId) {
         await checkAndDowngradeExpired(existingUser.schoolId)
       }
 
       // Re-fetch school for potentially updated plan
+      step = 'cookie_login'
       const school = existingUser.school
       const authUser = {
         id: existingUser.id,
@@ -177,6 +186,7 @@ export async function GET(request: NextRequest) {
     // ── SIGNUP MODE ──
     if (existingUser) {
       // User already exists - treat as login (account linking)
+      step = 'db_update_signup'
       await prisma.user.update({
         where: { id: existingUser.id },
         data: {
@@ -185,10 +195,12 @@ export async function GET(request: NextRequest) {
         },
       })
 
+      step = 'subscription_signup'
       if (existingUser.schoolId) {
         await checkAndDowngradeExpired(existingUser.schoolId)
       }
 
+      step = 'cookie_signup'
       const school = existingUser.school
       const authUser = {
         id: existingUser.id,
@@ -221,6 +233,7 @@ export async function GET(request: NextRequest) {
     }
 
     // New user - redirect to signup page with pre-filled data
+    step = 'cookie_new'
     const googleData = {
       newUser: true,
       email: profile.email,
@@ -241,8 +254,8 @@ export async function GET(request: NextRequest) {
     response.cookies.delete('oauth_state')
     return response
   } catch (error) {
-    console.error('Google OAuth callback error:', error)
-    const response = NextResponse.redirect(`${origin}/${locale}/auth/login?error=google_error&step=exception`)
+    console.error(`Google OAuth callback error at step [${step}]:`, error)
+    const response = NextResponse.redirect(`${origin}/${locale}/auth/login?error=google_error&step=${step}`)
     response.cookies.delete('oauth_state')
     return response
   }
