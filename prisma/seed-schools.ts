@@ -26,7 +26,7 @@ function main() {
   console.log(`  Found ${gouvRows.length} governorates`)
 
   const insertGouv = db.prepare(
-    'INSERT OR REPLACE INTO Governorate (id, code, nameAr) VALUES (?, ?, ?)'
+    'INSERT INTO Governorate (id, code, nameAr) VALUES (?, ?, ?) ON CONFLICT(code) DO UPDATE SET nameAr = excluded.nameAr'
   )
 
   const insertGouvMany = db.transaction((rows: typeof gouvRows) => {
@@ -54,7 +54,7 @@ function main() {
   console.log(`  Found ${schoolRows.length} school rows`)
 
   const insertSchool = db.prepare(
-    'INSERT OR REPLACE INTO TunisianSchool (id, code, nameAr, governorateCode, zipCode) VALUES (?, ?, ?, ?, ?)'
+    'INSERT INTO TunisianSchool (id, code, nameAr, governorateCode, zipCode) VALUES (?, ?, ?, ?, ?) ON CONFLICT(code) DO UPDATE SET nameAr = excluded.nameAr, governorateCode = excluded.governorateCode, zipCode = excluded.zipCode'
   )
 
   const seen = new Set<string>()
