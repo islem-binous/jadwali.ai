@@ -541,6 +541,7 @@
     "password": "Mot de passe",
     "confirm_password": "Confirmer le mot de passe",
     "school_name": "Nom de l'établissement",
+    "school_name_placeholder": "Rechercher votre établissement...",
     "forgot_password": "Mot de passe oublié ?",
     "reset_password": "Réinitialiser le mot de passe",
     "remember_me": "Se souvenir de moi",

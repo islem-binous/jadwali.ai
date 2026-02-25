@@ -186,12 +186,25 @@ export async function POST(request: Request) {
     }
 
     // ── ADMIN SIGNUP (default) ──────────────────────────────
-    const { schoolName } = body
+    const { schoolName, tunisianSchoolId } = body
     if (!schoolName) {
       return NextResponse.json(
         { error: 'School name is required' },
         { status: 400 }
       )
+    }
+
+    // Validate tunisianSchoolId if provided
+    if (tunisianSchoolId) {
+      const tunisianSchool = await prisma.tunisianSchool.findUnique({
+        where: { id: tunisianSchoolId },
+      })
+      if (!tunisianSchool) {
+        return NextResponse.json(
+          { error: 'Selected school not found in registry' },
+          { status: 404 }
+        )
+      }
     }
 
     const slug = slugify(schoolName) + '-' + Date.now().toString(36)
@@ -202,6 +215,7 @@ export async function POST(request: Request) {
         slug,
         language: language || 'FR',
         plan: 'FREE',
+        tunisianSchoolId: tunisianSchoolId || null,
         users: {
           create: {
             authId,

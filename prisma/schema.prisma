@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  output   = "../src/generated/prisma/client"
 }
 
 datasource db {
@@ -37,6 +38,9 @@ model School {
   leaveRequests LeaveRequest[]
   payments      Payment[]
   grades        Grade[]
+
+  tunisianSchoolId String?
+  tunisianSchool   TunisianSchool? @relation(fields: [tunisianSchoolId], references: [id])
 }
 
 // ─── USERS ─────────────────────────────────────────────────
@@ -328,6 +332,24 @@ model TeacherGrade {
   grade     Grade   @relation(fields: [gradeId], references: [id])
 
   @@unique([teacherId, gradeId])
+}
+
+// ─── REFERENCE DATA (TUNISIA) ─────────────────────────────────
+model Governorate {
+  id       String           @id @default(cuid())
+  code     String           @unique
+  nameAr   String
+  schools  TunisianSchool[]
+}
+
+model TunisianSchool {
+  id              String      @id @default(cuid())
+  code            String      @unique
+  nameAr          String
+  governorateCode String
+  governorate     Governorate @relation(fields: [governorateCode], references: [code])
+  zipCode         String
+  registeredSchools School[]
 }
 
 // ─── PAYMENTS ──────────────────────────────────────────────

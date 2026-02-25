@@ -541,6 +541,7 @@
     "password": "كلمة المرور",
     "confirm_password": "تأكيد كلمة المرور",
     "school_name": "اسم المؤسسة التعليمية",
+    "school_name_placeholder": "ابحث عن مؤسستك...",
     "forgot_password": "نسيت كلمة المرور؟",
     "reset_password": "إعادة تعيين كلمة المرور",
     "remember_me": "تذكرني",

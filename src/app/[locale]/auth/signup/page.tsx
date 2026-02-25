@@ -1,13 +1,21 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import { Link, useRouter } from '@/i18n/navigation'
 import { useSearchParams } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
-import { Eye, EyeOff, Loader2, Shield, GraduationCap, BookOpen } from 'lucide-react'
+import { Eye, EyeOff, Loader2, Shield, GraduationCap, BookOpen, X } from 'lucide-react'
 
 type SignupRole = 'ADMIN' | 'TEACHER' | 'STUDENT'
+
+type TunisianSchoolResult = {
+  id: string
+  code: string
+  nameAr: string
+  governorate: string
+  zipCode: string
+}
 
 function SignupForm() {
   const t = useTranslations()
@@ -51,6 +59,65 @@ function SignupForm() {
       // Ignore parse errors
     }
   }, [isGoogleSignup])
+
+  // Tunisian school autocomplete state (for admin)
+  const [tunisianResults, setTunisianResults] = useState<TunisianSchoolResult[]>([])
+  const [selectedTunisianSchool, setSelectedTunisianSchool] = useState<TunisianSchoolResult | null>(null)
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [searchingSchools, setSearchingSchools] = useState(false)
+  const suggestionsRef = useRef<HTMLDivElement>(null)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const searchTunisianSchools = useCallback(async (query: string) => {
+    if (query.length < 2) {
+      setTunisianResults([])
+      setShowSuggestions(false)
+      return
+    }
+    setSearchingSchools(true)
+    try {
+      const res = await fetch(`/api/schools/search?q=${encodeURIComponent(query)}`)
+      if (res.ok) {
+        const data: TunisianSchoolResult[] = await res.json()
+        setTunisianResults(data)
+        setShowSuggestions(data.length > 0)
+      }
+    } catch {
+      // Silently fail — user can still type manually
+    } finally {
+      setSearchingSchools(false)
+    }
+  }, [])
+
+  function handleSchoolNameChange(value: string) {
+    setSchoolName(value)
+    setSelectedTunisianSchool(null)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => searchTunisianSchools(value), 300)
+  }
+
+  function handleSelectTunisianSchool(school: TunisianSchoolResult) {
+    setSelectedTunisianSchool(school)
+    setSchoolName(school.nameAr)
+    setShowSuggestions(false)
+    setTunisianResults([])
+  }
+
+  function handleClearTunisianSchool() {
+    setSelectedTunisianSchool(null)
+    setSchoolName('')
+  }
+
+  // Close suggestions on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (suggestionsRef.current && !suggestionsRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   // School lookup state (for teacher/student)
   const [schoolLookup, setSchoolLookup] = useState<{ id: string; name: string; classes: { id: string; name: string; grade: string | null }[] } | null>(null)
@@ -119,6 +186,7 @@ function SignupForm() {
         language: locale.toUpperCase(),
         role,
         schoolName: role === 'ADMIN' ? schoolName : undefined,
+        tunisianSchoolId: role === 'ADMIN' ? selectedTunisianSchool?.id : undefined,
         schoolId: schoolLookup?.id,
         classId: role === 'STUDENT' ? selectedClassId : undefined,
         googleId: googleId || undefined,
@@ -176,6 +244,8 @@ function SignupForm() {
                       setSchoolLookup(null)
                       setSchoolCode('')
                       setSelectedClassId('')
+                      setSelectedTunisianSchool(null)
+                      setSchoolName('')
                     }}
                     className={`flex flex-col items-center gap-1.5 rounded-lg border px-3 py-3 text-xs font-medium transition ${
                       isSelected
@@ -244,21 +314,65 @@ function SignupForm() {
               />
             </div>
 
-            {/* Admin: School Name */}
+            {/* Admin: School Name with autocomplete */}
             {role === 'ADMIN' && (
               <div>
                 <label htmlFor="school" className="mb-1.5 block text-sm font-medium text-text-secondary">
                   {t('auth.school_name')}
                 </label>
-                <input
-                  id="school"
-                  type="text"
-                  required
-                  value={schoolName}
-                  onChange={(e) => setSchoolName(e.target.value)}
-                  className={inputClass}
-                  placeholder="Lycée Ibn Khaldoun"
-                />
+                <div className="relative" ref={suggestionsRef}>
+                  {selectedTunisianSchool ? (
+                    <div className="flex items-center gap-2 rounded-md border border-accent bg-accent-dim px-3 py-2.5">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-text-primary truncate">{selectedTunisianSchool.nameAr}</p>
+                        <p className="text-xs text-text-muted">{selectedTunisianSchool.governorate} — {selectedTunisianSchool.code}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleClearTunisianSchool}
+                        className="shrink-0 text-text-muted hover:text-text-primary"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="relative">
+                        <input
+                          id="school"
+                          type="text"
+                          required
+                          value={schoolName}
+                          onChange={(e) => handleSchoolNameChange(e.target.value)}
+                          onFocus={() => tunisianResults.length > 0 && setShowSuggestions(true)}
+                          className={inputClass}
+                          placeholder={t('auth.school_name_placeholder')}
+                          autoComplete="off"
+                        />
+                        {searchingSchools && (
+                          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-text-muted" />
+                        )}
+                      </div>
+                      {showSuggestions && tunisianResults.length > 0 && (
+                        <div className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-md border border-border-default bg-bg-card shadow-lg">
+                          {tunisianResults.map((school) => (
+                            <button
+                              key={school.id}
+                              type="button"
+                              onClick={() => handleSelectTunisianSchool(school)}
+                              className="flex w-full items-start gap-2 px-3 py-2 text-start hover:bg-bg-elevated transition"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm text-text-primary truncate">{school.nameAr}</p>
+                                <p className="text-xs text-text-muted">{school.governorate} — {school.code}</p>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
             )}
 
