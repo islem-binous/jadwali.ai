@@ -50,7 +50,8 @@ function SignupForm() {
         .find((c) => c.startsWith('auth_result='))
       if (!match) return
       const value = decodeURIComponent(match.split('=')[1])
-      const data = JSON.parse(atob(value))
+      // decodeURIComponent after atob to handle Unicode (Arabic names)
+      const data = JSON.parse(decodeURIComponent(atob(value)))
       if (data.newUser) {
         setName(data.name || '')
         setEmail(data.email || '')

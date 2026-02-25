@@ -21,7 +21,8 @@ export default function AuthCallbackPage() {
       }
 
       const value = decodeURIComponent(match.split('=')[1])
-      const user = JSON.parse(atob(value))
+      // decodeURIComponent after atob to handle Unicode (Arabic names)
+      const user = JSON.parse(decodeURIComponent(atob(value)))
 
       // Store in Zustand
       setUser(user)

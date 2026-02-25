@@ -170,7 +170,8 @@ export async function GET(request: NextRequest) {
       }
 
       // Set auth result cookie (readable by client JS)
-      const cookieValue = btoa(JSON.stringify(authUser))
+      // Use encodeURIComponent before btoa to handle non-Latin1 chars (Arabic names)
+      const cookieValue = btoa(encodeURIComponent(JSON.stringify(authUser)))
       const response = NextResponse.redirect(`${origin}/${locale}/auth/callback`)
       response.cookies.set('auth_result', cookieValue, {
         httpOnly: false,
@@ -219,7 +220,7 @@ export async function GET(request: NextRequest) {
         classId: existingUser.student?.classId ?? null,
       }
 
-      const cookieValue = btoa(JSON.stringify(authUser))
+      const cookieValue = btoa(encodeURIComponent(JSON.stringify(authUser)))
       const response = NextResponse.redirect(`${origin}/${locale}/auth/callback`)
       response.cookies.set('auth_result', cookieValue, {
         httpOnly: false,
@@ -242,7 +243,7 @@ export async function GET(request: NextRequest) {
       googleId: profile.id,
     }
 
-    const cookieValue = btoa(JSON.stringify(googleData))
+    const cookieValue = btoa(encodeURIComponent(JSON.stringify(googleData)))
     const response = NextResponse.redirect(`${origin}/${locale}/auth/signup?google=true`)
     response.cookies.set('auth_result', cookieValue, {
       httpOnly: false,
