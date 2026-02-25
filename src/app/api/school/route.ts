@@ -91,7 +91,10 @@ export async function PUT(req: NextRequest) {
     const school = await prisma.school.update({
       where: { id },
       data,
-      include: { tunisianSchool: true },
+      include: {
+        periods: { orderBy: { order: 'asc' } },
+        tunisianSchool: true,
+      },
     })
 
     return NextResponse.json(school)
