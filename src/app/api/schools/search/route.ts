@@ -5,6 +5,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const q = searchParams.get('q')?.trim()
+    const excludeSchoolId = searchParams.get('excludeSchoolId')?.trim() || null
 
     if (!q || q.length < 2) {
       return NextResponse.json([])
@@ -13,9 +14,11 @@ export async function GET(request: Request) {
     const prisma = await getPrisma()
 
     const schools: any[] = await prisma.$queryRaw`
-      SELECT s.id, s.code, s."nameAr", s."zipCode", g."nameAr" as "governorate"
+      SELECT s.id, s.code, s."nameAr", s."zipCode", g."nameAr" as "governorate",
+             sch.id as "registeredSchoolId"
       FROM "TunisianSchool" s
       JOIN "Governorate" g ON g."code" = s."governorateCode"
+      LEFT JOIN "School" sch ON sch."tunisianSchoolId" = s.id
       WHERE s."nameAr" LIKE ${'%' + q + '%'}
       LIMIT 20
     `
@@ -27,6 +30,7 @@ export async function GET(request: Request) {
         nameAr: s.nameAr,
         governorate: s.governorate,
         zipCode: s.zipCode,
+        isClaimed: !!s.registeredSchoolId && s.registeredSchoolId !== excludeSchoolId,
       }))
     )
   } catch (error: any) {

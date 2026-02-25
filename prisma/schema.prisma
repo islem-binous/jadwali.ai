@@ -38,7 +38,7 @@ model School {
   payments      Payment[]
   grades        Grade[]
 
-  tunisianSchoolId String?
+  tunisianSchoolId String?         @unique
   tunisianSchool   TunisianSchool? @relation(fields: [tunisianSchoolId], references: [id])
 }
 

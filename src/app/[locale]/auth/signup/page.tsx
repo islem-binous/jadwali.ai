@@ -15,6 +15,7 @@ type TunisianSchoolResult = {
   nameAr: string
   governorate: string
   zipCode: string
+  isClaimed?: boolean
 }
 
 function SignupForm() {
@@ -359,13 +360,23 @@ function SignupForm() {
                             <button
                               key={school.id}
                               type="button"
-                              onClick={() => handleSelectTunisianSchool(school)}
-                              className="flex w-full items-start gap-2 px-3 py-2 text-start hover:bg-bg-elevated transition"
+                              disabled={school.isClaimed}
+                              onClick={() => !school.isClaimed && handleSelectTunisianSchool(school)}
+                              className={`flex w-full items-start gap-2 px-3 py-2 text-start transition ${
+                                school.isClaimed
+                                  ? 'opacity-50 cursor-not-allowed'
+                                  : 'hover:bg-bg-elevated cursor-pointer'
+                              }`}
                             >
                               <div className="min-w-0 flex-1">
                                 <p className="text-sm text-text-primary truncate">{school.nameAr}</p>
                                 <p className="text-xs text-text-muted">{school.governorate} — {school.code}</p>
                               </div>
+                              {school.isClaimed && (
+                                <span className="shrink-0 rounded bg-warning/20 px-1.5 py-0.5 text-[10px] font-medium text-warning">
+                                  {t('auth.school_already_registered')}
+                                </span>
+                              )}
                             </button>
                           ))}
                         </div>

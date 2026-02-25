@@ -318,6 +318,10 @@
     "school_code_desc": "Partagez ce code avec les enseignants et les élèves pour qu'ils puissent rejoindre votre établissement lors de l'inscription.",
     "copy": "Copier",
     "copied": "Copié !",
+    "linked_school": "Établissement lié",
+    "linked_school_desc": "Lier au registre officiel. Le code et le nom se mettent à jour automatiquement.",
+    "search_school_placeholder": "Rechercher un établissement...",
+    "school_already_registered": "Déjà enregistré",
     "country": "Pays",
     "timezone": "Fuseau horaire",
     "language": "Langue par défaut",
@@ -559,7 +563,8 @@
     "school_not_found": "École introuvable. Vérifiez le code et réessayez.",
     "google_no_account": "Aucun compte trouvé avec cet e-mail Google. Veuillez vous inscrire d'abord.",
     "google_denied": "La connexion Google a été annulée.",
-    "google_error": "Une erreur est survenue avec la connexion Google. Veuillez réessayer."
+    "google_error": "Une erreur est survenue avec la connexion Google. Veuillez réessayer.",
+    "school_already_registered": "Déjà enregistré"
   },
   "help": {
     "title": "Centre d'aide",

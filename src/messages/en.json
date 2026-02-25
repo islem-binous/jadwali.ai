@@ -318,6 +318,10 @@
     "school_code_desc": "Share this code with teachers and students so they can join your school during signup.",
     "copy": "Copy",
     "copied": "Copied!",
+    "linked_school": "Linked School",
+    "linked_school_desc": "Link to official registry. Code and name update automatically.",
+    "search_school_placeholder": "Search schools...",
+    "school_already_registered": "Already registered",
     "country": "Country",
     "timezone": "Timezone",
     "language": "Default Language",
@@ -559,7 +563,8 @@
     "school_not_found": "School not found. Check the code and try again.",
     "google_no_account": "No account found with this Google email. Please sign up first.",
     "google_denied": "Google sign-in was cancelled.",
-    "google_error": "Something went wrong with Google sign-in. Please try again."
+    "google_error": "Something went wrong with Google sign-in. Please try again.",
+    "school_already_registered": "Already registered"
   },
   "help": {
     "title": "Help Center",

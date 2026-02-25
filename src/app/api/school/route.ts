@@ -11,7 +11,10 @@ export async function GET(req: NextRequest) {
     const prisma = await getPrisma()
     const school = await prisma.school.findUnique({
       where: { id: schoolId },
-      include: { periods: { orderBy: { order: 'asc' } } },
+      include: {
+        periods: { orderBy: { order: 'asc' } },
+        tunisianSchool: true,
+      },
     })
 
     if (!school) {
@@ -32,22 +35,63 @@ export async function PUT(req: NextRequest) {
   try {
     const prisma = await getPrisma()
     const body = await req.json()
-    const { id, name, country, timezone, language, schoolDays } = body
+    const { id, name, country, timezone, language, schoolDays, tunisianSchoolId } = body
 
     if (!id) {
       return NextResponse.json({ error: 'Missing school id' }, { status: 400 })
     }
 
     const data: Record<string, unknown> = {}
-    if (name !== undefined) data.name = name
     if (country !== undefined) data.country = country
     if (timezone !== undefined) data.timezone = timezone
     if (language !== undefined) data.language = language
     if (schoolDays !== undefined) data.schoolDays = JSON.stringify(schoolDays)
 
+    // Handle TunisianSchool linking/unlinking
+    if (tunisianSchoolId !== undefined) {
+      if (tunisianSchoolId === null) {
+        // Unlinking: clear the link, keep current slug
+        data.tunisianSchoolId = null
+        if (name !== undefined) data.name = name
+      } else {
+        // Linking or changing linked school
+        const tunisianSchool = await prisma.tunisianSchool.findUnique({
+          where: { id: tunisianSchoolId },
+        })
+        if (!tunisianSchool) {
+          return NextResponse.json(
+            { error: 'Selected school not found in registry' },
+            { status: 404 }
+          )
+        }
+        // Check not claimed by another school
+        const existingSchool = await prisma.school.findUnique({
+          where: { tunisianSchoolId },
+        })
+        if (existingSchool && existingSchool.id !== id) {
+          return NextResponse.json(
+            { error: 'This school is already registered' },
+            { status: 409 }
+          )
+        }
+        data.tunisianSchoolId = tunisianSchoolId
+        data.slug = tunisianSchool.code
+        data.name = tunisianSchool.nameAr
+      }
+    } else {
+      // No tunisianSchoolId in request — allow name change only if not linked
+      if (name !== undefined) {
+        const currentSchool = await prisma.school.findUnique({ where: { id } })
+        if (currentSchool && !currentSchool.tunisianSchoolId) {
+          data.name = name
+        }
+      }
+    }
+
     const school = await prisma.school.update({
       where: { id },
       data,
+      include: { tunisianSchool: true },
     })
 
     return NextResponse.json(school)

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useTranslations } from 'next-intl'
 import { useUserStore } from '@/store/userStore'
 import {
@@ -26,6 +26,9 @@ import {
   BookOpen,
   Copy,
   Check,
+  Search,
+  Link2,
+  Unlink,
 } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
@@ -55,6 +58,17 @@ interface SchoolData {
   language: string
   schoolDays: string
   periods: PeriodData[]
+  tunisianSchoolId: string | null
+  tunisianSchool: { id: string; code: string; nameAr: string } | null
+}
+
+type TunisianSchoolResult = {
+  id: string
+  code: string
+  nameAr: string
+  governorate: string
+  zipCode: string
+  isClaimed?: boolean
 }
 
 const TIMEZONES = [
@@ -199,6 +213,16 @@ export default function SettingsPage() {
   const [allTeachers, setAllTeachers] = useState<TeacherItem[]>([])
   const [gradeSaving, setGradeSaving] = useState(false)
 
+  // Tunisian school search state
+  const [schoolSearchQuery, setSchoolSearchQuery] = useState('')
+  const [tunisianResults, setTunisianResults] = useState<TunisianSchoolResult[]>([])
+  const [selectedTunisianSchool, setSelectedTunisianSchool] = useState<TunisianSchoolResult | null>(null)
+  const [pendingUnlink, setPendingUnlink] = useState(false)
+  const [showSchoolSuggestions, setShowSchoolSuggestions] = useState(false)
+  const [searchingSchools, setSearchingSchools] = useState(false)
+  const suggestionsRef = useRef<HTMLDivElement>(null)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   // School code copy state
   const [codeCopied, setCodeCopied] = useState(false)
 
@@ -234,6 +258,59 @@ export default function SettingsPage() {
     },
     []
   )
+
+  // Click-outside handler for school suggestions
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (suggestionsRef.current && !suggestionsRef.current.contains(e.target as Node)) {
+        setShowSchoolSuggestions(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // Search Tunisian schools (debounced)
+  const searchTunisianSchools = useCallback(async (query: string) => {
+    if (query.length < 2) {
+      setTunisianResults([])
+      setShowSchoolSuggestions(false)
+      return
+    }
+    setSearchingSchools(true)
+    try {
+      const excludeParam = school?.id ? `&excludeSchoolId=${school.id}` : ''
+      const res = await fetch(`/api/schools/search?q=${encodeURIComponent(query)}${excludeParam}`)
+      if (res.ok) {
+        const data: TunisianSchoolResult[] = await res.json()
+        setTunisianResults(data)
+        setShowSchoolSuggestions(data.length > 0)
+      }
+    } catch {
+      // Silently fail
+    } finally {
+      setSearchingSchools(false)
+    }
+  }, [school?.id])
+
+  function handleSchoolSearchChange(value: string) {
+    setSchoolSearchQuery(value)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => searchTunisianSchools(value), 300)
+  }
+
+  function handleSelectTunisianSchool(ts: TunisianSchoolResult) {
+    setSelectedTunisianSchool(ts)
+    setPendingUnlink(false)
+    setSchoolSearchQuery('')
+    setShowSchoolSuggestions(false)
+    setTunisianResults([])
+  }
+
+  function handleUnlinkSchool() {
+    setSelectedTunisianSchool(null)
+    setPendingUnlink(true)
+  }
 
   // Fetch school data
   useEffect(() => {
@@ -271,19 +348,33 @@ export default function SettingsPage() {
     setSaveSuccess(false)
 
     try {
+      const payload: Record<string, unknown> = {
+        id: school.id,
+        name: schoolName,
+        country: country || null,
+        timezone,
+        language,
+      }
+
+      // Handle linking/unlinking Tunisian school
+      if (selectedTunisianSchool) {
+        payload.tunisianSchoolId = selectedTunisianSchool.id
+      } else if (pendingUnlink) {
+        payload.tunisianSchoolId = null
+      }
+
       const res = await fetch('/api/school', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: school.id,
-          name: schoolName,
-          country: country || null,
-          timezone,
-          language,
-        }),
+        body: JSON.stringify(payload),
       })
 
       if (res.ok) {
+        const updatedSchool = await res.json()
+        setSchool(updatedSchool)
+        setSchoolName(updatedSchool.name)
+        setSelectedTunisianSchool(null)
+        setPendingUnlink(false)
         setSaveSuccess(true)
         setTimeout(() => setSaveSuccess(false), 3000)
         // Switch locale if language changed
@@ -604,12 +695,19 @@ export default function SettingsPage() {
                   <label className="block text-sm font-medium text-text-secondary mb-1.5">
                     {t('settings.school_name')}
                   </label>
-                  <input
-                    type="text"
-                    value={schoolName}
-                    onChange={(e) => setSchoolName(e.target.value)}
-                    className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
-                  />
+                  {(school?.tunisianSchoolId && !pendingUnlink) || selectedTunisianSchool ? (
+                    <div className="flex items-center gap-2 w-full rounded-lg border border-border-default bg-bg-elevated px-3 py-2 text-sm text-text-primary cursor-default">
+                      <Lock className="h-3.5 w-3.5 text-text-muted shrink-0" />
+                      <span>{selectedTunisianSchool ? selectedTunisianSchool.nameAr : schoolName}</span>
+                    </div>
+                  ) : (
+                    <input
+                      type="text"
+                      value={schoolName}
+                      onChange={(e) => setSchoolName(e.target.value)}
+                      className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
+                    />
+                  )}
                 </div>
 
                 {/* School Code */}
@@ -641,6 +739,92 @@ export default function SettingsPage() {
                     <p className="mt-1.5 text-xs text-text-muted">
                       {t('settings.school_code_desc')}
                     </p>
+                  </div>
+                )}
+
+                {/* Linked School */}
+                {adminUser && (
+                  <div>
+                    <label className="block text-sm font-medium text-text-secondary mb-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <Link2 className="h-3.5 w-3.5" />
+                        {t('settings.linked_school')}
+                      </div>
+                    </label>
+                    <p className="text-xs text-text-muted mb-2">
+                      {t('settings.linked_school_desc')}
+                    </p>
+
+                    {/* Current linked school chip */}
+                    {((school?.tunisianSchool && !pendingUnlink) || selectedTunisianSchool) && (
+                      <div className="flex items-center gap-2 mb-2 rounded-lg border border-accent/30 bg-accent-dim px-3 py-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-text-primary truncate">
+                            {selectedTunisianSchool?.nameAr || school?.tunisianSchool?.nameAr}
+                          </p>
+                          <p className="text-xs text-text-muted">
+                            {selectedTunisianSchool?.code || school?.tunisianSchool?.code}
+                            {selectedTunisianSchool?.governorate && ` — ${selectedTunisianSchool.governorate}`}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleUnlinkSchool}
+                          className="shrink-0 rounded-md p-1 text-text-muted hover:text-error hover:bg-error/10 transition"
+                          title="Unlink"
+                        >
+                          <Unlink className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Search input */}
+                    <div className="relative" ref={suggestionsRef}>
+                      <div className="relative">
+                        <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
+                        <input
+                          type="text"
+                          value={schoolSearchQuery}
+                          onChange={(e) => handleSchoolSearchChange(e.target.value)}
+                          placeholder={t('settings.search_school_placeholder')}
+                          className="w-full rounded-lg border border-border-default bg-bg-surface py-2 pe-3 ps-9 text-sm text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none"
+                        />
+                        {searchingSchools && (
+                          <Loader2 className="absolute end-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-text-muted" />
+                        )}
+                      </div>
+
+                      {/* Suggestions dropdown */}
+                      {showSchoolSuggestions && tunisianResults.length > 0 && (
+                        <div className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-md border border-border-default bg-bg-card shadow-lg">
+                          {tunisianResults.map((ts) => (
+                            <button
+                              key={ts.id}
+                              type="button"
+                              disabled={ts.isClaimed}
+                              onClick={() => !ts.isClaimed && handleSelectTunisianSchool(ts)}
+                              className={`flex w-full items-start gap-2 px-3 py-2 text-start transition ${
+                                ts.isClaimed
+                                  ? 'opacity-50 cursor-not-allowed'
+                                  : 'hover:bg-bg-elevated cursor-pointer'
+                              }`}
+                            >
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm text-text-primary truncate">{ts.nameAr}</p>
+                                <p className="text-xs text-text-muted">
+                                  {ts.governorate} — {ts.code}
+                                </p>
+                              </div>
+                              {ts.isClaimed && (
+                                <span className="shrink-0 rounded bg-warning/20 px-1.5 py-0.5 text-[10px] font-medium text-warning">
+                                  {t('settings.school_already_registered')}
+                                </span>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
 

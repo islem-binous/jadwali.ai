@@ -195,8 +195,9 @@ export async function POST(request: Request) {
     }
 
     // Validate tunisianSchoolId if provided
+    let tunisianSchool: any = null
     if (tunisianSchoolId) {
-      const tunisianSchool = await prisma.tunisianSchool.findUnique({
+      tunisianSchool = await prisma.tunisianSchool.findUnique({
         where: { id: tunisianSchoolId },
       })
       if (!tunisianSchool) {
@@ -205,9 +206,22 @@ export async function POST(request: Request) {
           { status: 404 }
         )
       }
+      // Check if another school already registered with this TunisianSchool
+      const existingSchool = await prisma.school.findUnique({
+        where: { tunisianSchoolId },
+      })
+      if (existingSchool) {
+        return NextResponse.json(
+          { error: 'This school is already registered' },
+          { status: 409 }
+        )
+      }
     }
 
-    const slug = slugify(schoolName) + '-' + Date.now().toString(36)
+    // Use official code for Tunisian schools, random slug for custom schools
+    const slug = tunisianSchool
+      ? tunisianSchool.code
+      : slugify(schoolName) + '-' + Date.now().toString(36)
 
     const school = await prisma.school.create({
       data: {
