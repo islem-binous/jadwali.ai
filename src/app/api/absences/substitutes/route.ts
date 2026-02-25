@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
       include: { subject: true, period: true },
     })
 
-    const affectedSlots = affectedLessons.map((l) => ({
+    const affectedSlots = affectedLessons.map((l: { dayOfWeek: number; periodId: string; subjectId: string }) => ({
       dayOfWeek: l.dayOfWeek,
       periodId: l.periodId,
       subjectId: l.subjectId,
