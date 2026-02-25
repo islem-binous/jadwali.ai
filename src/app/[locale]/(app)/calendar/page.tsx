@@ -1,7 +1,8 @@
 'use client'
 
 import React, { useCallback, useEffect, useState } from 'react'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
+import { getLocalizedName } from '@/lib/locale-name'
 import { Plus, CalendarDays, Pencil, Trash2, Star, Upload } from 'lucide-react'
 import { useUserStore } from '@/store/userStore'
 import { isAdmin as checkIsAdmin } from '@/lib/permissions'
@@ -64,12 +65,13 @@ const TYPE_TRANSLATION_MAP: Record<string, string> = {
   OTHER: 'calendar.event_type_other',
 }
 
-function formatDateRange(start: string, end: string): string {
+function formatDateRange(start: string, end: string, locale = 'en'): string {
   const s = new Date(start)
   const e = new Date(end)
+  const loc = locale === 'ar' ? 'ar-TN' : locale === 'fr' ? 'fr-FR' : 'en-US'
   const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' }
-  const startStr = s.toLocaleDateString('en-US', opts)
-  const endStr = e.toLocaleDateString('en-US', opts)
+  const startStr = s.toLocaleDateString(loc, opts)
+  const endStr = e.toLocaleDateString(loc, opts)
   return startStr === endStr ? startStr : `${startStr} - ${endStr}`
 }
 
@@ -105,10 +107,18 @@ function dateInRange(date: Date, startStr: string, endStr: string) {
 
 export default function CalendarPage() {
   const t = useTranslations()
+  const locale = useLocale()
   const toast = useToast()
   const user = useUserStore((s) => s.user)
   const schoolId = user?.schoolId
   const adminUser = checkIsAdmin(user?.role || '')
+
+  // Locale-aware event title
+  const getEventTitle = (ev: SchoolEventData) =>
+    getLocalizedName(
+      { name: ev.title, nameAr: ev.titleAr, nameFr: ev.titleFr },
+      locale
+    )
 
   // Calendar state
   const [currentMonth, setCurrentMonth] = useState(() => new Date())
@@ -266,7 +276,7 @@ export default function CalendarPage() {
     (h) => !events.some((e) => e.id === h.id)
   )].map((ev) => ({
     id: ev.id,
-    title: ev.title,
+    title: getEventTitle(ev),
     startDate: ev.startDate,
     endDate: ev.endDate,
     colorHex: ev.colorHex,
@@ -395,7 +405,7 @@ export default function CalendarPage() {
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
                             <h3 className="text-sm font-semibold text-text-primary">
-                              {ev.title}
+                              {getEventTitle(ev)}
                             </h3>
                             <Badge variant={badgeVariant} size="sm">
                               {t(
@@ -406,7 +416,7 @@ export default function CalendarPage() {
                           </div>
 
                           <p className="mt-1 text-xs text-text-muted">
-                            {formatDateRange(ev.startDate, ev.endDate)}
+                            {formatDateRange(ev.startDate, ev.endDate, locale)}
                           </p>
 
                           {ev.description && (
@@ -489,10 +499,10 @@ export default function CalendarPage() {
                 />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-text-primary">
-                    {h.title}
+                    {getEventTitle(h)}
                   </p>
                   <p className="text-xs text-text-muted">
-                    {formatDateRange(h.startDate, h.endDate)}
+                    {formatDateRange(h.startDate, h.endDate, locale)}
                   </p>
                 </div>
                 {adminUser && (
@@ -543,7 +553,7 @@ export default function CalendarPage() {
               {t('app.delete')}
             </h3>
             <p className="mt-2 text-sm text-text-secondary">
-              {deleteTarget.title}
+              {getEventTitle(deleteTarget)}
             </p>
             <div className="mt-5 flex gap-3">
               <Button
