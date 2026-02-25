@@ -1,8 +1,8 @@
 'use client'
 
 import React, { useCallback, useEffect, useState } from 'react'
-import { useTranslations } from 'next-intl'
-import { Plus, Database, Pencil, Trash2, Download, Upload } from 'lucide-react'
+import { useTranslations, useLocale } from 'next-intl'
+import { Plus, Database, Pencil, Trash2, Download, Upload, Loader2 } from 'lucide-react'
 import { useUserStore } from '@/store/userStore'
 import { Button } from '@/components/ui/Button'
 import { FilterPill } from '@/components/ui/FilterPill'
@@ -108,6 +108,19 @@ export default function ResourcesPage() {
   const [editingItem, setEditingItem] = useState<ClassData | RoomData | SubjectData | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string; tab: Tab } | null>(null)
   const [showImportModal, setShowImportModal] = useState(false)
+
+  // Tunisian subjects reference loading
+  const locale = useLocale()
+  interface TunisianSubjectRef {
+    id: string; code: string; nameAr: string; nameFr: string | null; nameEn: string | null
+    sessionTypeCode: number; sessionType: { code: number; nameAr: string; nameFr: string | null; nameEn: string | null }
+  }
+  const [showTunisianSubjectsModal, setShowTunisianSubjectsModal] = useState(false)
+  const [tunisianSubjects, setTunisianSubjects] = useState<TunisianSubjectRef[]>([])
+  const [tunisianSessionTypes, setTunisianSessionTypes] = useState<{ code: number; nameAr: string; nameFr: string | null; nameEn: string | null }[]>([])
+  const [selectedTunisianSubjects, setSelectedTunisianSubjects] = useState<Set<string>>(new Set())
+  const [tunisianSubjectsLoading, setTunisianSubjectsLoading] = useState(false)
+  const [tunisianSubjectsImporting, setTunisianSubjectsImporting] = useState(false)
 
   /* ---------------------------------------------------------------- */
   /*  Data Fetching                                                    */
@@ -273,6 +286,58 @@ export default function ResourcesPage() {
   }
 
   /* ---------------------------------------------------------------- */
+  /*  Tunisian Subjects Reference                                      */
+  /* ---------------------------------------------------------------- */
+
+  const getLocaleName = (row: { nameAr: string; nameFr?: string | null; nameEn?: string | null }) => {
+    if (locale === 'fr' && row.nameFr) return row.nameFr
+    if (locale === 'en' && row.nameEn) return row.nameEn
+    return row.nameAr
+  }
+
+  const openTunisianSubjectsModal = async () => {
+    setShowTunisianSubjectsModal(true)
+    setSelectedTunisianSubjects(new Set())
+    setTunisianSubjectsLoading(true)
+    try {
+      const res = await fetch('/api/reference/tunisian')
+      if (res.ok) {
+        const data = await res.json()
+        setTunisianSubjects(data.subjects || [])
+        setTunisianSessionTypes(data.sessionTypes || [])
+      }
+    } catch { /* silent */ }
+    finally { setTunisianSubjectsLoading(false) }
+  }
+
+  const handleImportTunisianSubjects = async () => {
+    if (!schoolId || selectedTunisianSubjects.size === 0) return
+    setTunisianSubjectsImporting(true)
+    try {
+      const items = tunisianSubjects
+        .filter(s => selectedTunisianSubjects.has(s.code))
+        .map(s => ({ code: s.code, nameAr: s.nameAr, nameFr: s.nameFr, nameEn: s.nameEn, sessionTypeCode: s.sessionTypeCode }))
+      const res = await fetch('/api/reference/tunisian/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'subjects', schoolId, items }),
+      })
+      if (res.ok) {
+        const { created, skipped } = await res.json()
+        toast.success(t('resources.subjects_loaded', { created, skipped }))
+        setShowTunisianSubjectsModal(false)
+        fetchSubjects()
+      } else {
+        toast.error('Failed to import subjects')
+      }
+    } catch { toast.error('Failed to import subjects') }
+    finally { setTunisianSubjectsImporting(false) }
+  }
+
+  const subjectAlreadyExists = (s: TunisianSubjectRef) =>
+    subjects.some(es => es.nameAr?.toLowerCase() === s.nameAr.toLowerCase() || es.name.toLowerCase() === (s.nameFr || s.nameAr).toLowerCase())
+
+  /* ---------------------------------------------------------------- */
   /*  Add button label                                                 */
   /* ---------------------------------------------------------------- */
 
@@ -295,6 +360,12 @@ export default function ResourcesPage() {
           {t('resources.title')}
         </h1>
         <div className="flex items-center gap-2">
+          {activeTab === 'subjects' && (
+            <Button variant="ghost" size="sm" onClick={openTunisianSubjectsModal}>
+              <Database size={14} />
+              {t('resources.load_official_subjects')}
+            </Button>
+          )}
           <Button variant="ghost" size="sm" onClick={() => triggerExport({ type: activeTab, schoolId: schoolId! })}>
             <Download size={14} />
             {t('app.export')}
@@ -404,6 +475,128 @@ export default function ResourcesPage() {
           else fetchSubjects()
         }}
       />
+
+      {/* Tunisian Subjects Modal */}
+      <Modal
+        open={showTunisianSubjectsModal}
+        onClose={() => setShowTunisianSubjectsModal(false)}
+        title={t('resources.load_official_subjects')}
+        size="lg"
+      >
+        <div className="pt-2">
+          <p className="text-sm text-text-muted mb-4">{t('resources.load_official_subjects_desc')}</p>
+
+          {tunisianSubjectsLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-accent" />
+            </div>
+          ) : (
+            <>
+              {/* Select All / Deselect All */}
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs text-text-muted">
+                  {selectedTunisianSubjects.size} selected
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const available = tunisianSubjects.filter(s => !subjectAlreadyExists(s))
+                    if (selectedTunisianSubjects.size === available.length) {
+                      setSelectedTunisianSubjects(new Set())
+                    } else {
+                      setSelectedTunisianSubjects(new Set(available.map(s => s.code)))
+                    }
+                  }}
+                  className="text-xs font-medium text-accent hover:text-accent-hover transition"
+                >
+                  {selectedTunisianSubjects.size > 0 ? t('settings.deselect_all') : t('settings.select_all')}
+                </button>
+              </div>
+
+              {/* Subjects grouped by session type */}
+              <div className="max-h-[50vh] overflow-y-auto space-y-4 rounded-lg border border-border-subtle p-3">
+                {tunisianSessionTypes.map(st => {
+                  const groupSubjects = tunisianSubjects.filter(s => s.sessionTypeCode === st.code)
+                  if (groupSubjects.length === 0) return null
+                  return (
+                    <div key={st.code}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
+                          {getLocaleName(st)}
+                        </span>
+                        <span className="text-[10px] text-text-muted">({groupSubjects.length})</span>
+                      </div>
+                      <div className="space-y-1">
+                        {groupSubjects.map(s => {
+                          const alreadyExists = subjectAlreadyExists(s)
+                          const isSelected = selectedTunisianSubjects.has(s.code)
+                          return (
+                            <button
+                              key={s.code}
+                              type="button"
+                              disabled={alreadyExists}
+                              onClick={() => {
+                                setSelectedTunisianSubjects(prev => {
+                                  const next = new Set(prev)
+                                  if (next.has(s.code)) next.delete(s.code)
+                                  else next.add(s.code)
+                                  return next
+                                })
+                              }}
+                              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-start transition ${
+                                alreadyExists
+                                  ? 'opacity-50 cursor-not-allowed'
+                                  : isSelected
+                                    ? 'bg-accent/10 border border-accent/30'
+                                    : 'hover:bg-bg-surface2 border border-transparent'
+                              }`}
+                            >
+                              <div className={`h-4 w-4 shrink-0 rounded border flex items-center justify-center ${
+                                alreadyExists
+                                  ? 'border-border-default bg-bg-surface'
+                                  : isSelected
+                                    ? 'border-accent bg-accent'
+                                    : 'border-border-default bg-bg-surface'
+                              }`}>
+                                {(isSelected || alreadyExists) && <span className="text-[10px] text-white font-bold">✓</span>}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-text-primary truncate">{getLocaleName(s)}</p>
+                                {locale !== 'ar' && (
+                                  <p className="text-xs text-text-muted truncate">{s.nameAr}</p>
+                                )}
+                              </div>
+                              {alreadyExists && (
+                                <span className="shrink-0 rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-medium text-success">{t('settings.already_added')}</span>
+                              )}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Footer */}
+              <div className="flex justify-end gap-3 pt-4">
+                <Button variant="secondary" size="md" onClick={() => setShowTunisianSubjectsModal(false)}>
+                  {t('app.cancel')}
+                </Button>
+                <Button
+                  variant="primary"
+                  size="md"
+                  onClick={handleImportTunisianSubjects}
+                  disabled={selectedTunisianSubjects.size === 0 || tunisianSubjectsImporting}
+                >
+                  {tunisianSubjectsImporting && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {t('settings.load_selected', { count: selectedTunisianSubjects.size })}
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      </Modal>
 
       {/* Delete Confirmation Modal */}
       {deleteTarget && (

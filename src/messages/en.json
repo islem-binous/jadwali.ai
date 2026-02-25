@@ -374,7 +374,15 @@
     "select_teachers": "Select teachers who can teach this grade",
     "applicable_days": "Active Days",
     "applicable_days_hint": "Select which days this period is active. Leave all selected for every school day.",
-    "all_days_active": "Active on all school days"
+    "all_days_active": "Active on all school days",
+    "load_official_grades": "Load Official Grades",
+    "load_official_grades_desc": "Select official Tunisian grade levels to add to your school",
+    "already_added": "Already added",
+    "select_all": "Select All",
+    "deselect_all": "Deselect All",
+    "load_selected": "Load {count} Selected",
+    "grades_loaded": "{created} grades loaded, {skipped} skipped",
+    "loading_reference": "Loading reference data..."
   },
   "billing": {
     "title": "Billing & Plan",
@@ -473,7 +481,11 @@
     "empty_classes": "No classes yet",
     "empty_rooms": "No rooms yet",
     "empty_subjects": "No subjects yet",
-    "confirm_delete": "Are you sure you want to delete this item?"
+    "confirm_delete": "Are you sure you want to delete this item?",
+    "load_official_subjects": "Load Official Subjects",
+    "load_official_subjects_desc": "Select official Tunisian subjects to add to your school",
+    "subjects_loaded": "{created} subjects loaded, {skipped} skipped",
+    "session_type": "Session Type"
   },
   "reports": {
     "title": "Reports & Analytics",

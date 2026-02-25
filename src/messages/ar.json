@@ -374,7 +374,15 @@
     "select_teachers": "اختر المعلمين الذين يمكنهم تدريس هذا المستوى",
     "applicable_days": "الأيام الفعّالة",
     "applicable_days_hint": "اختر الأيام التي تكون فيها هذه الحصة فعّالة. اترك الكل محدداً لجميع أيام الدراسة.",
-    "all_days_active": "فعّالة في جميع أيام الدراسة"
+    "all_days_active": "فعّالة في جميع أيام الدراسة",
+    "load_official_grades": "تحميل المستويات الرسمية",
+    "load_official_grades_desc": "اختر المستويات الدراسية التونسية لإضافتها إلى مدرستك",
+    "already_added": "تمت الإضافة",
+    "select_all": "تحديد الكل",
+    "deselect_all": "إلغاء تحديد الكل",
+    "load_selected": "تحميل {count} مختارة",
+    "grades_loaded": "تم تحميل {created} مستويات، تم تجاهل {skipped}",
+    "loading_reference": "جاري تحميل البيانات المرجعية..."
   },
   "billing": {
     "title": "الفواتير والاشتراك",
@@ -473,7 +481,11 @@
     "empty_classes": "لا توجد فصول",
     "empty_rooms": "لا توجد غرف",
     "empty_subjects": "لا توجد مواد",
-    "confirm_delete": "هل أنت متأكد من حذف هذا العنصر؟"
+    "confirm_delete": "هل أنت متأكد من حذف هذا العنصر؟",
+    "load_official_subjects": "تحميل المواد الرسمية",
+    "load_official_subjects_desc": "اختر المواد التونسية لإضافتها إلى مدرستك",
+    "subjects_loaded": "تم تحميل {created} مواد، تم تجاهل {skipped}",
+    "session_type": "نوع الحصة"
   },
   "reports": {
     "title": "التقارير والتحليلات",

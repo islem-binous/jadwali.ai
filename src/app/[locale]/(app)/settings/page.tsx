@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import { useUserStore } from '@/store/userStore'
 import {
   Building2,
@@ -213,6 +213,15 @@ export default function SettingsPage() {
   const [allSubjects, setAllSubjects] = useState<SubjectItem[]>([])
   const [allTeachers, setAllTeachers] = useState<TeacherItem[]>([])
   const [gradeSaving, setGradeSaving] = useState(false)
+
+  // Tunisian grades reference loading
+  interface TunisianGradeRef { id: string; code: string; nameAr: string; nameFr: string | null; nameEn: string | null }
+  const [showTunisianGradesModal, setShowTunisianGradesModal] = useState(false)
+  const [tunisianGrades, setTunisianGrades] = useState<TunisianGradeRef[]>([])
+  const [selectedTunisianGrades, setSelectedTunisianGrades] = useState<Set<string>>(new Set())
+  const [tunisianGradesLoading, setTunisianGradesLoading] = useState(false)
+  const [tunisianGradesImporting, setTunisianGradesImporting] = useState(false)
+  const locale = useLocale()
 
   // Tunisian school search state
   const [schoolSearchQuery, setSchoolSearchQuery] = useState('')
@@ -588,6 +597,50 @@ export default function SettingsPage() {
       if (res.ok) { toast.success('Grade deleted'); fetchGrades() }
       else toast.error('Failed to delete')
     } catch { toast.error('Failed to delete grade') }
+  }
+
+  const getLocaleName = (row: { nameAr: string; nameFr?: string | null; nameEn?: string | null }) => {
+    if (locale === 'fr' && row.nameFr) return row.nameFr
+    if (locale === 'en' && row.nameEn) return row.nameEn
+    return row.nameAr
+  }
+
+  const openTunisianGradesModal = async () => {
+    setShowTunisianGradesModal(true)
+    setSelectedTunisianGrades(new Set())
+    setTunisianGradesLoading(true)
+    try {
+      const res = await fetch('/api/reference/tunisian')
+      if (res.ok) {
+        const data = await res.json()
+        setTunisianGrades(data.grades || [])
+      }
+    } catch { /* silent */ }
+    finally { setTunisianGradesLoading(false) }
+  }
+
+  const handleImportTunisianGrades = async () => {
+    if (!school || selectedTunisianGrades.size === 0) return
+    setTunisianGradesImporting(true)
+    try {
+      const items = tunisianGrades
+        .filter(g => selectedTunisianGrades.has(g.code))
+        .map(g => ({ code: g.code, nameAr: g.nameAr, nameFr: g.nameFr, nameEn: g.nameEn }))
+      const res = await fetch('/api/reference/tunisian/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'grades', schoolId: school.id, items }),
+      })
+      if (res.ok) {
+        const { created, skipped } = await res.json()
+        toast.success(t('settings.grades_loaded', { created, skipped }))
+        setShowTunisianGradesModal(false)
+        fetchGrades()
+      } else {
+        toast.error('Failed to import grades')
+      }
+    } catch { toast.error('Failed to import grades') }
+    finally { setTunisianGradesImporting(false) }
   }
 
   // Load substitute settings from localStorage
@@ -1249,6 +1302,13 @@ export default function SettingsPage() {
               <p className="text-sm text-text-muted">{t('settings.grades_desc')}</p>
               <div className="flex items-center gap-2">
                 <button
+                  onClick={openTunisianGradesModal}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-accent/30 bg-accent/5 px-3 py-2 text-sm font-medium text-accent hover:bg-accent/10 transition"
+                >
+                  <Database className="h-4 w-4" />
+                  {t('settings.load_official_grades')}
+                </button>
+                <button
                   onClick={() => setImportType('grades')}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm font-medium text-text-primary hover:bg-bg-surface2 transition"
                 >
@@ -1457,7 +1517,118 @@ export default function SettingsPage() {
             </button>
           </div>
         </div>
-      </Modal></>)}
+      </Modal>
+
+      {/* Tunisian Grades Modal */}
+      <Modal
+        open={showTunisianGradesModal}
+        onClose={() => setShowTunisianGradesModal(false)}
+        title={t('settings.load_official_grades')}
+        size="lg"
+      >
+        <div className="pt-2">
+          <p className="text-sm text-text-muted mb-4">{t('settings.load_official_grades_desc')}</p>
+
+          {tunisianGradesLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-accent" />
+              <span className="ml-2 text-sm text-text-muted">{t('settings.loading_reference')}</span>
+            </div>
+          ) : (
+            <>
+              {/* Select All / Deselect All */}
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs text-text-muted">
+                  {selectedTunisianGrades.size} / {tunisianGrades.filter(g => !grades.some(eg => eg.nameAr?.toLowerCase() === g.nameAr.toLowerCase() || eg.name.toLowerCase() === (g.nameFr || g.nameAr).toLowerCase())).length} {t('app.rows_new', { count: '' }).trim()}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const available = tunisianGrades.filter(g => !grades.some(eg => eg.nameAr?.toLowerCase() === g.nameAr.toLowerCase() || eg.name.toLowerCase() === (g.nameFr || g.nameAr).toLowerCase()))
+                    if (selectedTunisianGrades.size === available.length) {
+                      setSelectedTunisianGrades(new Set())
+                    } else {
+                      setSelectedTunisianGrades(new Set(available.map(g => g.code)))
+                    }
+                  }}
+                  className="text-xs font-medium text-accent hover:text-accent-hover transition"
+                >
+                  {selectedTunisianGrades.size > 0 ? t('settings.deselect_all') : t('settings.select_all')}
+                </button>
+              </div>
+
+              {/* Grade list */}
+              <div className="max-h-[50vh] overflow-y-auto space-y-1 rounded-lg border border-border-subtle p-2">
+                {tunisianGrades.map(g => {
+                  const alreadyExists = grades.some(eg => eg.nameAr?.toLowerCase() === g.nameAr.toLowerCase() || eg.name.toLowerCase() === (g.nameFr || g.nameAr).toLowerCase())
+                  const isSelected = selectedTunisianGrades.has(g.code)
+                  return (
+                    <button
+                      key={g.code}
+                      type="button"
+                      disabled={alreadyExists}
+                      onClick={() => {
+                        setSelectedTunisianGrades(prev => {
+                          const next = new Set(prev)
+                          if (next.has(g.code)) next.delete(g.code)
+                          else next.add(g.code)
+                          return next
+                        })
+                      }}
+                      className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-start transition ${
+                        alreadyExists
+                          ? 'opacity-50 cursor-not-allowed'
+                          : isSelected
+                            ? 'bg-accent/10 border border-accent/30'
+                            : 'hover:bg-bg-surface2 border border-transparent'
+                      }`}
+                    >
+                      <div className={`h-4 w-4 shrink-0 rounded border flex items-center justify-center ${
+                        alreadyExists
+                          ? 'border-border-default bg-bg-surface'
+                          : isSelected
+                            ? 'border-accent bg-accent'
+                            : 'border-border-default bg-bg-surface'
+                      }`}>
+                        {(isSelected || alreadyExists) && <span className="text-[10px] text-white font-bold">✓</span>}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-text-primary truncate">{getLocaleName(g)}</p>
+                        {locale !== 'ar' && (
+                          <p className="text-xs text-text-muted truncate">{g.nameAr}</p>
+                        )}
+                      </div>
+                      <span className="shrink-0 rounded bg-bg-surface2 px-2 py-0.5 text-[10px] font-mono text-text-muted">{g.code}</span>
+                      {alreadyExists && (
+                        <span className="shrink-0 rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-medium text-success">{t('settings.already_added')}</span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Footer */}
+              <div className="flex justify-end gap-3 pt-4">
+                <button
+                  onClick={() => setShowTunisianGradesModal(false)}
+                  className="rounded-lg border border-border-default bg-bg-surface px-4 py-2 text-sm font-medium text-text-primary hover:bg-bg-surface2 transition"
+                >
+                  {t('app.cancel')}
+                </button>
+                <button
+                  onClick={handleImportTunisianGrades}
+                  disabled={selectedTunisianGrades.size === 0 || tunisianGradesImporting}
+                  className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover transition disabled:opacity-50"
+                >
+                  {tunisianGradesImporting && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {t('settings.load_selected', { count: selectedTunisianGrades.size })}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </Modal>
+      </>)}
 
       {/* 3. Notifications — visible to all roles */}
       <section className="rounded-xl border border-border-subtle bg-bg-card">

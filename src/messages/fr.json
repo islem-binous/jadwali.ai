@@ -374,7 +374,15 @@
     "select_teachers": "Sélectionner les enseignants pouvant enseigner ce niveau",
     "applicable_days": "Jours actifs",
     "applicable_days_hint": "Sélectionnez les jours où cette séance est active. Laissez tout sélectionné pour tous les jours d'école.",
-    "all_days_active": "Active tous les jours d'école"
+    "all_days_active": "Active tous les jours d'école",
+    "load_official_grades": "Charger les niveaux officiels",
+    "load_official_grades_desc": "Sélectionnez les niveaux scolaires tunisiens à ajouter à votre école",
+    "already_added": "Déjà ajouté",
+    "select_all": "Tout sélectionner",
+    "deselect_all": "Tout désélectionner",
+    "load_selected": "Charger {count} sélectionnés",
+    "grades_loaded": "{created} niveaux chargés, {skipped} ignorés",
+    "loading_reference": "Chargement des données de référence..."
   },
   "billing": {
     "title": "Facturation & Abonnement",
@@ -473,7 +481,11 @@
     "empty_classes": "Aucune classe",
     "empty_rooms": "Aucune salle",
     "empty_subjects": "Aucune matière",
-    "confirm_delete": "Êtes-vous sûr de vouloir supprimer cet élément ?"
+    "confirm_delete": "Êtes-vous sûr de vouloir supprimer cet élément ?",
+    "load_official_subjects": "Charger les matières officielles",
+    "load_official_subjects_desc": "Sélectionnez les matières tunisiennes à ajouter à votre école",
+    "subjects_loaded": "{created} matières chargées, {skipped} ignorées",
+    "session_type": "Type de séance"
   },
   "reports": {
     "title": "Rapports & Analyses",
