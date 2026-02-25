@@ -212,7 +212,14 @@
     "near_max": "قريب من الحد الأقصى",
     "periods_week": "حصص / أسبوع",
     "availability": "التوفر",
-    "color": "اللون"
+    "color": "اللون",
+    "matricule": "المعرّف",
+    "cin": "بطاقة التعريف الوطنية",
+    "sex": "الجنس",
+    "sex_male": "ذكر",
+    "sex_female": "أنثى",
+    "recruitment_date": "تاريخ الانتداب",
+    "professional_grade": "الرتبة المهنية"
   },
   "absences": {
     "title": "الغيابات والبدلاء",

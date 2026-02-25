@@ -73,16 +73,21 @@ export async function GET(req: NextRequest) {
       case 'teachers': {
         const teachers = await prisma.teacher.findMany({
           where: { schoolId },
-          include: { subjects: { include: { subject: true } } },
+          include: { subjects: { include: { subject: true } }, professionalGrade: true },
           orderBy: { name: 'asc' },
         })
 
         if (format === 'csv') {
-          const headers = ['Name', 'Email', 'Phone', 'Subjects', 'Max/Day', 'Max/Week']
+          const headers = ['Name', 'Email', 'Phone', 'Matricule', 'CIN', 'Sex', 'Recruitment Date', 'Professional Grade', 'Subjects', 'Max/Day', 'Max/Week']
           const rows = teachers.map((t: any) => [
             t.name,
             t.email || '',
             t.phone || '',
+            t.matricule || '',
+            t.cin || '',
+            t.sex || '',
+            t.recruitmentDate ? new Date(t.recruitmentDate).toISOString().slice(0, 10) : '',
+            t.professionalGrade?.nameFr || t.professionalGrade?.nameAr || '',
             t.subjects.map((s: any) => s.subject.name).join('; '),
             String(t.maxPeriodsPerDay),
             String(t.maxPeriodsPerWeek),

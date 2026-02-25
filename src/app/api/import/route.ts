@@ -75,6 +75,11 @@ async function handleTeachers(
   const nameCol = findColumn(headers, ['name', 'full name', 'teacher name', 'nom'])
   const emailCol = findColumn(headers, ['email', 'e-mail', 'courriel'])
   const phoneCol = findColumn(headers, ['phone', 'telephone', 'tel', 'téléphone'])
+  const matriculeCol = findColumn(headers, ['matricule', 'identifier', 'id number'])
+  const cinCol = findColumn(headers, ['cin', 'id card', 'identity card', 'carte identité', 'بطاقة التعريف'])
+  const sexCol = findColumn(headers, ['sex', 'sexe', 'gender', 'الجنس'])
+  const recruitDateCol = findColumn(headers, ['recruitment date', 'date de recrutement', 'تاريخ الانتداب', 'start date', 'hired'])
+  const gradeCol = findColumn(headers, ['professional grade', 'grade', 'grade professionnel', 'الرتبة', 'رتبة'])
   const subjectsCol = findColumn(headers, ['subjects', 'subject', 'matière', 'matières', 'matieres'])
   const maxDayCol = findColumn(headers, ['max/day', 'max per day', 'max periods per day'])
   const maxWeekCol = findColumn(headers, ['max/week', 'max per week', 'max periods per week'])
@@ -88,6 +93,14 @@ async function handleTeachers(
     include: { subjects: { include: { subject: true } } },
   })
   const existingSubjects = await prisma.subject.findMany({ where: { schoolId } })
+
+  // Fetch professional grades for matching
+  let professionalGrades: any[] = []
+  try {
+    professionalGrades = await prisma.tunisianTeacherGrade.findMany()
+  } catch {
+    // table may not exist yet
+  }
 
   const validatedRows: ValidatedRow[] = rows.map((row, i) => {
     const name = row[nameCol] || ''
@@ -116,12 +129,34 @@ async function handleTeachers(
       errors.push(`Unknown subjects: ${unmatched.join(', ')}`)
     }
 
+    // Match professional grade by name (FR, AR, or EN)
+    const gradeStr = gradeCol >= 0 ? (row[gradeCol] || '').trim() : ''
+    let professionalGradeId = ''
+    if (gradeStr) {
+      const gradeMatch = professionalGrades.find(
+        (g: any) =>
+          normalizeName(g.nameFr || '') === normalizeName(gradeStr) ||
+          normalizeName(g.nameAr || '') === normalizeName(gradeStr) ||
+          normalizeName(g.nameEn || '') === normalizeName(gradeStr),
+      )
+      if (gradeMatch) {
+        professionalGradeId = gradeMatch.id
+      } else {
+        errors.push(`Unknown professional grade: ${gradeStr}`)
+      }
+    }
+
     return {
       rowIndex: i + 1,
       data: {
         name,
         email,
         phone: phoneCol >= 0 ? row[phoneCol] || '' : '',
+        matricule: matriculeCol >= 0 ? row[matriculeCol] || '' : '',
+        cin: cinCol >= 0 ? row[cinCol] || '' : '',
+        sex: sexCol >= 0 ? (row[sexCol] || '').toUpperCase().charAt(0) : '',
+        recruitmentDate: recruitDateCol >= 0 ? row[recruitDateCol] || '' : '',
+        professionalGradeId,
         subjects: subjectNames.join('; '),
         maxPeriodsPerDay: maxDayCol >= 0 ? row[maxDayCol] || '6' : '6',
         maxPeriodsPerWeek: maxWeekCol >= 0 ? row[maxWeekCol] || '24' : '24',
@@ -145,6 +180,9 @@ async function handleTeachers(
       .map((sn) => existingSubjects.find((es: any) => normalizeName(es.name) === normalizeName(sn))?.id)
       .filter(Boolean) as string[]
 
+    const recruitmentDate = row.data.recruitmentDate ? new Date(row.data.recruitmentDate) : null
+    const validRecruitDate = recruitmentDate && !isNaN(recruitmentDate.getTime()) ? recruitmentDate : null
+
     if (row.matchedId) {
       await prisma.teacherSubject.deleteMany({ where: { teacherId: row.matchedId } })
       await prisma.teacher.update({
@@ -153,6 +191,11 @@ async function handleTeachers(
           name: row.data.name,
           email: row.data.email || null,
           phone: row.data.phone || null,
+          matricule: row.data.matricule || null,
+          cin: row.data.cin || null,
+          sex: row.data.sex === 'M' || row.data.sex === 'F' ? row.data.sex : null,
+          recruitmentDate: validRecruitDate,
+          professionalGradeId: row.data.professionalGradeId || null,
           maxPeriodsPerDay: parseInt(row.data.maxPeriodsPerDay) || 6,
           maxPeriodsPerWeek: parseInt(row.data.maxPeriodsPerWeek) || 24,
           subjects: {
@@ -168,6 +211,11 @@ async function handleTeachers(
           name: row.data.name,
           email: row.data.email || null,
           phone: row.data.phone || null,
+          matricule: row.data.matricule || null,
+          cin: row.data.cin || null,
+          sex: row.data.sex === 'M' || row.data.sex === 'F' ? row.data.sex : null,
+          recruitmentDate: validRecruitDate,
+          professionalGradeId: row.data.professionalGradeId || null,
           maxPeriodsPerDay: parseInt(row.data.maxPeriodsPerDay) || 6,
           maxPeriodsPerWeek: parseInt(row.data.maxPeriodsPerWeek) || 24,
           subjects: {

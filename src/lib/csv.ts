@@ -58,7 +58,7 @@ export function findColumn(headers: string[], aliases: string[]): number {
 
 /** Expected CSV headers per entity type (matching export format) */
 export const CSV_HEADERS: Record<string, string[]> = {
-  teachers: ['Name', 'Email', 'Phone', 'Subjects', 'Max/Day', 'Max/Week'],
+  teachers: ['Name', 'Email', 'Phone', 'Matricule', 'CIN', 'Sex', 'Recruitment Date', 'Professional Grade', 'Subjects', 'Max/Day', 'Max/Week'],
   subjects: ['Name', 'Name (French)', 'Name (Arabic)', 'Category', 'Color'],
   classes: ['Name', 'Grade', 'Capacity', 'Color'],
   rooms: ['Name', 'Building', 'Capacity', 'Type'],

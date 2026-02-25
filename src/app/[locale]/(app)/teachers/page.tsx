@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/Button'
 import { FilterPill } from '@/components/ui/FilterPill'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { TeacherCard, type TeacherData } from '@/components/teachers/TeacherCard'
-import { TeacherModal, type TeacherFormData } from '@/components/teachers/TeacherModal'
+import { TeacherModal, type TeacherFormData, type ProfessionalGradeOption } from '@/components/teachers/TeacherModal'
 import { useToast } from '@/components/ui/Toast'
 import { ImportModal } from '@/components/ui/ImportModal'
 import { triggerExport } from '@/lib/export-helpers'
@@ -39,6 +39,7 @@ export default function TeachersPage() {
   // Data state
   const [teachers, setTeachers] = useState<TeacherData[]>([])
   const [subjects, setSubjects] = useState<SubjectOption[]>([])
+  const [professionalGrades, setProfessionalGrades] = useState<ProfessionalGradeOption[]>([])
   const [loading, setLoading] = useState(true)
 
   // UI state
@@ -80,13 +81,25 @@ export default function TeachersPage() {
     }
   }, [schoolId])
 
+  const fetchProfessionalGrades = useCallback(async () => {
+    try {
+      const res = await fetch('/api/reference/teacher-grades')
+      if (res.ok) {
+        const data = await res.json()
+        setProfessionalGrades(data)
+      }
+    } catch {
+      // silent — grades are optional
+    }
+  }, [])
+
   useEffect(() => {
     if (!schoolId) return
     setLoading(true)
-    Promise.all([fetchTeachers(), fetchSubjects()]).finally(() =>
+    Promise.all([fetchTeachers(), fetchSubjects(), fetchProfessionalGrades()]).finally(() =>
       setLoading(false)
     )
-  }, [schoolId, fetchTeachers, fetchSubjects])
+  }, [schoolId, fetchTeachers, fetchSubjects, fetchProfessionalGrades])
 
   /* ---------------------------------------------------------------- */
   /*  Handlers                                                         */
@@ -290,6 +303,7 @@ export default function TeachersPage() {
         onClose={closeModal}
         teacher={editingTeacher}
         subjects={subjects}
+        professionalGrades={professionalGrades}
         schoolId={schoolId ?? ''}
         onSave={handleSave}
       />

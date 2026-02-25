@@ -212,7 +212,14 @@
     "near_max": "Near Maximum",
     "periods_week": "periods / week",
     "availability": "Availability",
-    "color": "Color"
+    "color": "Color",
+    "matricule": "Matricule",
+    "cin": "ID Card (CIN)",
+    "sex": "Sex",
+    "sex_male": "Male",
+    "sex_female": "Female",
+    "recruitment_date": "Recruitment Date",
+    "professional_grade": "Professional Grade"
   },
   "absences": {
     "title": "Absences & Substitutes",

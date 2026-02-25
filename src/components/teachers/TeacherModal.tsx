@@ -20,11 +20,20 @@ interface SubjectOption {
   colorHex: string
 }
 
+export interface ProfessionalGradeOption {
+  id: string
+  code: number
+  nameAr: string
+  nameFr?: string | null
+  nameEn?: string | null
+}
+
 interface TeacherModalProps {
   isOpen: boolean
   onClose: () => void
   teacher?: TeacherData | null
   subjects: SubjectOption[]
+  professionalGrades: ProfessionalGradeOption[]
   schoolId: string
   onSave: (data: TeacherFormData) => Promise<void>
 }
@@ -38,6 +47,11 @@ export interface TeacherFormData {
   maxPeriodsPerDay: number
   maxPeriodsPerWeek: number
   excludeFromCover: boolean
+  matricule: string
+  cin: string
+  recruitmentDate: string
+  sex: string
+  professionalGradeId: string
   subjectIds: string[]
   schoolId: string
 }
@@ -64,6 +78,7 @@ export function TeacherModal({
   onClose,
   teacher,
   subjects,
+  professionalGrades,
   schoolId,
   onSave,
 }: TeacherModalProps) {
@@ -79,7 +94,14 @@ export function TeacherModal({
   const [maxPeriodsPerWeek, setMaxPeriodsPerWeek] = useState(24)
   const [excludeFromCover, setExcludeFromCover] = useState(false)
   const [selectedSubjectIds, setSelectedSubjectIds] = useState<string[]>([])
+  const [matricule, setMatricule] = useState('')
+  const [cin, setCin] = useState('')
+  const [recruitmentDate, setRecruitmentDate] = useState('')
+  const [sex, setSex] = useState('')
+  const [professionalGradeId, setProfessionalGradeId] = useState('')
   const [saving, setSaving] = useState(false)
+
+  const inputClass = 'w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none'
 
   // Populate form when editing
   useEffect(() => {
@@ -91,6 +113,11 @@ export function TeacherModal({
       setMaxPeriodsPerDay(teacher.maxPeriodsPerDay)
       setMaxPeriodsPerWeek(teacher.maxPeriodsPerWeek)
       setExcludeFromCover(teacher.excludeFromCover)
+      setMatricule(teacher.matricule ?? '')
+      setCin(teacher.cin ?? '')
+      setRecruitmentDate(teacher.recruitmentDate ? teacher.recruitmentDate.slice(0, 10) : '')
+      setSex(teacher.sex ?? '')
+      setProfessionalGradeId(teacher.professionalGradeId ?? '')
       // Put primary subject first
       const sorted = [...teacher.subjects].sort((a, b) =>
         a.isPrimary ? -1 : b.isPrimary ? 1 : 0
@@ -105,6 +132,11 @@ export function TeacherModal({
       setMaxPeriodsPerWeek(24)
       setExcludeFromCover(false)
       setSelectedSubjectIds([])
+      setMatricule('')
+      setCin('')
+      setRecruitmentDate('')
+      setSex('')
+      setProfessionalGradeId('')
     }
   }, [teacher, isOpen])
 
@@ -131,6 +163,11 @@ export function TeacherModal({
         maxPeriodsPerDay,
         maxPeriodsPerWeek,
         excludeFromCover,
+        matricule: matricule.trim(),
+        cin: cin.trim(),
+        recruitmentDate,
+        sex,
+        professionalGradeId,
         subjectIds: selectedSubjectIds,
         schoolId,
       })
@@ -157,38 +194,116 @@ export function TeacherModal({
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none"
+            className={inputClass}
             placeholder={t('teachers.name')}
           />
         </div>
 
-        {/* Email */}
-        <div>
-          <label className="mb-1 block text-sm font-medium text-text-secondary">
-            {t('teachers.email')}
-          </label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none"
-            placeholder={t('teachers.email')}
-          />
+        {/* Email + Phone row */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-text-secondary">
+              {t('teachers.email')}
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className={inputClass}
+              placeholder={t('teachers.email')}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-text-secondary">
+              {t('teachers.phone')}
+            </label>
+            <input
+              type="text"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className={inputClass}
+              placeholder={t('teachers.phone')}
+            />
+          </div>
         </div>
 
-        {/* Phone */}
-        <div>
-          <label className="mb-1 block text-sm font-medium text-text-secondary">
-            {t('teachers.phone')}
-          </label>
-          <input
-            type="text"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none"
-            placeholder={t('teachers.phone')}
-          />
+        {/* Matricule + CIN row */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-text-secondary">
+              {t('teachers.matricule')}
+            </label>
+            <input
+              type="text"
+              value={matricule}
+              onChange={(e) => setMatricule(e.target.value)}
+              className={inputClass}
+              placeholder={t('teachers.matricule')}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-text-secondary">
+              {t('teachers.cin')}
+            </label>
+            <input
+              type="text"
+              value={cin}
+              onChange={(e) => setCin(e.target.value)}
+              className={inputClass}
+              placeholder={t('teachers.cin')}
+            />
+          </div>
         </div>
+
+        {/* Sex + Recruitment Date row */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-text-secondary">
+              {t('teachers.sex')}
+            </label>
+            <select
+              value={sex}
+              onChange={(e) => setSex(e.target.value)}
+              className={inputClass}
+            >
+              <option value="">—</option>
+              <option value="M">{t('teachers.sex_male')}</option>
+              <option value="F">{t('teachers.sex_female')}</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-text-secondary">
+              {t('teachers.recruitment_date')}
+            </label>
+            <input
+              type="date"
+              value={recruitmentDate}
+              onChange={(e) => setRecruitmentDate(e.target.value)}
+              className={inputClass}
+            />
+          </div>
+        </div>
+
+        {/* Professional Grade */}
+        {professionalGrades.length > 0 && (
+          <div>
+            <label className="mb-1 block text-sm font-medium text-text-secondary">
+              {t('teachers.professional_grade')}
+            </label>
+            <select
+              value={professionalGradeId}
+              onChange={(e) => setProfessionalGradeId(e.target.value)}
+              className={inputClass}
+            >
+              <option value="">—</option>
+              {professionalGrades.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {getLocalizedName({ name: g.nameAr, nameAr: g.nameAr, nameFr: g.nameFr, nameEn: g.nameEn }, locale)}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Color Picker */}
         <div>
@@ -255,7 +370,7 @@ export function TeacherModal({
           )}
         </div>
 
-        {/* Max periods per day */}
+        {/* Max periods per day / week */}
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="mb-1 block text-sm font-medium text-text-secondary">
@@ -267,11 +382,9 @@ export function TeacherModal({
               max={12}
               value={maxPeriodsPerDay}
               onChange={(e) => setMaxPeriodsPerDay(Number(e.target.value))}
-              className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none"
+              className={inputClass}
             />
           </div>
-
-          {/* Max periods per week */}
           <div>
             <label className="mb-1 block text-sm font-medium text-text-secondary">
               {t('teachers.max_periods_week')}
@@ -282,7 +395,7 @@ export function TeacherModal({
               max={60}
               value={maxPeriodsPerWeek}
               onChange={(e) => setMaxPeriodsPerWeek(Number(e.target.value))}
-              className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none"
+              className={inputClass}
             />
           </div>
         </div>

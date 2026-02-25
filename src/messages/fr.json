@@ -212,7 +212,14 @@
     "near_max": "Proche du maximum",
     "periods_week": "séances / semaine",
     "availability": "Disponibilités",
-    "color": "Couleur"
+    "color": "Couleur",
+    "matricule": "Matricule",
+    "cin": "Carte d'identité (CIN)",
+    "sex": "Sexe",
+    "sex_male": "Homme",
+    "sex_female": "Femme",
+    "recruitment_date": "Date de recrutement",
+    "professional_grade": "Grade professionnel"
   },
   "absences": {
     "title": "Absences & Remplaçants",

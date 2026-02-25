@@ -90,24 +90,30 @@ model Class {
 }
 
 model Teacher {
-  id                String                @id @default(cuid())
-  schoolId          String
-  school            School                @relation(fields: [schoolId], references: [id])
-  name              String
-  email             String?
-  phone             String?
-  avatarUrl         String?
-  colorHex          String                @default("#22c55e")
-  maxPeriodsPerDay  Int                   @default(6)
-  maxPeriodsPerWeek Int                   @default(24)
-  excludeFromCover  Boolean               @default(false)
-  subjects          TeacherSubject[]
-  lessons           Lesson[]
-  absences          Absence[]
-  availabilities    TeacherAvailability[]
-  leaveRequests     LeaveRequest[]
-  user              User?
-  grades            TeacherGrade[]
+  id                  String                @id @default(cuid())
+  schoolId            String
+  school              School                @relation(fields: [schoolId], references: [id])
+  name                String
+  email               String?
+  phone               String?
+  avatarUrl           String?
+  colorHex            String                @default("#22c55e")
+  maxPeriodsPerDay    Int                   @default(6)
+  maxPeriodsPerWeek   Int                   @default(24)
+  excludeFromCover    Boolean               @default(false)
+  matricule           String?
+  cin                 String?
+  recruitmentDate     DateTime?
+  sex                 String?
+  professionalGradeId String?
+  professionalGrade   TunisianTeacherGrade? @relation(fields: [professionalGradeId], references: [id])
+  subjects            TeacherSubject[]
+  lessons             Lesson[]
+  absences            Absence[]
+  availabilities      TeacherAvailability[]
+  leaveRequests       LeaveRequest[]
+  user                User?
+  grades              TeacherGrade[]
 }
 
 model TeacherSubject {
@@ -380,6 +386,15 @@ model TunisianGradeLevel {
   nameAr String
   nameFr String?
   nameEn String?
+}
+
+model TunisianTeacherGrade {
+  id       String    @id @default(cuid())
+  code     Int       @unique
+  nameAr   String
+  nameFr   String?
+  nameEn   String?
+  teachers Teacher[]
 }
 
 // ─── PAYMENTS ──────────────────────────────────────────────

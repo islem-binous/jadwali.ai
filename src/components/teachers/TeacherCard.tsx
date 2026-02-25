@@ -41,6 +41,18 @@ export interface TeacherData {
   maxPeriodsPerDay: number
   maxPeriodsPerWeek: number
   excludeFromCover: boolean
+  matricule?: string | null
+  cin?: string | null
+  recruitmentDate?: string | null
+  sex?: string | null
+  professionalGradeId?: string | null
+  professionalGrade?: {
+    id: string
+    code: number
+    nameAr: string
+    nameFr?: string | null
+    nameEn?: string | null
+  } | null
   subjects: TeacherSubject[]
   lessons: TeacherLesson[]
   absences: TeacherAbsence[]
@@ -83,6 +95,9 @@ export function TeacherCard({ teacher, onEdit, onDelete }: TeacherCardProps) {
     workloadPct > 90 ? 'danger' : workloadPct >= 75 ? 'warning' : 'success'
 
   const primarySubject = teacher.subjects.find((ts) => ts.isPrimary) ?? teacher.subjects[0]
+  const gradeName = teacher.professionalGrade
+    ? getLocalizedName({ name: teacher.professionalGrade.nameAr, nameAr: teacher.professionalGrade.nameAr, nameFr: teacher.professionalGrade.nameFr, nameEn: teacher.professionalGrade.nameEn }, locale)
+    : null
 
   const statusVariant: 'success' | 'danger' | 'warning' = isAbsent
     ? 'danger'
@@ -111,11 +126,18 @@ export function TeacherCard({ teacher, onEdit, onDelete }: TeacherCardProps) {
         {/* Name + subject */}
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold text-text-primary">{teacher.name}</p>
-          {primarySubject && (
-            <Badge size="sm" variant="accent">
-              {getLocalizedName(primarySubject.subject, locale)}
-            </Badge>
-          )}
+          <div className="flex flex-wrap items-center gap-1">
+            {primarySubject && (
+              <Badge size="sm" variant="accent">
+                {getLocalizedName(primarySubject.subject, locale)}
+              </Badge>
+            )}
+            {gradeName && (
+              <Badge size="sm" variant="default">
+                {gradeName}
+              </Badge>
+            )}
+          </div>
         </div>
 
         {/* Action buttons */}

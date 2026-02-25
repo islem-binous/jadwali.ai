@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
       where: { schoolId },
       include: {
         subjects: { include: { subject: true } },
+        professionalGrade: true,
         lessons: activeTimetable
           ? { where: { timetableId: activeTimetable.id } }
           : { where: { timetableId: '__none__' } },
@@ -55,6 +56,11 @@ export async function POST(req: NextRequest) {
       maxPeriodsPerDay,
       maxPeriodsPerWeek,
       excludeFromCover,
+      matricule,
+      cin,
+      recruitmentDate,
+      sex,
+      professionalGradeId,
       schoolId,
       subjectIds,
     } = body
@@ -68,6 +74,11 @@ export async function POST(req: NextRequest) {
         maxPeriodsPerDay: maxPeriodsPerDay ?? 6,
         maxPeriodsPerWeek: maxPeriodsPerWeek ?? 24,
         excludeFromCover: excludeFromCover ?? false,
+        matricule: matricule || null,
+        cin: cin || null,
+        recruitmentDate: recruitmentDate ? new Date(recruitmentDate) : null,
+        sex: sex || null,
+        professionalGradeId: professionalGradeId || null,
         schoolId,
         subjects: {
           create: (subjectIds ?? []).map((id: string, i: number) => ({
@@ -76,7 +87,7 @@ export async function POST(req: NextRequest) {
           })),
         },
       },
-      include: { subjects: { include: { subject: true } } },
+      include: { subjects: { include: { subject: true } }, professionalGrade: true },
     })
     return NextResponse.json(teacher)
   } catch (err) {
@@ -101,6 +112,11 @@ export async function PUT(req: NextRequest) {
       maxPeriodsPerDay,
       maxPeriodsPerWeek,
       excludeFromCover,
+      matricule,
+      cin,
+      recruitmentDate,
+      sex,
+      professionalGradeId,
       subjectIds,
     } = body
 
@@ -117,6 +133,11 @@ export async function PUT(req: NextRequest) {
         maxPeriodsPerDay,
         maxPeriodsPerWeek,
         excludeFromCover,
+        matricule: matricule || null,
+        cin: cin || null,
+        recruitmentDate: recruitmentDate ? new Date(recruitmentDate) : null,
+        sex: sex || null,
+        professionalGradeId: professionalGradeId || null,
         subjects: {
           create: (subjectIds ?? []).map((sid: string, i: number) => ({
             subjectId: sid,
@@ -124,7 +145,7 @@ export async function PUT(req: NextRequest) {
           })),
         },
       },
-      include: { subjects: { include: { subject: true } } },
+      include: { subjects: { include: { subject: true } }, professionalGrade: true },
     })
     return NextResponse.json(teacher)
   } catch (err) {
