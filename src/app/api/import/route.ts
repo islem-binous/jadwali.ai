@@ -744,7 +744,7 @@ async function handleEvents(
     const isRecurring = ['true', '1', 'yes', 'oui'].includes(recurringStr)
 
     const match = existing.find(
-      (e) => normalizeName(e.title) === normalizeName(title)
+      (e: any) => normalizeName(e.title) === normalizeName(title)
         && e.startDate.toISOString().slice(0, 10) === startStr,
     )
 
