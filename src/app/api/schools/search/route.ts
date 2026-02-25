@@ -38,7 +38,7 @@ export async function GET(request: Request) {
     }
     console.error('School search error:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', detail: error?.message || String(error) },
       { status: 500 }
     )
   }
