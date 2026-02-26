@@ -248,6 +248,7 @@ async function handleSubjects(
   const arCol = findColumn(headers, ['name (arabic)', 'nom (arabe)', 'arabic', 'namear'])
   const catCol = findColumn(headers, ['category', 'catégorie', 'type'])
   const colorCol = findColumn(headers, ['color', 'couleur', 'colorhex'])
+  const pedDayCol = findColumn(headers, ['pedagogic day', 'pedagogicday', 'jour pédagogique', 'يوم بيداغوجي'])
 
   if (nameCol === -1) {
     return NextResponse.json({ error: 'CSV must have a "Name" column' }, { status: 400 })
@@ -266,6 +267,17 @@ async function handleSubjects(
       errors.push(`Invalid category: ${category}. Must be one of: ${VALID_CATEGORIES.join(', ')}`)
     }
 
+    // Parse pedagogic day: accept number (0-6) or day name
+    let pedagogicDay = 0
+    if (pedDayCol >= 0) {
+      const raw = (row[pedDayCol] || '').trim().toLowerCase()
+      const dayMap: Record<string, number> = {
+        none: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6,
+        aucun: 0, lundi: 1, mardi: 2, mercredi: 3, jeudi: 4, vendredi: 5, samedi: 6,
+      }
+      pedagogicDay = dayMap[raw] ?? (Number(raw) >= 0 && Number(raw) <= 6 ? Number(raw) : 0)
+    }
+
     const match = existing.find((s: any) => normalizeName(s.name) === normalizeName(name))
 
     return {
@@ -276,6 +288,7 @@ async function handleSubjects(
         nameAr: arCol >= 0 ? row[arCol] || '' : '',
         category: category || 'OTHER',
         colorHex: colorCol >= 0 ? row[colorCol] || '#4f6ef7' : '#4f6ef7',
+        pedagogicDay: String(pedagogicDay),
       },
       status: errors.length > 0 ? ('error' as RowStatus) : match ? ('update' as RowStatus) : ('ok' as RowStatus),
       errors,
@@ -297,6 +310,7 @@ async function handleSubjects(
       nameAr: row.data.nameAr || null,
       category: row.data.category,
       colorHex: row.data.colorHex,
+      pedagogicDay: Number(row.data.pedagogicDay) || 0,
     }
 
     if (row.matchedId) {

@@ -46,6 +46,7 @@ interface SubjectItem {
   nameFr?: string | null
   nameEn?: string | null
   sessionTypeCode: number
+  pedagogicDay?: number
 }
 
 export async function POST(req: NextRequest) {
@@ -125,6 +126,7 @@ export async function POST(req: NextRequest) {
             nameFr: item.nameFr || null,
             colorHex,
             category,
+            pedagogicDay: item.pedagogicDay ?? 0,
           },
         })
         created++

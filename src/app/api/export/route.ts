@@ -184,13 +184,15 @@ export async function GET(req: NextRequest) {
         })
 
         if (format === 'csv') {
-          const headers = ['Name', 'Name (French)', 'Name (Arabic)', 'Category', 'Color']
+          const dayLabels = ['None', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+          const headers = ['Name', 'Name (French)', 'Name (Arabic)', 'Category', 'Color', 'Pedagogic Day']
           const rows = subjects.map((s: any) => [
             s.name,
             s.nameFr || '',
             s.nameAr || '',
             s.category,
             s.colorHex,
+            dayLabels[s.pedagogicDay ?? 0] || 'None',
           ])
 
           const csvContent = [

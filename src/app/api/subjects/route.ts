@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   try {
     const prisma = await getPrisma()
     const body = await req.json()
-    const { schoolId, name, nameAr, nameFr, colorHex, category } = body
+    const { schoolId, name, nameAr, nameFr, colorHex, category, pedagogicDay } = body
 
     const created = await prisma.subject.create({
       data: {
@@ -37,6 +37,7 @@ export async function POST(req: NextRequest) {
         nameFr: nameFr || null,
         colorHex: colorHex ?? '#4f6ef7',
         category: category ?? 'OTHER',
+        pedagogicDay: pedagogicDay ?? 0,
       },
     })
     return NextResponse.json(created)
@@ -53,7 +54,7 @@ export async function PUT(req: NextRequest) {
   try {
     const prisma = await getPrisma()
     const body = await req.json()
-    const { id, name, nameAr, nameFr, colorHex, category } = body
+    const { id, name, nameAr, nameFr, colorHex, category, pedagogicDay } = body
 
     const updated = await prisma.subject.update({
       where: { id },
@@ -63,6 +64,7 @@ export async function PUT(req: NextRequest) {
         nameFr: nameFr || null,
         colorHex,
         category,
+        pedagogicDay: pedagogicDay ?? 0,
       },
     })
     return NextResponse.json(updated)

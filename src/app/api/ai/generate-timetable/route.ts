@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
         subjects: t.subjects.map((ts: any) => ts.subjectId),
         grades: teacherGrades.get(t.id) ?? [],
       })),
-      subjects: subjects.map((s: any) => ({ id: s.id, name: s.name, category: s.category })),
+      subjects: subjects.map((s: any) => ({ id: s.id, name: s.name, category: s.category, pedagogicDay: s.pedagogicDay ?? 0 })),
       rooms: rooms.map((r: any) => ({ id: r.id, name: r.name, type: r.type ?? 'CLASSROOM', capacity: r.capacity ?? 30 })),
       periods: periods.map((p: any) => {
         let applicableDays: number[] = []

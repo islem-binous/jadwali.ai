@@ -11,9 +11,11 @@
  *   - Class not double-booked in a time slot
  *   - Teacher can only teach assigned subjects
  *   - Teacher can only teach grades they are assigned to (if grade data exists)
- *   - Teacher maxPeriodsPerDay respected
- *   - Teacher maxPeriodsPerWeek respected
+ *   - Teacher maxPeriodsPerDay respected (default 4h/day)
+ *   - Teacher maxPeriodsPerWeek respected (default 18h; 15h for 25+ yrs seniority)
  *   - No lessons during breaks
+ *   - Pedagogic day: subject blocked on its designated day
+ *   - Specialized rooms reserved for matching sessions; library/gym NEVER for other subjects
  *
  * Soft constraints (optimized):
  *   - Balance teacher workload across the week
@@ -22,6 +24,7 @@
  *   - PE not in first period
  *   - No same subject consecutively for a class
  *   - Match room type to subject (lab, gym, etc.)
+ *   - Prefer standard classrooms for regular sessions; avoid specialized rooms
  */
 
 import type { ScheduleConstraints, GeneratedLesson } from './schedule-engine'
@@ -60,9 +63,18 @@ const CATEGORY_HOURS: Record<string, number> = {
 /** Preferred room types per subject category */
 const ROOM_PREFS: Record<string, string[]> = {
   SCIENCE: ['LAB_SCIENCE', 'CLASSROOM'],
-  PE: ['GYM', 'CLASSROOM'],
+  PE: ['GYM'],
   TECH: ['LAB_COMPUTER', 'CLASSROOM'],
 }
+
+/** Room types that are specialized — reserved for matching sessions only */
+const SPECIALIZED_ROOM_TYPES = new Set([
+  'LAB_SCIENCE', 'LAB_COMPUTER', 'LAB_CHEMISTRY', 'LAB_BIOLOGY',
+  'LAB_PHYSICS', 'LAB_ENGINEERING', 'LAB',
+])
+
+/** Room types that must NEVER be used for other subjects */
+const FORBIDDEN_ROOM_TYPES = new Set(['LIBRARY', 'GYM', 'GYMNASIUM'])
 
 // ---------------------------------------------------------------------------
 // Solver
@@ -318,17 +330,40 @@ export function solveTimetable(constraints: ScheduleConstraints): SolverResult {
           )
           const teacher = eligibleTeachers[0]
 
-          // Find available room
+          // Pedagogic Day constraint: skip this subject on its blocked day
+          const pedDay = sub.pedagogicDay ?? 0
+          if (pedDay > 0 && pedDay === day + 1) {
+            // pedagogicDay: 1=Monday(day 0), 2=Tuesday(day 1), etc.
+            continue
+          }
+
+          // Find available room with Tunisian room allocation rules
           const prefTypes = ROOM_PREFS[sub.category] ?? ['CLASSROOM']
           let room: (typeof rooms)[0] | null = null
 
+          // Step 1: Try preferred room type
           for (const rt of prefTypes) {
             room = rooms.find((r) => r.type === rt && isRoomFree(r.id, day, period.id)) ?? null
             if (room) break
           }
+
+          // Step 2: Try standard classrooms (exclude specialized + forbidden rooms)
           if (!room) {
-            room = rooms.find((r) => isRoomFree(r.id, day, period.id)) ?? null
+            room = rooms.find((r) =>
+              isRoomFree(r.id, day, period.id) &&
+              !SPECIALIZED_ROOM_TYPES.has(r.type) &&
+              !FORBIDDEN_ROOM_TYPES.has(r.type)
+            ) ?? null
           }
+
+          // Step 3: LAST RESORT — use empty specialized room (NOT library/gym)
+          if (!room) {
+            room = rooms.find((r) =>
+              isRoomFree(r.id, day, period.id) &&
+              !FORBIDDEN_ROOM_TYPES.has(r.type)
+            ) ?? null
+          }
+
           if (!room) {
             conflictsAvoided++
             continue

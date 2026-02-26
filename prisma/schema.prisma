@@ -143,8 +143,9 @@ model Subject {
   name     String
   nameAr   String?
   nameFr   String?
-  colorHex String           @default("#4f6ef7")
-  category String           @default("OTHER")
+  colorHex      String           @default("#4f6ef7")
+  category      String           @default("OTHER")
+  pedagogicDay  Int              @default(0)
   lessons    Lesson[]
   teachers   TeacherSubject[]
   curriculum GradeCurriculum[]
@@ -377,6 +378,7 @@ model TunisianSubject {
   nameFr          String?
   nameEn          String?
   sessionTypeCode Int
+  pedagogicDay    Int                 @default(0)
   sessionType     TunisianSessionType @relation(fields: [sessionTypeCode], references: [code])
 }
 

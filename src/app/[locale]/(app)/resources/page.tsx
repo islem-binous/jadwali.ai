@@ -52,6 +52,7 @@ interface SubjectData {
   nameFr: string | null
   colorHex: string
   category: string
+  pedagogicDay: number
 }
 
 /* ------------------------------------------------------------------ */
@@ -1308,6 +1309,7 @@ function SubjectModal({
   const [nameFr, setNameFr] = useState('')
   const [colorHex, setColorHex] = useState(COLOR_PRESETS[0])
   const [category, setCategory] = useState<string>('OTHER')
+  const [pedagogicDay, setPedagogicDay] = useState(0)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -1317,12 +1319,14 @@ function SubjectModal({
       setNameFr(item.nameFr ?? '')
       setColorHex(item.colorHex)
       setCategory(item.category)
+      setPedagogicDay(item.pedagogicDay ?? 0)
     } else {
       setName('')
       setNameAr('')
       setNameFr('')
       setColorHex(COLOR_PRESETS[0])
       setCategory('OTHER')
+      setPedagogicDay(0)
     }
   }, [item, isOpen])
 
@@ -1338,6 +1342,7 @@ function SubjectModal({
         nameFr: nameFr.trim() || null,
         colorHex,
         category,
+        pedagogicDay,
       })
       onClose()
     } finally {
@@ -1419,22 +1424,42 @@ function SubjectModal({
           </div>
         </div>
 
-        {/* Category */}
-        <div>
-          <label className="mb-1 block text-sm font-medium text-text-secondary">
-            {t('resources.category')}
-          </label>
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
-          >
-            {SUBJECT_CATEGORIES.map((cat) => (
-              <option key={cat} value={cat}>
-                {categoryLabel(cat)}
-              </option>
-            ))}
-          </select>
+        {/* Category + Pedagogic Day */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-text-secondary">
+              {t('resources.category')}
+            </label>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
+            >
+              {SUBJECT_CATEGORIES.map((cat) => (
+                <option key={cat} value={cat}>
+                  {categoryLabel(cat)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-text-secondary">
+              {t('resources.pedagogic_day')}
+            </label>
+            <select
+              value={pedagogicDay}
+              onChange={(e) => setPedagogicDay(Number(e.target.value))}
+              className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
+            >
+              <option value={0}>{t('resources.pedagogic_day_none')}</option>
+              <option value={1}>{t('resources.pedagogic_day_mon')}</option>
+              <option value={2}>{t('resources.pedagogic_day_tue')}</option>
+              <option value={3}>{t('resources.pedagogic_day_wed')}</option>
+              <option value={4}>{t('resources.pedagogic_day_thu')}</option>
+              <option value={5}>{t('resources.pedagogic_day_fri')}</option>
+              <option value={6}>{t('resources.pedagogic_day_sat')}</option>
+            </select>
+          </div>
         </div>
 
         {/* Submit */}

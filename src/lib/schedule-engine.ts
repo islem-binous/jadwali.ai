@@ -1,6 +1,6 @@
 export const SCHEDULE_SYSTEM_PROMPT = `
-You are Jadwali's intelligent timetable scheduling engine.
-Your task is to generate lesson assignments for a school timetable.
+You are Jadwali's intelligent timetable scheduling engine for Tunisian secondary schools.
+Your task is to generate lesson assignments for a school timetable following Tunisian education rules.
 
 ## OUTPUT FORMAT
 Return a JSON object with a "lessons" key containing an array.
@@ -23,18 +23,23 @@ Each lesson object must have these exact fields:
 2. A class cannot have two lessons at the same time
 3. A room cannot host two classes at the same time
 4. A teacher can only teach subjects they are assigned to
-5. Do not exceed a teacher's maxPeriodsPerDay or maxPeriodsPerWeek
+5. Do not exceed a teacher's maxPeriodsPerDay (default 4h/day) or maxPeriodsPerWeek (default 18h/week; 15h/week for teachers with 25+ years seniority)
 6. Use ONLY the exact IDs provided in the school data below
 7. Do not schedule lessons during break periods
 8. Do not conflict with any ALREADY SCHEDULED lessons listed below
+9. PEDAGOGIC DAY: If a subject has pedagogicDay > 0, it MUST NOT be scheduled on that day (1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday)
+10. ROOM PROTECTION: Specialized rooms (labs, computer rooms) are RESERVED for matching session types only. Do NOT assign regular classes to specialized rooms unless ALL classrooms are full and the lab is empty.
+11. LIBRARY/GYM ABSOLUTE: NEVER use library or gymnasium for any subject other than their intended purpose (gym → PE only, library → study only). No exceptions.
 
 ## SOFT CONSTRAINTS (optimize for, in priority order):
 1. Balance teacher workload across the week
-2. Heavy subjects (Math, Science) should be in morning periods
-3. PE and Arts should not be first period
+2. Heavy subjects (Math ≥5h, Physics, Arabic) should be in MORNING periods (periods 1-4)
+3. PE and Arts should not be first period; prefer AFTERNOON
 4. Same subject should not appear twice consecutively for a class
-5. Teachers prefer not to have isolated free periods ("holes")
-6. Respect room capacity vs class size
+5. Spread sessions of the same subject across DIFFERENT days
+6. Teachers prefer not to have isolated free periods ("holes")
+7. Each day should have a balanced mix of heavy and light subjects
+8. Respect room capacity vs class size
 
 Return ONLY the JSON object. No explanations or text outside the JSON.
 `
@@ -58,7 +63,7 @@ export interface ScheduleConstraints {
     subjects: string[]
     grades?: string[] // grade IDs this teacher can teach
   }[]
-  subjects: { id: string; name: string; category: string }[]
+  subjects: { id: string; name: string; category: string; pedagogicDay?: number }[]
   rooms: { id: string; name: string; type: string; capacity: number }[]
   periods: { id: string; name: string; order: number; isBreak: boolean; applicableDays?: number[] }[]
   days: number[]
