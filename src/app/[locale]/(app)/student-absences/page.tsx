@@ -18,7 +18,7 @@ import { useToast } from '@/components/ui/Toast'
 interface ClassOption {
   id: string
   name: string
-  grade: string | null
+  grade: { id: string; name: string; nameAr?: string; nameFr?: string } | null
 }
 
 interface StudentOption {
@@ -542,7 +542,7 @@ export default function StudentAbsencesPage() {
             {classes.map((cls) => (
               <FilterPill
                 key={cls.id}
-                label={cls.grade ? `${cls.name} (${cls.grade})` : cls.name}
+                label={cls.grade ? `${cls.name} (${cls.grade.name})` : cls.name}
                 active={classFilter === cls.id}
                 onClick={() =>
                   setClassFilter(classFilter === cls.id ? null : cls.id)
@@ -737,7 +737,7 @@ export default function StudentAbsencesPage() {
               <option value="">{t('studentAbsences.class')}</option>
               {classes.map((cls) => (
                 <option key={cls.id} value={cls.id}>
-                  {cls.grade ? `${cls.name} (${cls.grade})` : cls.name}
+                  {cls.grade ? `${cls.name} (${cls.grade.name})` : cls.name}
                 </option>
               ))}
             </select>

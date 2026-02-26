@@ -19,7 +19,7 @@ import { triggerExport } from '@/lib/export-helpers'
 interface ClassOption {
   id: string
   name: string
-  grade: string | null
+  grade: { id: string; name: string; nameAr?: string; nameFr?: string } | null
 }
 
 interface StudentData {
@@ -357,7 +357,7 @@ export default function StudentsPage() {
             {classes.map((cls) => (
               <FilterPill
                 key={cls.id}
-                label={cls.grade ? `${cls.name} (${cls.grade})` : cls.name}
+                label={cls.grade ? `${cls.name} (${cls.grade.name})` : cls.name}
                 active={classFilter === cls.id}
                 onClick={() =>
                   setClassFilter(classFilter === cls.id ? null : cls.id)
@@ -534,7 +534,7 @@ export default function StudentsPage() {
               <option value="">{t('students.class')}</option>
               {classes.map((cls) => (
                 <option key={cls.id} value={cls.id}>
-                  {cls.grade ? `${cls.name} (${cls.grade})` : cls.name}
+                  {cls.grade ? `${cls.name} (${cls.grade.name})` : cls.name}
                 </option>
               ))}
             </select>
