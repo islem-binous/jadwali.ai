@@ -285,25 +285,23 @@ export function TeacherModal({
         </div>
 
         {/* Professional Grade */}
-        {professionalGrades.length > 0 && (
-          <div>
-            <label className="mb-1 block text-sm font-medium text-text-secondary">
-              {t('teachers.professional_grade')}
-            </label>
-            <select
-              value={professionalGradeId}
-              onChange={(e) => setProfessionalGradeId(e.target.value)}
-              className={inputClass}
-            >
-              <option value="">—</option>
-              {professionalGrades.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {getLocalizedName({ name: g.nameAr, nameAr: g.nameAr, nameFr: g.nameFr, nameEn: g.nameEn }, locale)}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+        <div>
+          <label className="mb-1 block text-sm font-medium text-text-secondary">
+            {t('teachers.professional_grade')}
+          </label>
+          <select
+            value={professionalGradeId}
+            onChange={(e) => setProfessionalGradeId(e.target.value)}
+            className={inputClass}
+          >
+            <option value="">—</option>
+            {professionalGrades.map((g) => (
+              <option key={g.id} value={g.id}>
+                {getLocalizedName({ name: g.nameAr, nameAr: g.nameAr, nameFr: g.nameFr, nameEn: g.nameEn }, locale)}
+              </option>
+            ))}
+          </select>
+        </div>
 
         {/* Color Picker */}
         <div>
