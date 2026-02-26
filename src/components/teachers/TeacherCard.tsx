@@ -3,7 +3,7 @@
 import React from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import { getLocalizedName } from '@/lib/locale-name'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Pencil, Trash2, Mail, Hash } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 
@@ -126,7 +126,23 @@ export function TeacherCard({ teacher, onEdit, onDelete }: TeacherCardProps) {
         {/* Name + subject */}
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold text-text-primary">{teacher.name}</p>
-          <div className="flex flex-wrap items-center gap-1">
+          {(teacher.email || teacher.matricule) && (
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+              {teacher.email && (
+                <span className="flex items-center gap-1 text-xs text-text-muted truncate">
+                  <Mail size={11} className="shrink-0" />
+                  {teacher.email}
+                </span>
+              )}
+              {teacher.matricule && (
+                <span className="flex items-center gap-1 text-xs text-text-muted">
+                  <Hash size={11} className="shrink-0" />
+                  {teacher.matricule}
+                </span>
+              )}
+            </div>
+          )}
+          <div className="mt-1 flex flex-wrap items-center gap-1">
             {primarySubject && (
               <Badge size="sm" variant="accent">
                 {getLocalizedName(primarySubject.subject, locale)}

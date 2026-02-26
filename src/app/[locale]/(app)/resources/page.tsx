@@ -70,8 +70,15 @@ const COLOR_PRESETS = [
 
 const ROOM_TYPES = [
   'CLASSROOM',
+  'LAB_SCIENCE',
+  'LAB_COMPUTER',
+  'LAB_ENGINEERING',
+  'LAB_CHEMISTRY',
+  'LAB_BIOLOGY',
+  'LAB_PHYSICS',
   'LAB',
   'GYM',
+  'LIBRARY',
   'AUDITORIUM',
   'ART_STUDIO',
   'OTHER',
@@ -79,11 +86,16 @@ const ROOM_TYPES = [
 
 const SUBJECT_CATEGORIES = [
   'CORE',
-  'ELECTIVE',
+  'MATH',
   'LANGUAGE',
   'SCIENCE',
+  'HUMANITIES',
+  'RELIGION',
+  'PE',
+  'TECH',
   'ARTS',
   'SPORTS',
+  'ELECTIVE',
   'OTHER',
 ] as const
 
@@ -904,6 +916,9 @@ function SubjectsTable({
             <th className="px-4 py-3 text-left font-medium text-text-secondary">
               {t('resources.category')}
             </th>
+            <th className="px-4 py-3 text-left font-medium text-text-secondary">
+              {t('resources.pedagogic_day')}
+            </th>
             <th className="px-4 py-3 text-right font-medium text-text-secondary">
               {/* Actions */}
             </th>
@@ -928,6 +943,11 @@ function SubjectsTable({
                 <Badge variant="default" size="sm">
                   {categoryLabel(subj.category)}
                 </Badge>
+              </td>
+              <td className="px-4 py-3 text-text-muted text-xs">
+                {subj.pedagogicDay > 0
+                  ? t(`resources.pedagogic_day_${['mon', 'tue', 'wed', 'thu', 'fri', 'sat'][subj.pedagogicDay - 1]}`)
+                  : '—'}
               </td>
               <td className="px-4 py-3 text-right">
                 <div className="flex items-center justify-end gap-1">
