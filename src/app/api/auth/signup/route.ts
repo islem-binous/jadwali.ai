@@ -8,6 +8,28 @@ function slugify(text: string): string {
     .replace(/(^-|-$)/g, '')
 }
 
+function authUserResponse(user: any, school: any, extra?: Record<string, any>) {
+  return NextResponse.json({
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      language: user.language,
+      avatarUrl: user.avatarUrl,
+      schoolId: user.schoolId,
+      schoolName: school.name,
+      plan: school.plan,
+      subscriptionStatus: school.subscriptionStatus ?? 'INACTIVE',
+      subscriptionEndsAt: school.subscriptionEndsAt?.toISOString() ?? null,
+      teacherId: user.teacherId ?? null,
+      studentId: user.studentId ?? null,
+      staffId: user.staffId ?? null,
+      classId: extra?.classId ?? null,
+    },
+  })
+}
+
 export async function POST(request: Request) {
   try {
     const prisma = await getPrisma()
@@ -21,7 +43,6 @@ export async function POST(request: Request) {
       )
     }
 
-    // Password required unless signing up with Google
     if (!googleId && !password) {
       return NextResponse.json(
         { error: 'Password is required' },
@@ -31,7 +52,6 @@ export async function POST(request: Request) {
 
     const authId = googleId ? `google_${googleId}` : `local_${crypto.randomUUID()}`
 
-    // Check if email already exists
     const existing = await prisma.user.findUnique({ where: { email } })
     if (existing) {
       return NextResponse.json(
@@ -42,7 +62,7 @@ export async function POST(request: Request) {
 
     // ── TEACHER SIGNUP ──────────────────────────────────────
     if (role === 'TEACHER') {
-      const { schoolId } = body
+      const { schoolId, cin, matricule } = body
       if (!schoolId) {
         return NextResponse.json(
           { error: 'School is required for teacher signup' },
@@ -55,18 +75,23 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'School not found' }, { status: 404 })
       }
 
-      // Match teacher record by email
+      // Match teacher by email OR by CIN+matricule
       const teacher = await prisma.teacher.findFirst({
-        where: { schoolId, email },
+        where: {
+          schoolId,
+          OR: [
+            { email },
+            ...(cin && matricule ? [{ cin, matricule }] : []),
+          ],
+        },
       })
       if (!teacher) {
         return NextResponse.json(
-          { error: 'No teacher record found with this email. Contact your school admin.' },
+          { error: 'No teacher record found. Contact your school admin.' },
           { status: 404 }
         )
       }
 
-      // Check if another user is already linked to this teacher
       const alreadyLinked = await prisma.user.findFirst({
         where: { teacherId: teacher.id },
       })
@@ -89,29 +114,12 @@ export async function POST(request: Request) {
         },
       })
 
-      return NextResponse.json({
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          language: user.language,
-          avatarUrl: user.avatarUrl,
-          schoolId: user.schoolId,
-          schoolName: school.name,
-          plan: school.plan,
-          subscriptionStatus: school.subscriptionStatus ?? 'INACTIVE',
-          subscriptionEndsAt: school.subscriptionEndsAt?.toISOString() ?? null,
-          teacherId: user.teacherId,
-          studentId: null,
-          classId: null,
-        },
-      })
+      return authUserResponse(user, school)
     }
 
     // ── STUDENT SIGNUP ──────────────────────────────────────
     if (role === 'STUDENT') {
-      const { schoolId, classId } = body
+      const { schoolId, classId, matricule } = body
       if (!schoolId || !classId) {
         return NextResponse.json(
           { error: 'School and class are required for student signup' },
@@ -131,13 +139,18 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Class not found' }, { status: 404 })
       }
 
-      // Find or create student record
+      // Find student by email or matricule
       let student = await prisma.student.findFirst({
-        where: { schoolId, email },
+        where: {
+          schoolId,
+          OR: [
+            ...(email ? [{ email }] : []),
+            ...(matricule ? [{ matricule }] : []),
+          ],
+        },
       })
 
       if (student) {
-        // Check if already linked
         const alreadyLinked = await prisma.user.findFirst({
           where: { studentId: student.id },
         })
@@ -149,7 +162,7 @@ export async function POST(request: Request) {
         }
       } else {
         student = await prisma.student.create({
-          data: { schoolId, name, email, classId },
+          data: { schoolId, name, email, classId, matricule: matricule || null },
         })
       }
 
@@ -165,27 +178,93 @@ export async function POST(request: Request) {
         },
       })
 
-      return NextResponse.json({
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          language: user.language,
-          avatarUrl: user.avatarUrl,
-          schoolId: user.schoolId,
-          schoolName: school.name,
-          plan: school.plan,
-          subscriptionStatus: school.subscriptionStatus ?? 'INACTIVE',
-          subscriptionEndsAt: school.subscriptionEndsAt?.toISOString() ?? null,
-          teacherId: null,
-          studentId: user.studentId,
-          classId: student.classId,
-        },
-      })
+      return authUserResponse(user, school, { classId: student.classId })
     }
 
-    // ── ADMIN SIGNUP (default) ──────────────────────────────
+    // ── STAFF SIGNUP ──────────────────────────────────────
+    if (role === 'STAFF') {
+      const { schoolId, cin, matricule } = body
+      if (!schoolId || !cin || !matricule) {
+        return NextResponse.json(
+          { error: 'School, CIN, and matricule are required for staff signup' },
+          { status: 400 }
+        )
+      }
+
+      const school = await prisma.school.findUnique({ where: { id: schoolId } })
+      if (!school) {
+        return NextResponse.json({ error: 'School not found' }, { status: 404 })
+      }
+
+      // Find existing staff by CIN or matricule
+      let staff = await prisma.staff.findFirst({
+        where: {
+          schoolId,
+          OR: [{ cin }, { matricule }],
+        },
+      })
+
+      if (staff) {
+        const alreadyLinked = await prisma.user.findFirst({
+          where: { staffId: staff.id },
+        })
+        if (alreadyLinked) {
+          return NextResponse.json(
+            { error: 'This staff account is already linked to another user' },
+            { status: 409 }
+          )
+        }
+      } else {
+        staff = await prisma.staff.create({
+          data: { schoolId, name, email, cin, matricule },
+        })
+      }
+
+      const user = await prisma.user.create({
+        data: {
+          authId,
+          email,
+          name,
+          role: 'STAFF',
+          language: language || school.language || 'FR',
+          schoolId,
+          staffId: staff.id,
+        },
+      })
+
+      return authUserResponse(user, school)
+    }
+
+    // ── ADMIN SIGNUP (school code required) ──────────────────
+    if (role === 'ADMIN') {
+      const { schoolId } = body
+      if (!schoolId) {
+        return NextResponse.json(
+          { error: 'School is required for admin signup' },
+          { status: 400 }
+        )
+      }
+
+      const school = await prisma.school.findUnique({ where: { id: schoolId } })
+      if (!school) {
+        return NextResponse.json({ error: 'School not found' }, { status: 404 })
+      }
+
+      const user = await prisma.user.create({
+        data: {
+          authId,
+          email,
+          name,
+          role: 'ADMIN',
+          language: language || school.language || 'FR',
+          schoolId,
+        },
+      })
+
+      return authUserResponse(user, school)
+    }
+
+    // ── DIRECTOR SIGNUP (creates school) ──────────────────────
     const { schoolName, tunisianSchoolId } = body
     if (!schoolName) {
       return NextResponse.json(
@@ -194,7 +273,6 @@ export async function POST(request: Request) {
       )
     }
 
-    // Validate tunisianSchoolId if provided
     let tunisianSchool: any = null
     if (tunisianSchoolId) {
       tunisianSchool = await prisma.tunisianSchool.findUnique({
@@ -206,7 +284,6 @@ export async function POST(request: Request) {
           { status: 404 }
         )
       }
-      // Check if another school already registered with this TunisianSchool
       const existingSchool = await prisma.school.findUnique({
         where: { tunisianSchoolId },
       })
@@ -218,7 +295,6 @@ export async function POST(request: Request) {
       }
     }
 
-    // Use official code for Tunisian schools, random slug for custom schools
     const slug = tunisianSchool
       ? tunisianSchool.code
       : slugify(schoolName) + '-' + Date.now().toString(36)
@@ -235,7 +311,7 @@ export async function POST(request: Request) {
             authId,
             email,
             name,
-            role: 'ADMIN',
+            role: 'DIRECTOR',
             language: language || 'FR',
           },
         },
@@ -245,7 +321,7 @@ export async function POST(request: Request) {
 
     const user = school.users[0]
 
-    // Seed default periods for the school
+    // Seed default periods
     const defaultPeriods = [
       { name: 'Period 1', startTime: '08:00', endTime: '09:00', order: 1, isBreak: false },
       { name: 'Period 2', startTime: '09:00', endTime: '10:00', order: 2, isBreak: false },
@@ -263,24 +339,7 @@ export async function POST(request: Request) {
       })
     }
 
-    return NextResponse.json({
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        language: user.language,
-        avatarUrl: user.avatarUrl,
-        schoolId: user.schoolId,
-        schoolName: school.name,
-        plan: school.plan,
-        subscriptionStatus: 'INACTIVE',
-        subscriptionEndsAt: null,
-        teacherId: null,
-        studentId: null,
-        classId: null,
-      },
-    })
+    return authUserResponse(user, school)
   } catch (error) {
     console.error('Signup error:', error)
     return NextResponse.json(

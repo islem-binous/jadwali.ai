@@ -177,6 +177,41 @@ export async function GET(req: NextRequest) {
         return NextResponse.json(absences)
       }
 
+      case 'students': {
+        const students = await prisma.student.findMany({
+          where: { schoolId },
+          include: { class: true },
+          orderBy: { name: 'asc' },
+        })
+
+        if (format === 'csv') {
+          const headers = ['Name', 'Email', 'Phone', 'Matricule', 'Sex', 'Birth Date', 'Class']
+          const rows = students.map((s: any) => [
+            s.name,
+            s.email || '',
+            s.phone || '',
+            s.matricule || '',
+            s.sex || '',
+            s.birthDate ? new Date(s.birthDate).toISOString().slice(0, 10) : '',
+            s.class.name,
+          ])
+
+          const csvContent = [
+            headers.join(','),
+            ...rows.map((row: any) => row.map((cell: any) => `"${cell}"`).join(',')),
+          ].join('\n')
+
+          return new NextResponse(csvContent, {
+            headers: {
+              'Content-Type': 'text/csv',
+              'Content-Disposition': `attachment; filename="students-export.csv"`,
+            },
+          })
+        }
+
+        return NextResponse.json(students)
+      }
+
       case 'subjects': {
         const subjects = await prisma.subject.findMany({
           where: { schoolId },

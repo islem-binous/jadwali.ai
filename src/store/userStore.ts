@@ -15,6 +15,7 @@ export interface AuthUser {
   subscriptionEndsAt: string | null
   teacherId: string | null
   studentId: string | null
+  staffId: string | null
   classId: string | null
 }
 

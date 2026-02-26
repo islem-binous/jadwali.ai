@@ -51,6 +51,8 @@ export function useAuth() {
       classId?: string
       googleId?: string
       tunisianSchoolId?: string
+      cin?: string
+      matricule?: string
     }) => {
       const res = await fetch('/api/auth/signup', {
         method: 'POST',

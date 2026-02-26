@@ -19,6 +19,8 @@ import {
   BookOpen,
   ClipboardList,
   Calendar,
+  FileCheck,
+  ClipboardCheck,
 } from 'lucide-react'
 
 interface DashboardLesson {
@@ -37,7 +39,10 @@ interface DashboardData {
   classCount: number
   teacherCount: number
   roomCount: number
+  studentCount: number
   absencesToday: number
+  studentAbsencesToday: number
+  pendingAuthorizations: number
   coverage: number
   todayLessons: DashboardLesson[]
   timetableStatus: string | null
@@ -115,10 +120,13 @@ export default function DashboardPage() {
       color: 'text-success',
     },
     {
-      key: 'stats_rooms',
-      value: data?.roomCount ?? 0,
-      icon: DoorOpen,
-      color: 'text-warning',
+      key: 'stats_students',
+      value: data?.studentCount ?? 0,
+      sub: data
+        ? `${data.studentAbsencesToday} ${t('dashboard.stats_absent_today')}`
+        : undefined,
+      icon: GraduationCap,
+      color: 'text-info',
     },
     {
       key: 'stats_coverage',
@@ -126,6 +134,34 @@ export default function DashboardPage() {
       sub: t('dashboard.stats_this_term'),
       icon: ShieldCheck,
       color: 'text-violet',
+    },
+  ]
+
+  // ── Staff stats ──
+  const staffStats: StatItem[] = [
+    {
+      key: 'stats_students',
+      value: data?.studentCount ?? 0,
+      icon: GraduationCap,
+      color: 'text-accent',
+    },
+    {
+      key: 'stats_student_absences',
+      value: data?.studentAbsencesToday ?? 0,
+      icon: ClipboardCheck,
+      color: 'text-warning',
+    },
+    {
+      key: 'stats_pending_auth',
+      value: data?.pendingAuthorizations ?? 0,
+      icon: FileCheck,
+      color: 'text-info',
+    },
+    {
+      key: 'stats_classes',
+      value: data?.classCount ?? 0,
+      icon: GraduationCap,
+      color: 'text-success',
     },
   ]
 
@@ -169,9 +205,11 @@ export default function DashboardPage() {
 
   const stats = adminUser
     ? adminStats
-    : user?.role === 'TEACHER'
-      ? teacherStats
-      : studentStats
+    : user?.role === 'STAFF'
+      ? staffStats
+      : user?.role === 'TEACHER'
+        ? teacherStats
+        : studentStats
 
   // ── Quick actions ──
   const adminActions = [
@@ -181,22 +219,34 @@ export default function DashboardPage() {
     { key: 'quick_export', icon: Download, href: '/timetable' },
   ]
 
+  const staffActions = [
+    { key: 'quick_manage_students', icon: GraduationCap, href: '/students' },
+    { key: 'quick_student_absences', icon: ClipboardCheck, href: '/student-absences' },
+    { key: 'quick_authorizations', icon: FileCheck, href: '/authorizations' },
+    { key: 'quick_view_calendar', icon: Calendar, href: '/calendar' },
+  ]
+
   const teacherActions = [
     { key: 'quick_view_timetable', icon: CalendarDays, href: '/timetable' },
+    { key: 'quick_enter_marks', icon: BookOpen, href: '/marks' },
     { key: 'quick_request_leave', icon: ClipboardList, href: '/leave' },
     { key: 'quick_view_calendar', icon: Calendar, href: '/calendar' },
   ]
 
   const studentActions = [
     { key: 'quick_view_timetable', icon: CalendarDays, href: '/timetable' },
+    { key: 'quick_view_marks', icon: BookOpen, href: '/marks' },
+    { key: 'quick_authorizations', icon: FileCheck, href: '/authorizations' },
     { key: 'quick_view_calendar', icon: Calendar, href: '/calendar' },
   ]
 
   const quickActions = adminUser
     ? adminActions
-    : user?.role === 'TEACHER'
-      ? teacherActions
-      : studentActions
+    : user?.role === 'STAFF'
+      ? staffActions
+      : user?.role === 'TEACHER'
+        ? teacherActions
+        : studentActions
 
   // Determine conflict status
   const conflictCount =

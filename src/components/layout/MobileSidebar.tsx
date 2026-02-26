@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTranslations } from 'next-intl'
 import { Link, usePathname } from '@/i18n/navigation'
-import { X, LayoutDashboard, CalendarDays, Users, UserX, Calendar, Sparkles, Settings, CreditCard, ClipboardList, Database, BarChart3, UsersRound, HelpCircle } from 'lucide-react'
+import { X, LayoutDashboard, CalendarDays, Users, GraduationCap, UserX, ClipboardCheck, BookMarked, StickyNote, FileCheck, Calendar, Sparkles, Settings, CreditCard, ClipboardList, Database, BarChart3, UsersRound, HelpCircle } from 'lucide-react'
 import { useUIStore } from '@/store/uiStore'
 import { useUserStore } from '@/store/userStore'
 import { canAccessNav } from '@/lib/permissions'
@@ -14,6 +14,11 @@ const allNavItems = [
   { key: 'dashboard', href: '/dashboard', icon: LayoutDashboard },
   { key: 'timetable', href: '/timetable', icon: CalendarDays },
   { key: 'teachers', href: '/teachers', icon: Users },
+  { key: 'students', href: '/students', icon: GraduationCap },
+  { key: 'student-absences', href: '/student-absences', icon: ClipboardCheck },
+  { key: 'marks', href: '/marks', icon: BookMarked },
+  { key: 'student-notes', href: '/student-notes', icon: StickyNote },
+  { key: 'authorizations', href: '/authorizations', icon: FileCheck },
   { key: 'absences', href: '/absences', icon: UserX },
   { key: 'leave', href: '/leave', icon: ClipboardList },
   { key: 'calendar', href: '/calendar', icon: Calendar },

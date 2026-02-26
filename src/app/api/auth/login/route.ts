@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     // Find user by email
     const user = await prisma.user.findUnique({
       where: { email },
-      include: { school: true, teacher: true, student: true },
+      include: { school: true, teacher: true, student: true, staff: true },
     })
 
     if (!user) {
@@ -53,6 +53,7 @@ export async function POST(request: Request) {
         subscriptionEndsAt: school!.subscriptionEndsAt?.toISOString() ?? null,
         teacherId: user.teacherId ?? null,
         studentId: user.studentId ?? null,
+        staffId: user.staffId ?? null,
         classId: user.student?.classId ?? null,
       },
     })

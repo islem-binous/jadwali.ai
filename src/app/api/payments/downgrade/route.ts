@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
     if (
       !user ||
       user.schoolId !== schoolId ||
-      !['OWNER', 'ADMIN'].includes(user.role)
+      !['DIRECTOR', 'ADMIN'].includes(user.role)
     ) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }

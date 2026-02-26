@@ -62,6 +62,7 @@ export const CSV_HEADERS: Record<string, string[]> = {
   subjects: ['Name', 'Name (French)', 'Name (Arabic)', 'Category', 'Color', 'Pedagogic Day'],
   classes: ['Name', 'Grade', 'Capacity', 'Color'],
   rooms: ['Name', 'Building', 'Capacity', 'Type'],
+  students: ['Name', 'Email', 'Phone', 'Matricule', 'Sex', 'Birth Date', 'Class'],
   timetable: ['Day', 'Period', 'Class', 'Subject', 'Teacher', 'Room'],
   grades: ['Grade', 'Level', 'Subject', 'Hours/Week'],
   events: ['Title', 'Title (French)', 'Title (Arabic)', 'Type', 'Start Date', 'End Date', 'Color', 'Recurring', 'Description'],

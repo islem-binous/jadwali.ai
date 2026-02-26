@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, KeyboardEvent } from 'react'
 import { useTranslations } from 'next-intl'
-import { useRouter } from 'next/navigation'
+import { useRouter } from '@/i18n/navigation'
 import { useUserStore } from '@/store/userStore'
 import { motion, AnimatePresence } from 'framer-motion'
 import {

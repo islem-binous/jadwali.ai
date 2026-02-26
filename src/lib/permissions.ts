@@ -1,4 +1,4 @@
-export type UserRole = 'OWNER' | 'ADMIN' | 'TEACHER' | 'STUDENT'
+export type UserRole = 'DIRECTOR' | 'ADMIN' | 'STAFF' | 'TEACHER' | 'STUDENT'
 
 export interface NavPermission {
   key: string
@@ -6,19 +6,24 @@ export interface NavPermission {
 }
 
 const NAV_PERMISSIONS: NavPermission[] = [
-  { key: 'dashboard',  roles: ['OWNER', 'ADMIN', 'TEACHER', 'STUDENT'] },
-  { key: 'timetable',  roles: ['OWNER', 'ADMIN', 'TEACHER', 'STUDENT'] },
-  { key: 'teachers',   roles: ['OWNER', 'ADMIN'] },
-  { key: 'absences',   roles: ['OWNER', 'ADMIN', 'TEACHER'] },
-  { key: 'leave',      roles: ['OWNER', 'ADMIN', 'TEACHER'] },
-  { key: 'calendar',   roles: ['OWNER', 'ADMIN', 'TEACHER', 'STUDENT'] },
-  { key: 'resources',  roles: ['OWNER', 'ADMIN'] },
-  { key: 'reports',    roles: ['OWNER', 'ADMIN'] },
-  { key: 'users',      roles: ['OWNER', 'ADMIN'] },
-  { key: 'ai',         roles: ['OWNER', 'ADMIN', 'TEACHER'] },
-  { key: 'settings',   roles: ['OWNER', 'ADMIN', 'TEACHER', 'STUDENT'] },
-  { key: 'billing',    roles: ['OWNER', 'ADMIN'] },
-  { key: 'help',       roles: ['OWNER', 'ADMIN', 'TEACHER', 'STUDENT'] },
+  { key: 'dashboard',        roles: ['DIRECTOR', 'ADMIN', 'STAFF', 'TEACHER', 'STUDENT'] },
+  { key: 'timetable',        roles: ['DIRECTOR', 'ADMIN', 'STAFF', 'TEACHER', 'STUDENT'] },
+  { key: 'teachers',         roles: ['DIRECTOR', 'ADMIN'] },
+  { key: 'students',         roles: ['DIRECTOR', 'ADMIN', 'STAFF'] },
+  { key: 'student-absences', roles: ['DIRECTOR', 'ADMIN', 'STAFF', 'TEACHER'] },
+  { key: 'marks',            roles: ['DIRECTOR', 'ADMIN', 'TEACHER', 'STUDENT'] },
+  { key: 'student-notes',    roles: ['DIRECTOR', 'ADMIN', 'STAFF', 'TEACHER', 'STUDENT'] },
+  { key: 'authorizations',   roles: ['DIRECTOR', 'ADMIN', 'STAFF', 'STUDENT'] },
+  { key: 'absences',         roles: ['DIRECTOR', 'ADMIN', 'TEACHER'] },
+  { key: 'leave',            roles: ['DIRECTOR', 'ADMIN', 'TEACHER'] },
+  { key: 'calendar',         roles: ['DIRECTOR', 'ADMIN', 'STAFF', 'TEACHER', 'STUDENT'] },
+  { key: 'resources',        roles: ['DIRECTOR', 'ADMIN'] },
+  { key: 'reports',          roles: ['DIRECTOR', 'ADMIN'] },
+  { key: 'users',            roles: ['DIRECTOR', 'ADMIN'] },
+  { key: 'ai',               roles: ['DIRECTOR', 'ADMIN', 'TEACHER'] },
+  { key: 'settings',         roles: ['DIRECTOR', 'ADMIN', 'STAFF', 'TEACHER', 'STUDENT'] },
+  { key: 'billing',          roles: ['DIRECTOR', 'ADMIN'] },
+  { key: 'help',             roles: ['DIRECTOR', 'ADMIN', 'STAFF', 'TEACHER', 'STUDENT'] },
 ]
 
 /** Check if a nav key is accessible for a given role */
@@ -42,26 +47,35 @@ export function getAllowedNavKeys(role: string): Set<string> {
 /** Bottom nav keys per role */
 export function getBottomNavKeys(role: string): string[] {
   if (role === 'STUDENT') {
-    return ['dashboard', 'timetable', 'calendar', 'settings']
+    return ['dashboard', 'timetable', 'marks', 'authorizations', 'settings']
   }
   if (role === 'TEACHER') {
-    return ['dashboard', 'timetable', 'absences', 'calendar', 'ai']
+    return ['dashboard', 'timetable', 'marks', 'student-absences', 'ai']
   }
-  // ADMIN / OWNER
-  return ['dashboard', 'timetable', 'teachers', 'absences', 'ai']
+  if (role === 'STAFF') {
+    return ['dashboard', 'students', 'student-absences', 'authorizations', 'settings']
+  }
+  // DIRECTOR / ADMIN
+  return ['dashboard', 'timetable', 'teachers', 'students', 'ai']
 }
 
 /** Route access check from pathname */
 export function canAccessRoute(role: string, pathname: string): boolean {
-  // Extract the page segment: "/en/teachers" -> "teachers"
   const segments = pathname.split('/').filter(Boolean)
-  // segments: ['en', 'teachers'] or ['fr', 'timetable'] etc.
   const pageSegment = segments[1] || 'dashboard'
   return canAccessNav(role, pageSegment)
 }
 
+export function isDirector(role: string): boolean {
+  return role === 'DIRECTOR'
+}
+
 export function isAdmin(role: string): boolean {
-  return role === 'OWNER' || role === 'ADMIN'
+  return role === 'DIRECTOR' || role === 'ADMIN'
+}
+
+export function isStaff(role: string): boolean {
+  return role === 'STAFF'
 }
 
 export function isTeacher(role: string): boolean {
@@ -70,4 +84,24 @@ export function isTeacher(role: string): boolean {
 
 export function isStudent(role: string): boolean {
   return role === 'STUDENT'
+}
+
+export function canManageSchool(role: string): boolean {
+  return role === 'DIRECTOR' || role === 'ADMIN'
+}
+
+export function canManageStudents(role: string): boolean {
+  return role === 'DIRECTOR' || role === 'ADMIN' || role === 'STAFF'
+}
+
+export function canEnterMarks(role: string): boolean {
+  return role === 'DIRECTOR' || role === 'ADMIN' || role === 'TEACHER'
+}
+
+export function canWriteStudentNotes(role: string): boolean {
+  return role === 'DIRECTOR' || role === 'ADMIN' || role === 'STAFF' || role === 'TEACHER'
+}
+
+export function canApproveAuthorizations(role: string): boolean {
+  return role === 'DIRECTOR' || role === 'ADMIN' || role === 'STAFF'
 }

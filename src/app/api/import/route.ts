@@ -46,6 +46,8 @@ export async function POST(req: NextRequest) {
         return handleClasses(schoolId, headers, dataRows, mode)
       case 'rooms':
         return handleRooms(schoolId, headers, dataRows, mode)
+      case 'students':
+        return handleStudents(schoolId, headers, dataRows, mode)
       case 'timetable':
         return handleTimetable(schoolId, timetableId, headers, dataRows, mode)
       case 'grades':
@@ -237,6 +239,116 @@ async function handleTeachers(
           },
         },
       })
+      created++
+    }
+  }
+
+  return NextResponse.json({ total: validatedRows.length, rows: validatedRows, created, updated, skipped })
+}
+
+// ---------------------------------------------------------------------------
+// Students
+// ---------------------------------------------------------------------------
+
+async function handleStudents(
+  schoolId: string,
+  headers: string[],
+  rows: string[][],
+  mode: string,
+) {
+  const prisma = await getPrisma()
+  const nameCol = findColumn(headers, ['name', 'full name', 'student name', 'nom', 'اسم'])
+  const emailCol = findColumn(headers, ['email', 'e-mail', 'courriel'])
+  const phoneCol = findColumn(headers, ['phone', 'telephone', 'tel', 'téléphone'])
+  const matriculeCol = findColumn(headers, ['matricule', 'identifier', 'id number', 'المعرّف'])
+  const sexCol = findColumn(headers, ['sex', 'sexe', 'gender', 'الجنس'])
+  const birthDateCol = findColumn(headers, ['birth date', 'birthdate', 'date of birth', 'date de naissance', 'تاريخ الميلاد'])
+  const classCol = findColumn(headers, ['class', 'classe', 'فصل'])
+
+  if (nameCol === -1) {
+    return NextResponse.json({ error: 'CSV must have a "Name" column' }, { status: 400 })
+  }
+  if (classCol === -1) {
+    return NextResponse.json({ error: 'CSV must have a "Class" column' }, { status: 400 })
+  }
+
+  const existingStudents = await prisma.student.findMany({ where: { schoolId } })
+  const existingClasses = await prisma.class.findMany({ where: { schoolId } })
+
+  const validatedRows: ValidatedRow[] = rows.map((row, i) => {
+    const name = row[nameCol] || ''
+    const errors: string[] = []
+
+    if (!name.trim()) errors.push('Name is required')
+
+    const className = (row[classCol] || '').trim()
+    const classMatch = existingClasses.find((c: any) => normalizeName(c.name) === normalizeName(className))
+    if (!className) errors.push('Class is required')
+    else if (!classMatch) errors.push(`Unknown class: ${className}`)
+
+    const email = emailCol >= 0 ? row[emailCol] || '' : ''
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      errors.push('Invalid email')
+    }
+
+    const matricule = matriculeCol >= 0 ? (row[matriculeCol] || '').trim() : ''
+
+    // Match by name + class OR by matricule
+    const match = existingStudents.find((s: any) =>
+      (matricule && s.matricule === matricule) ||
+      (normalizeName(s.name) === normalizeName(name) && s.classId === classMatch?.id)
+    )
+
+    const birthDateStr = birthDateCol >= 0 ? (row[birthDateCol] || '').trim() : ''
+    if (birthDateStr) {
+      const d = new Date(birthDateStr)
+      if (isNaN(d.getTime())) errors.push('Invalid birth date')
+    }
+
+    return {
+      rowIndex: i + 1,
+      data: {
+        name,
+        email,
+        phone: phoneCol >= 0 ? row[phoneCol] || '' : '',
+        matricule,
+        sex: sexCol >= 0 ? (row[sexCol] || '').toUpperCase().charAt(0) : '',
+        birthDate: birthDateStr,
+        class: className,
+        classId: classMatch?.id || '',
+      },
+      status: errors.length > 0 ? ('error' as RowStatus) : match ? ('update' as RowStatus) : ('ok' as RowStatus),
+      errors,
+      matchedId: match?.id,
+    }
+  })
+
+  if (mode === 'preview') {
+    return NextResponse.json({ total: validatedRows.length, rows: validatedRows })
+  }
+
+  let created = 0, updated = 0, skipped = 0
+  for (const row of validatedRows) {
+    if (row.status === 'error') { skipped++; continue }
+
+    const birthDate = row.data.birthDate ? new Date(row.data.birthDate) : null
+    const validBirthDate = birthDate && !isNaN(birthDate.getTime()) ? birthDate : null
+
+    const data = {
+      name: row.data.name,
+      email: row.data.email || null,
+      phone: row.data.phone || null,
+      matricule: row.data.matricule || null,
+      sex: row.data.sex === 'M' || row.data.sex === 'F' ? row.data.sex : null,
+      birthDate: validBirthDate,
+      classId: row.data.classId,
+    }
+
+    if (row.matchedId) {
+      await prisma.student.update({ where: { id: row.matchedId }, data })
+      updated++
+    } else {
+      await prisma.student.create({ data: { ...data, schoolId } })
       created++
     }
   }

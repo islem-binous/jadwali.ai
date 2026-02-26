@@ -18,11 +18,12 @@ export async function GET(req: NextRequest) {
     if (teacherId) lessonWhere.teacherId = teacherId
     if (classId) lessonWhere.classId = classId
 
-    const [classCount, teacherCount, roomCount, absencesToday, timetable] =
+    const [classCount, teacherCount, roomCount, studentCount, absencesToday, studentAbsencesToday, pendingAuthorizations, timetable] =
       await Promise.all([
         prisma.class.count({ where: { schoolId } }),
         prisma.teacher.count({ where: { schoolId } }),
         prisma.room.count({ where: { schoolId } }),
+        prisma.student.count({ where: { schoolId } }),
         prisma.absence.count({
           where: {
             schoolId,
@@ -32,6 +33,18 @@ export async function GET(req: NextRequest) {
               lt: new Date(new Date().setHours(23, 59, 59, 999)),
             },
           },
+        }),
+        prisma.studentAbsence.count({
+          where: {
+            schoolId,
+            date: {
+              gte: new Date(new Date().setHours(0, 0, 0, 0)),
+              lt: new Date(new Date().setHours(23, 59, 59, 999)),
+            },
+          },
+        }),
+        prisma.classAuthorization.count({
+          where: { schoolId, status: 'PENDING' },
         }),
         prisma.timetable.findFirst({
           where: { schoolId, isActive: true },
@@ -67,7 +80,10 @@ export async function GET(req: NextRequest) {
       classCount,
       teacherCount,
       roomCount,
+      studentCount,
       absencesToday,
+      studentAbsencesToday,
+      pendingAuthorizations,
       coverage,
       todayLessons,
       timetableStatus: timetable?.status ?? null,

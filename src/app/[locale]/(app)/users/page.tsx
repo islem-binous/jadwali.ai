@@ -41,7 +41,7 @@ interface ClassOption {
   grade: string | null
 }
 
-type RoleFilter = 'ALL' | 'OWNER' | 'ADMIN' | 'TEACHER' | 'STUDENT'
+type RoleFilter = 'ALL' | 'DIRECTOR' | 'ADMIN' | 'STAFF' | 'TEACHER' | 'STUDENT'
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -59,15 +59,17 @@ function getInitials(name: string): string {
 function roleBadgeVariant(
   role: string
 ): 'accent' | 'success' | 'info' | 'default' {
-  if (role === 'OWNER') return 'accent'
+  if (role === 'DIRECTOR') return 'accent'
   if (role === 'ADMIN') return 'success'
+  if (role === 'STAFF') return 'info'
   if (role === 'TEACHER') return 'info'
   return 'default'
 }
 
 const ROLE_COLORS: Record<string, string> = {
-  OWNER: '#8b5cf6',
+  DIRECTOR: '#8b5cf6',
   ADMIN: '#22c55e',
+  STAFF: '#06b6d4',
   TEACHER: '#3b82f6',
   STUDENT: '#6b7280',
 }
@@ -333,9 +335,19 @@ export default function UsersPage() {
             onClick={() => setRoleFilter('ALL')}
           />
           <FilterPill
+            label={t('users.role_director')}
+            active={roleFilter === 'DIRECTOR'}
+            onClick={() => setRoleFilter('DIRECTOR')}
+          />
+          <FilterPill
             label={t('users.role_admin')}
             active={roleFilter === 'ADMIN'}
             onClick={() => setRoleFilter('ADMIN')}
+          />
+          <FilterPill
+            label={t('users.role_staff')}
+            active={roleFilter === 'STAFF'}
+            onClick={() => setRoleFilter('STAFF')}
           />
           <FilterPill
             label={t('users.role_teacher')}
@@ -531,8 +543,9 @@ export default function UsersPage() {
               onChange={(e) => setFormRole(e.target.value)}
               className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
             >
-              <option value="OWNER">{t('users.role_owner')}</option>
+              <option value="DIRECTOR">{t('users.role_director')}</option>
               <option value="ADMIN">{t('users.role_admin')}</option>
+              <option value="STAFF">{t('users.role_staff')}</option>
               <option value="TEACHER">{t('users.role_teacher')}</option>
               <option value="STUDENT">{t('users.role_student')}</option>
             </select>
@@ -664,8 +677,9 @@ export default function UsersPage() {
                 onChange={(e) => setEditRole(e.target.value)}
                 className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
               >
-                <option value="OWNER">{t('users.role_owner')}</option>
+                <option value="DIRECTOR">{t('users.role_director')}</option>
                 <option value="ADMIN">{t('users.role_admin')}</option>
+                <option value="STAFF">{t('users.role_staff')}</option>
                 <option value="TEACHER">{t('users.role_teacher')}</option>
                 <option value="STUDENT">{t('users.role_student')}</option>
               </select>

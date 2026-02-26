@@ -122,6 +122,7 @@ export async function GET(request: NextRequest) {
       include: {
         school: true,
         student: true,
+        staff: true,
       },
     })
 
@@ -166,6 +167,7 @@ export async function GET(request: NextRequest) {
         subscriptionEndsAt: school?.subscriptionEndsAt?.toISOString() ?? null,
         teacherId: existingUser.teacherId,
         studentId: existingUser.studentId,
+        staffId: existingUser.staffId ?? null,
         classId: existingUser.student?.classId ?? null,
       }
 
@@ -217,6 +219,7 @@ export async function GET(request: NextRequest) {
         subscriptionEndsAt: school?.subscriptionEndsAt?.toISOString() ?? null,
         teacherId: existingUser.teacherId,
         studentId: existingUser.studentId,
+        staffId: existingUser.staffId ?? null,
         classId: existingUser.student?.classId ?? null,
       }
 

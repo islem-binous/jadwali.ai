@@ -5,9 +5,9 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Link, useRouter } from '@/i18n/navigation'
 import { useSearchParams } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
-import { Eye, EyeOff, Loader2, Shield, GraduationCap, BookOpen, X } from 'lucide-react'
+import { Eye, EyeOff, Loader2, Crown, Shield, Briefcase, BookOpen, GraduationCap, X } from 'lucide-react'
 
-type SignupRole = 'ADMIN' | 'TEACHER' | 'STUDENT'
+type SignupRole = 'DIRECTOR' | 'ADMIN' | 'STAFF' | 'TEACHER' | 'STUDENT'
 
 type TunisianSchoolResult = {
   id: string
@@ -27,8 +27,10 @@ function SignupForm() {
   const isGoogleSignup = searchParams.get('google') === 'true'
   const oauthError = searchParams.get('error')
 
-  const [role, setRole] = useState<SignupRole>('ADMIN')
+  const [role, setRole] = useState<SignupRole>('DIRECTOR')
   const [name, setName] = useState('')
+  const [cin, setCin] = useState('')
+  const [matricule, setMatricule] = useState('')
   const [schoolName, setSchoolName] = useState('')
   const [schoolCode, setSchoolCode] = useState('')
   const [email, setEmail] = useState('')
@@ -62,7 +64,7 @@ function SignupForm() {
     }
   }, [isGoogleSignup])
 
-  // Tunisian school autocomplete state (for admin)
+  // Tunisian school autocomplete state (for director)
   const [tunisianResults, setTunisianResults] = useState<TunisianSchoolResult[]>([])
   const [selectedTunisianSchool, setSelectedTunisianSchool] = useState<TunisianSchoolResult | null>(null)
   const [showSuggestions, setShowSuggestions] = useState(false)
@@ -121,7 +123,7 @@ function SignupForm() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // School lookup state (for teacher/student)
+  // School lookup state (for non-director roles)
   const [schoolLookup, setSchoolLookup] = useState<{ id: string; name: string; classes: { id: string; name: string; grade: string | null }[] } | null>(null)
   const [lookingUp, setLookingUp] = useState(false)
   const [selectedClassId, setSelectedClassId] = useState('')
@@ -163,13 +165,23 @@ function SignupForm() {
       }
     }
 
-    if (role === 'ADMIN' && !schoolName.trim()) {
+    if (role === 'DIRECTOR' && !schoolName.trim()) {
       setError('School name is required')
       return
     }
 
-    if ((role === 'TEACHER' || role === 'STUDENT') && !schoolLookup) {
+    if (role !== 'DIRECTOR' && !schoolLookup) {
       setError(t('auth.school_not_found'))
+      return
+    }
+
+    if ((role === 'STAFF' || role === 'TEACHER') && !cin.trim()) {
+      setError(t('auth.cin') + ' is required')
+      return
+    }
+
+    if ((role === 'STAFF' || role === 'TEACHER' || role === 'STUDENT') && !matricule.trim()) {
+      setError(t('auth.matricule') + ' is required')
       return
     }
 
@@ -187,11 +199,13 @@ function SignupForm() {
         name,
         language: locale.toUpperCase(),
         role,
-        schoolName: role === 'ADMIN' ? schoolName : undefined,
-        tunisianSchoolId: role === 'ADMIN' ? selectedTunisianSchool?.id : undefined,
+        schoolName: role === 'DIRECTOR' ? schoolName : undefined,
+        tunisianSchoolId: role === 'DIRECTOR' ? selectedTunisianSchool?.id : undefined,
         schoolId: schoolLookup?.id,
         classId: role === 'STUDENT' ? selectedClassId : undefined,
         googleId: googleId || undefined,
+        cin: cin || undefined,
+        matricule: matricule || undefined,
       })
       router.push('/dashboard')
     } catch (err) {
@@ -204,7 +218,9 @@ function SignupForm() {
   const inputClass = 'w-full rounded-md border border-border-default bg-bg-elevated px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted outline-none transition focus:border-accent focus:ring-1 focus:ring-accent'
 
   const roleOptions: { value: SignupRole; label: string; icon: typeof Shield }[] = [
+    { value: 'DIRECTOR', label: t('auth.role_director'), icon: Crown },
     { value: 'ADMIN', label: t('auth.role_admin'), icon: Shield },
+    { value: 'STAFF', label: t('auth.role_staff'), icon: Briefcase },
     { value: 'TEACHER', label: t('auth.role_teacher'), icon: BookOpen },
     { value: 'STUDENT', label: t('auth.role_student'), icon: GraduationCap },
   ]
@@ -232,7 +248,7 @@ function SignupForm() {
             <label className="mb-2 block text-sm font-medium text-text-secondary">
               {t('auth.select_role')}
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-5 gap-2">
               {roleOptions.map((opt) => {
                 const Icon = opt.icon
                 const isSelected = role === opt.value
@@ -248,6 +264,8 @@ function SignupForm() {
                       setSelectedClassId('')
                       setSelectedTunisianSchool(null)
                       setSchoolName('')
+                      setCin('')
+                      setMatricule('')
                     }}
                     className={`flex flex-col items-center gap-1.5 rounded-lg border px-3 py-3 text-xs font-medium transition ${
                       isSelected
@@ -316,8 +334,8 @@ function SignupForm() {
               />
             </div>
 
-            {/* Admin: School Name with autocomplete */}
-            {role === 'ADMIN' && (
+            {/* Director: School Name with autocomplete */}
+            {role === 'DIRECTOR' && (
               <div>
                 <label htmlFor="school" className="mb-1.5 block text-sm font-medium text-text-secondary">
                   {t('auth.school_name')}
@@ -388,8 +406,8 @@ function SignupForm() {
               </div>
             )}
 
-            {/* Teacher/Student: School Code */}
-            {(role === 'TEACHER' || role === 'STUDENT') && (
+            {/* Non-Director: School Code */}
+            {role !== 'DIRECTOR' && (
               <div>
                 <label htmlFor="schoolCode" className="mb-1.5 block text-sm font-medium text-text-secondary">
                   {t('auth.school_code')}
@@ -419,6 +437,40 @@ function SignupForm() {
                 {schoolLookup && (
                   <p className="mt-1.5 text-xs text-success">{schoolLookup.name}</p>
                 )}
+              </div>
+            )}
+
+            {/* Staff/Teacher: CIN */}
+            {(role === 'STAFF' || role === 'TEACHER') && (
+              <div>
+                <label className="mb-1 block text-sm font-medium text-text-secondary">
+                  {t('auth.cin')}
+                </label>
+                <input
+                  type="text"
+                  value={cin}
+                  onChange={(e) => setCin(e.target.value)}
+                  className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none"
+                  placeholder={t('auth.cin_placeholder')}
+                  required
+                />
+              </div>
+            )}
+
+            {/* Staff/Teacher/Student: Matricule */}
+            {(role === 'STAFF' || role === 'TEACHER' || role === 'STUDENT') && (
+              <div>
+                <label className="mb-1 block text-sm font-medium text-text-secondary">
+                  {t('auth.matricule')}
+                </label>
+                <input
+                  type="text"
+                  value={matricule}
+                  onChange={(e) => setMatricule(e.target.value)}
+                  className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none"
+                  placeholder={t('auth.matricule_placeholder')}
+                  required
+                />
               </div>
             )}
 
@@ -459,7 +511,7 @@ function SignupForm() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className={`${inputClass}${googleId ? ' opacity-60 cursor-not-allowed' : ''}`}
-                placeholder={role === 'ADMIN' ? 'admin@school.com' : 'name@email.com'}
+                placeholder={role === 'DIRECTOR' ? 'admin@school.com' : 'name@email.com'}
               />
             </div>
 

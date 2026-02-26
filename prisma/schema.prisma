@@ -37,6 +37,7 @@ model School {
   leaveRequests LeaveRequest[]
   payments      Payment[]
   grades        Grade[]
+  staffMembers  Staff[]
 
   tunisianSchoolId String?         @unique
   tunisianSchool   TunisianSchool? @relation(fields: [tunisianSchoolId], references: [id])
@@ -61,6 +62,24 @@ model User {
   teacher   Teacher? @relation(fields: [teacherId], references: [id])
   studentId String?  @unique
   student   Student? @relation(fields: [studentId], references: [id])
+  staffId   String?  @unique
+  staff     Staff?   @relation(fields: [staffId], references: [id])
+}
+
+// ─── STAFF ────────────────────────────────────────────────
+model Staff {
+  id         String   @id @default(cuid())
+  schoolId   String
+  school     School   @relation(fields: [schoolId], references: [id])
+  name       String
+  email      String?
+  phone      String?
+  cin        String?
+  matricule  String?
+  staffTitle String?
+  avatarUrl  String?
+  createdAt  DateTime @default(now())
+  user       User?
 }
 
 // ─── ACADEMIC STRUCTURE ─────────────────────────────────────
@@ -74,6 +93,7 @@ model Term {
   startDate  DateTime
   endDate    DateTime
   timetables Timetable[]
+  exams      Exam[]
 }
 
 model Class {
@@ -87,6 +107,7 @@ model Class {
   colorHex String    @default("#4f6ef7")
   lessons  Lesson[]
   students Student[]
+  exams    Exam[]
 }
 
 model Teacher {
@@ -114,6 +135,7 @@ model Teacher {
   leaveRequests       LeaveRequest[]
   user                User?
   grades              TeacherGrade[]
+  exams               Exam[]
 }
 
 model TeacherSubject {
@@ -149,6 +171,7 @@ model Subject {
   lessons    Lesson[]
   teachers   TeacherSubject[]
   curriculum GradeCurriculum[]
+  exams      Exam[]
 }
 
 model Room {
@@ -213,7 +236,7 @@ model Lesson {
   substitute   Substitute? @relation(fields: [substituteId], references: [id])
 }
 
-// ─── ABSENCES & SUBSTITUTES ─────────────────────────────────
+// ─── ABSENCES & SUBSTITUTES (TEACHER) ─────────────────────────
 model Absence {
   id           String      @id @default(cuid())
   schoolId     String
@@ -240,6 +263,90 @@ model Substitute {
   assignedAt DateTime?
   lessons    Lesson[]
   absences   Absence[]
+}
+
+// ─── STUDENT ABSENCES ─────────────────────────────────────────
+model StudentAbsence {
+  id          String    @id @default(cuid())
+  schoolId    String
+  studentId   String
+  student     Student   @relation(fields: [studentId], references: [id])
+  date        DateTime
+  periodIds   String    @default("[]")
+  type        String    @default("UNJUSTIFIED")
+  reason      String?
+  reportedBy  String?
+  justifiedBy String?
+  justifiedAt DateTime?
+  note        String?
+  createdAt   DateTime  @default(now())
+}
+
+// ─── EXAMS & MARKS ────────────────────────────────────────────
+model Exam {
+  id          String     @id @default(cuid())
+  schoolId    String
+  termId      String
+  term        Term       @relation(fields: [termId], references: [id])
+  subjectId   String
+  subject     Subject    @relation(fields: [subjectId], references: [id])
+  classId     String
+  class       Class      @relation(fields: [classId], references: [id])
+  teacherId   String
+  teacher     Teacher    @relation(fields: [teacherId], references: [id])
+  type        String
+  date        DateTime?
+  coefficient Float      @default(1)
+  maxScore    Float      @default(20)
+  createdAt   DateTime   @default(now())
+  marks       ExamMark[]
+
+  @@unique([termId, subjectId, classId, type])
+}
+
+model ExamMark {
+  id        String    @id @default(cuid())
+  examId    String
+  exam      Exam      @relation(fields: [examId], references: [id], onDelete: Cascade)
+  studentId String
+  student   Student   @relation(fields: [studentId], references: [id])
+  score     Float?
+  absent    Boolean   @default(false)
+  note      String?
+  enteredBy String?
+  enteredAt DateTime?
+  updatedAt DateTime  @updatedAt
+
+  @@unique([examId, studentId])
+}
+
+// ─── STUDENT NOTES ────────────────────────────────────────────
+model StudentNote {
+  id        String   @id @default(cuid())
+  schoolId  String
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id])
+  authorId  String
+  category  String   @default("OBSERVATION")
+  content   String
+  isPrivate Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+// ─── CLASS AUTHORIZATIONS (بطاقة العودة) ──────────────────────
+model ClassAuthorization {
+  id              String    @id @default(cuid())
+  schoolId        String
+  studentId       String
+  student         Student   @relation(fields: [studentId], references: [id])
+  absenceDate     DateTime
+  absenceEndDate  DateTime?
+  reason          String
+  status          String    @default("PENDING")
+  reviewedById    String?
+  reviewedAt      DateTime?
+  rejectionReason String?
+  createdAt       DateTime  @default(now())
 }
 
 // ─── LEAVE MANAGEMENT ──────────────────────────────────────
@@ -295,14 +402,24 @@ model SchoolEvent {
 
 // ─── STUDENTS ────────────────────────────────────────────
 model Student {
-  id        String @id @default(cuid())
-  schoolId  String
-  name      String
-  email     String?
-  classId   String
-  class     Class  @relation(fields: [classId], references: [id])
-  electives String @default("[]")
-  user      User?
+  id         String   @id @default(cuid())
+  schoolId   String
+  name       String
+  email      String?
+  phone      String?
+  matricule  String?
+  sex        String?
+  birthDate  DateTime?
+  classId    String
+  class      Class    @relation(fields: [classId], references: [id])
+  electives  String   @default("[]")
+  createdAt  DateTime @default(now())
+  user       User?
+
+  absences       StudentAbsence[]
+  examMarks      ExamMark[]
+  notes          StudentNote[]
+  authorizations ClassAuthorization[]
 }
 
 // ─── GRADES & CURRICULUM ───────────────────────────────────
@@ -326,6 +443,7 @@ model GradeCurriculum {
   subjectId    String
   subject      Subject @relation(fields: [subjectId], references: [id])
   hoursPerWeek Int     @default(2)
+  coefficient  Float   @default(1)
 
   @@unique([gradeId, subjectId])
 }

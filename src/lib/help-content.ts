@@ -8,18 +8,18 @@ export interface HelpSection {
 }
 
 export const HELP_SECTIONS: HelpSection[] = [
-  { id: 'getting_started', icon: 'Rocket', roles: ['OWNER', 'ADMIN'], faqCount: 4 },
-  { id: 'dashboard', icon: 'LayoutDashboard', roles: ['OWNER', 'ADMIN', 'TEACHER', 'STUDENT'], faqCount: 4 },
-  { id: 'timetable', icon: 'CalendarDays', roles: ['OWNER', 'ADMIN', 'TEACHER', 'STUDENT'], faqCount: 5 },
-  { id: 'teachers', icon: 'Users', roles: ['OWNER', 'ADMIN'], faqCount: 4 },
-  { id: 'absences', icon: 'UserX', roles: ['OWNER', 'ADMIN', 'TEACHER'], faqCount: 4 },
-  { id: 'leave', icon: 'ClipboardList', roles: ['OWNER', 'ADMIN', 'TEACHER'], faqCount: 3 },
-  { id: 'calendar', icon: 'Calendar', roles: ['OWNER', 'ADMIN', 'TEACHER', 'STUDENT'], faqCount: 3 },
-  { id: 'resources', icon: 'Database', roles: ['OWNER', 'ADMIN'], faqCount: 4 },
-  { id: 'reports', icon: 'BarChart3', roles: ['OWNER', 'ADMIN'], faqCount: 3 },
-  { id: 'ai', icon: 'Sparkles', roles: ['OWNER', 'ADMIN', 'TEACHER'], faqCount: 4 },
-  { id: 'settings', icon: 'Settings', roles: ['OWNER', 'ADMIN', 'TEACHER', 'STUDENT'], faqCount: 6 },
-  { id: 'billing', icon: 'CreditCard', roles: ['OWNER', 'ADMIN'], faqCount: 4 },
+  { id: 'getting_started', icon: 'Rocket', roles: ['DIRECTOR', 'ADMIN'], faqCount: 4 },
+  { id: 'dashboard', icon: 'LayoutDashboard', roles: ['DIRECTOR', 'ADMIN', 'TEACHER', 'STUDENT'], faqCount: 4 },
+  { id: 'timetable', icon: 'CalendarDays', roles: ['DIRECTOR', 'ADMIN', 'TEACHER', 'STUDENT'], faqCount: 5 },
+  { id: 'teachers', icon: 'Users', roles: ['DIRECTOR', 'ADMIN'], faqCount: 4 },
+  { id: 'absences', icon: 'UserX', roles: ['DIRECTOR', 'ADMIN', 'TEACHER'], faqCount: 4 },
+  { id: 'leave', icon: 'ClipboardList', roles: ['DIRECTOR', 'ADMIN', 'TEACHER'], faqCount: 3 },
+  { id: 'calendar', icon: 'Calendar', roles: ['DIRECTOR', 'ADMIN', 'TEACHER', 'STUDENT'], faqCount: 3 },
+  { id: 'resources', icon: 'Database', roles: ['DIRECTOR', 'ADMIN'], faqCount: 4 },
+  { id: 'reports', icon: 'BarChart3', roles: ['DIRECTOR', 'ADMIN'], faqCount: 3 },
+  { id: 'ai', icon: 'Sparkles', roles: ['DIRECTOR', 'ADMIN', 'TEACHER'], faqCount: 4 },
+  { id: 'settings', icon: 'Settings', roles: ['DIRECTOR', 'ADMIN', 'TEACHER', 'STUDENT'], faqCount: 6 },
+  { id: 'billing', icon: 'CreditCard', roles: ['DIRECTOR', 'ADMIN'], faqCount: 4 },
 ]
 
 export function getHelpSectionsForRole(role: string): HelpSection[] {

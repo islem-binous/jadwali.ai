@@ -1,0 +1,171 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { getPrisma } from '@/lib/prisma'
+
+// GET /api/marks?examId=xxx          — grade sheet for one exam
+// GET /api/marks?studentId=xxx&termId=xxx — all marks for a student in a term
+export async function GET(req: NextRequest) {
+  const examId = req.nextUrl.searchParams.get('examId')
+  const studentId = req.nextUrl.searchParams.get('studentId')
+  const termId = req.nextUrl.searchParams.get('termId')
+
+  if (!examId && !(studentId && termId)) {
+    return NextResponse.json(
+      { error: 'Provide examId, or both studentId and termId' },
+      { status: 400 }
+    )
+  }
+
+  try {
+    const prisma = await getPrisma()
+
+    if (examId) {
+      // Grade sheet for one exam — all students
+      const marks = await prisma.examMark.findMany({
+        where: { examId },
+        include: {
+          student: { select: { id: true, name: true } },
+          exam: {
+            select: {
+              id: true,
+              type: true,
+              subjectId: true,
+              subject: { select: { id: true, name: true } },
+              maxScore: true,
+              coefficient: true,
+            },
+          },
+        },
+        orderBy: { student: { name: 'asc' } },
+      })
+      return NextResponse.json(marks)
+    }
+
+    // All marks for a student in a given term
+    const marks = await prisma.examMark.findMany({
+      where: {
+        studentId: studentId!,
+        exam: { termId: termId! },
+      },
+      include: {
+        student: { select: { id: true, name: true } },
+        exam: {
+          select: {
+            id: true,
+            type: true,
+            subjectId: true,
+            subject: { select: { id: true, name: true } },
+            maxScore: true,
+            coefficient: true,
+          },
+        },
+      },
+      orderBy: { student: { name: 'asc' } },
+    })
+    return NextResponse.json(marks)
+  } catch (err) {
+    console.error('[Marks GET]', err)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
+// POST /api/marks — bulk upsert marks for an exam
+export async function POST(req: NextRequest) {
+  try {
+    const prisma = await getPrisma()
+    const body = await req.json()
+    const { examId, marks, enteredBy } = body as {
+      examId: string
+      marks: { studentId: string; score?: number | null; absent?: boolean; note?: string | null }[]
+      enteredBy?: string
+    }
+
+    if (!examId || !Array.isArray(marks) || marks.length === 0) {
+      return NextResponse.json(
+        { error: 'examId and a non-empty marks array are required' },
+        { status: 400 }
+      )
+    }
+
+    const now = new Date()
+
+    const upserts = marks.map((m) =>
+      prisma.examMark.upsert({
+        where: {
+          examId_studentId: {
+            examId,
+            studentId: m.studentId,
+          },
+        },
+        create: {
+          examId,
+          studentId: m.studentId,
+          score: m.score ?? null,
+          absent: m.absent ?? false,
+          note: m.note ?? null,
+          enteredBy: enteredBy ?? null,
+          enteredAt: now,
+        },
+        update: {
+          score: m.score ?? null,
+          absent: m.absent ?? false,
+          note: m.note ?? null,
+          enteredBy: enteredBy ?? null,
+          enteredAt: now,
+        },
+      })
+    )
+
+    const results = await prisma.$transaction(upserts)
+
+    return NextResponse.json({ count: results.length })
+  } catch (err) {
+    console.error('[Marks POST]', err)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
+// PUT /api/marks — single mark edit
+export async function PUT(req: NextRequest) {
+  try {
+    const prisma = await getPrisma()
+    const body = await req.json()
+    const { id, score, absent, note } = body as {
+      id: string
+      score?: number | null
+      absent?: boolean
+      note?: string | null
+    }
+
+    if (!id) {
+      return NextResponse.json({ error: 'Missing mark id' }, { status: 400 })
+    }
+
+    const data: Record<string, unknown> = {}
+    if (score !== undefined) data.score = score
+    if (absent !== undefined) data.absent = absent
+    if (note !== undefined) data.note = note
+
+    const updated = await prisma.examMark.update({
+      where: { id },
+      data,
+      include: {
+        student: { select: { id: true, name: true } },
+        exam: {
+          select: {
+            id: true,
+            type: true,
+            subjectId: true,
+            subject: { select: { id: true, name: true } },
+            maxScore: true,
+            coefficient: true,
+          },
+        },
+      },
+    })
+
+    return NextResponse.json(updated)
+  } catch (err) {
+    console.error('[Marks PUT]', err)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
