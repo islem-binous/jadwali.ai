@@ -1,13 +1,13 @@
 Name,Grade,Capacity,Color
-1-A,Grade 1,30,#4f6ef7
-1-B,Grade 1,30,#3b82f6
-2-A,Grade 2,30,#22c55e
-2-B,Grade 2,30,#16a34a
-3-A,Grade 3,30,#06b6d4
-3-B,Grade 3,30,#0891b2
-4-A,Grade 4,30,#f59e0b
-4-B,Grade 4,30,#d97706
-5-A,Grade 5,30,#8b5cf6
-5-B,Grade 5,30,#7c3aed
-6-A,Grade 6,30,#ec4899
-6-B,Grade 6,30,#db2777
+1-A,1ère année secondaire,30,#4f6ef7
+1-B,1ère année secondaire,30,#3b82f6
+2L-A,2ème année lettres,30,#22c55e
+2L-B,2ème année lettres,30,#16a34a
+2S-A,2ème année sciences,30,#06b6d4
+2S-B,2ème année sciences,30,#0891b2
+2E-A,2ème année économie,30,#f59e0b
+2E-B,2ème année économie,30,#d97706
+2TI-A,2ème année tech. informatique,30,#8b5cf6
+2TI-B,2ème année tech. informatique,30,#7c3aed
+2SP-A,2ème année sport,30,#ec4899
+2SP-B,2ème année sport,30,#db2777

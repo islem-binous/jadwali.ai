@@ -123,7 +123,14 @@ async function handleTeachers(
         : []
 
     const unmatched = subjectNames.filter(
-      (sn) => !existingSubjects.find((es: any) => normalizeName(es.name) === normalizeName(sn)),
+      (sn) => {
+        const n = normalizeName(sn)
+        return !existingSubjects.find((es: any) =>
+          normalizeName(es.name) === n ||
+          (es.nameAr && normalizeName(es.nameAr) === n) ||
+          (es.nameFr && normalizeName(es.nameFr) === n)
+        )
+      },
     )
     if (unmatched.length > 0) {
       errors.push(`Unknown subjects: ${unmatched.join(', ')}`)
@@ -177,7 +184,14 @@ async function handleTeachers(
 
     const subjectNames = row.data.subjects.split(';').map((s) => s.trim()).filter(Boolean)
     const subjectIds = subjectNames
-      .map((sn) => existingSubjects.find((es: any) => normalizeName(es.name) === normalizeName(sn))?.id)
+      .map((sn) => {
+        const n = normalizeName(sn)
+        return existingSubjects.find((es: any) =>
+          normalizeName(es.name) === n ||
+          (es.nameAr && normalizeName(es.nameAr) === n) ||
+          (es.nameFr && normalizeName(es.nameFr) === n)
+        )?.id
+      })
       .filter(Boolean) as string[]
 
     const recruitmentDate = row.data.recruitmentDate ? new Date(row.data.recruitmentDate) : null
@@ -278,7 +292,12 @@ async function handleSubjects(
       pedagogicDay = dayMap[raw] ?? (Number(raw) >= 0 && Number(raw) <= 6 ? Number(raw) : 0)
     }
 
-    const match = existing.find((s: any) => normalizeName(s.name) === normalizeName(name))
+    const nn = normalizeName(name)
+    const match = existing.find((s: any) =>
+      normalizeName(s.name) === nn ||
+      (s.nameAr && normalizeName(s.nameAr) === nn) ||
+      (s.nameFr && normalizeName(s.nameFr) === nn)
+    )
 
     return {
       rowIndex: i + 1,
@@ -361,7 +380,12 @@ async function handleClasses(
     const gradeName = gradeCol >= 0 ? row[gradeCol] || '' : ''
     let gradeId: string | null = null
     if (gradeName.trim()) {
-      const gradeMatch = grades.find((g: any) => normalizeName(g.name) === normalizeName(gradeName))
+      const gn = normalizeName(gradeName)
+      const gradeMatch = grades.find((g: any) =>
+        normalizeName(g.name) === gn ||
+        (g.nameAr && normalizeName(g.nameAr) === gn) ||
+        (g.nameFr && normalizeName(g.nameFr) === gn)
+      )
       if (!gradeMatch) {
         errors.push(`Unknown grade: ${gradeName}`)
       } else {
@@ -561,7 +585,12 @@ async function handleTimetable(
     if (!classMatch) errors.push(`Unknown class: ${className}`)
 
     const subjectName = (row[subjectCol] || '').trim()
-    const subjectMatch = subjects.find((s: any) => normalizeName(s.name) === normalizeName(subjectName))
+    const sn = normalizeName(subjectName)
+    const subjectMatch = subjects.find((s: any) =>
+      normalizeName(s.name) === sn ||
+      (s.nameAr && normalizeName(s.nameAr) === sn) ||
+      (s.nameFr && normalizeName(s.nameFr) === sn)
+    )
     if (!subjectMatch) errors.push(`Unknown subject: ${subjectName}`)
 
     const teacherName = (row[teacherCol] || '').trim()
@@ -659,8 +688,13 @@ async function handleGrades(
 
     const subjectName = hasSubjects ? (row[subjectCol] || '').trim() : ''
 
+    const snorm = normalizeName(subjectName)
     const subjectMatch = subjectName
-      ? existingSubjects.find((s: any) => normalizeName(s.name) === normalizeName(subjectName))
+      ? existingSubjects.find((s: any) =>
+          normalizeName(s.name) === snorm ||
+          (s.nameAr && normalizeName(s.nameAr) === snorm) ||
+          (s.nameFr && normalizeName(s.nameFr) === snorm)
+        )
       : null
     if (subjectName && !subjectMatch) errors.push(`Unknown subject: ${subjectName}`)
 
@@ -668,8 +702,13 @@ async function handleGrades(
     const hours = hoursStr ? parseInt(hoursStr) : 2
     if (hoursStr && (isNaN(hours) || hours < 1 || hours > 20)) errors.push('Hours/Week must be between 1 and 20')
 
+    const gnorm = normalizeName(gradeName)
     const gradeMatch = gradeName
-      ? existingGrades.find((g: any) => normalizeName(g.name) === normalizeName(gradeName))
+      ? existingGrades.find((g: any) =>
+          normalizeName(g.name) === gnorm ||
+          (g.nameAr && normalizeName(g.nameAr) === gnorm) ||
+          (g.nameFr && normalizeName(g.nameFr) === gnorm)
+        )
       : null
 
     return {

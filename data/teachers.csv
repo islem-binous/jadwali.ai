@@ -1,16 +1,16 @@
 Name,Email,Phone,Matricule,CIN,Sex,Recruitment Date,Professional Grade,Subjects,Max/Day,Max/Week
-Karim Meziane,karim.meziane@school.com,,12345,09876543,M,2005-09-15,Professeur principal de l'enseignement secondaire,Mathematics,6,24
-Fatima Boudjema,fatima.boudjema@school.com,,12346,09876544,F,2008-09-01,Professeur de l'enseignement secondaire,Mathematics,6,24
-Mohamed Larbi,mohamed.larbi@school.com,,12347,09876545,M,2010-09-15,Professeur principal,Physics,6,24
-Amina Khelifi,amina.khelifi@school.com,,12348,09876546,F,2012-09-01,Professeur de l'enseignement secondaire,Chemistry,6,24
-Youcef Benmoussa,youcef.benmoussa@school.com,,12349,09876547,M,2015-09-15,Professeur principal,Biology,6,24
-Rachid Hamidi,rachid.hamidi@school.com,,12350,09876548,M,2003-09-01,Professeur principal distingué,Arabic,6,24
-Naima Saidi,naima.saidi@school.com,,12351,09876549,F,2011-09-15,Professeur de l'enseignement secondaire,Arabic,6,24
-Sophie Dupont,sophie.dupont@school.com,,12352,09876550,F,2014-09-01,Professeur principal,French,6,24
-Sarah Mitchell,sarah.mitchell@school.com,,12353,09876551,F,2016-09-15,Professeur de l'enseignement secondaire,English,6,24
-Ali Bouzid,ali.bouzid@school.com,,12354,09876552,M,2007-09-01,Professeur principal de l'enseignement secondaire,History;Geography,6,24
-Leila Ferhat,leila.ferhat@school.com,,12355,09876553,F,2018-09-15,Agent temporaire A2,History,6,24
-Mustapha Kebaili,mustapha.kebaili@school.com,,12356,09876554,M,2009-09-01,Professeur principal,Islamic Studies,6,24
-Omar Benslimane,omar.benslimane@school.com,,12357,09876555,M,2013-09-15,Professeur de l'enseignement secondaire,Physical Education,6,24
-Djamel Ouali,djamel.ouali@school.com,,12358,09876556,M,2017-09-01,Suppléant,Technology,6,24
-Nadia Cherif,nadia.cherif@school.com,,12359,09876557,F,2006-09-15,Professeur principal distingué,Physics;Chemistry,6,24
+Karim Meziane,karim.meziane@school.com,,12345,09876543,M,2005-09-15,Professeur principal de l'enseignement secondaire,رياضيات,6,24
+Fatima Boudjema,fatima.boudjema@school.com,,12346,09876544,F,2008-09-01,Professeur de l'enseignement secondaire,رياضيات,6,24
+Mohamed Larbi,mohamed.larbi@school.com,,12347,09876545,M,2010-09-15,Professeur principal,ع.فيزيائية,6,24
+Amina Khelifi,amina.khelifi@school.com,,12348,09876546,F,2012-09-01,Professeur de l'enseignement secondaire,ع.فيزيائية,6,24
+Youcef Benmoussa,youcef.benmoussa@school.com,,12349,09876547,M,2015-09-15,Professeur principal,ع.الح.و.الأرض,6,24
+Rachid Hamidi,rachid.hamidi@school.com,,12350,09876548,M,2003-09-01,Professeur principal distingué,عربية,6,24
+Naima Saidi,naima.saidi@school.com,,12351,09876549,F,2011-09-15,Professeur de l'enseignement secondaire,عربية,6,24
+Sophie Dupont,sophie.dupont@school.com,,12352,09876550,F,2014-09-01,Professeur principal,فرنسية,6,24
+Sarah Mitchell,sarah.mitchell@school.com,,12353,09876551,F,2016-09-15,Professeur de l'enseignement secondaire,انقليزية,6,24
+Ali Bouzid,ali.bouzid@school.com,,12354,09876552,M,2007-09-01,Professeur principal de l'enseignement secondaire,التا و الجغ,6,24
+Leila Ferhat,leila.ferhat@school.com,,12355,09876553,F,2018-09-15,Agent temporaire A2,التا و الجغ,6,24
+Mustapha Kebaili,mustapha.kebaili@school.com,,12356,09876554,M,2009-09-01,Professeur principal,ت.إسلامية,6,24
+Omar Benslimane,omar.benslimane@school.com,,12357,09876555,M,2013-09-15,Professeur de l'enseignement secondaire,ت.بدنية,6,24
+Djamel Ouali,djamel.ouali@school.com,,12358,09876556,M,2017-09-01,Suppléant,ت.تكنولوجية,6,24
+Nadia Cherif,nadia.cherif@school.com,,12359,09876557,F,2006-09-15,Professeur principal distingué,ع.فيزيائية,6,24
