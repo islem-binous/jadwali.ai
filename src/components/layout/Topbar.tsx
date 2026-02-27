@@ -90,7 +90,7 @@ export function Topbar() {
                     )}
                   </div>
                   <p className="text-xs text-text-muted">{user?.email}</p>
-                  <p className="mt-1 text-xs text-accent">{user?.schoolName}</p>
+                  <p className="mt-1 text-xs text-accent">{user?.schoolName || 'Platform Admin'}</p>
                 </div>
 
                 <Link

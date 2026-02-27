@@ -691,7 +691,7 @@ function TeacherView({ user, t }: TeacherViewProps) {
         exam={selectedExam}
         onBack={backToList}
         t={t}
-        schoolId={user.schoolId}
+        schoolId={user.schoolId!}
       />
     )
   }

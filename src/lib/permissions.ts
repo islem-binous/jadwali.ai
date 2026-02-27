@@ -1,4 +1,4 @@
-export type UserRole = 'DIRECTOR' | 'ADMIN' | 'STAFF' | 'TEACHER' | 'STUDENT'
+export type UserRole = 'SUPER_ADMIN' | 'DIRECTOR' | 'ADMIN' | 'STAFF' | 'TEACHER' | 'STUDENT'
 
 export interface NavPermission {
   key: string
@@ -61,9 +61,14 @@ export function getBottomNavKeys(role: string): string[] {
 
 /** Route access check from pathname */
 export function canAccessRoute(role: string, pathname: string): boolean {
+  if (role === 'SUPER_ADMIN') return true
   const segments = pathname.split('/').filter(Boolean)
   const pageSegment = segments[1] || 'dashboard'
   return canAccessNav(role, pageSegment)
+}
+
+export function isSuperAdmin(role: string): boolean {
+  return role === 'SUPER_ADMIN'
 }
 
 export function isDirector(role: string): boolean {

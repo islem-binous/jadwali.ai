@@ -8,8 +8,8 @@ export interface AuthUser {
   role: string
   language: string
   avatarUrl: string | null
-  schoolId: string
-  schoolName: string
+  schoolId: string | null
+  schoolName: string | null
   plan: string
   subscriptionStatus: string
   subscriptionEndsAt: string | null

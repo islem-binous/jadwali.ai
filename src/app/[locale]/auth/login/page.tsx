@@ -27,8 +27,8 @@ function LoginForm() {
     setLoading(true)
 
     try {
-      await signIn(email, password)
-      router.push('/dashboard')
+      const user = await signIn(email, password)
+      router.push(user.role === 'SUPER_ADMIN' ? '/admin' : '/dashboard')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed')
     } finally {

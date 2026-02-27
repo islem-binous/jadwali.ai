@@ -30,12 +30,35 @@ export async function POST(request: Request) {
     // In local dev, we skip password verification (no hashing setup)
     // In production, this would use Supabase Auth
 
+    // SUPER_ADMIN: no school, no subscription
+    if (user.role === 'SUPER_ADMIN') {
+      return NextResponse.json({
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          language: user.language,
+          avatarUrl: user.avatarUrl,
+          schoolId: null,
+          schoolName: null,
+          plan: 'SUPER_ADMIN',
+          subscriptionStatus: 'ACTIVE',
+          subscriptionEndsAt: null,
+          teacherId: null,
+          studentId: null,
+          staffId: null,
+          classId: null,
+        },
+      })
+    }
+
     // Check and downgrade expired subscriptions on login
-    const wasDowngraded = await checkAndDowngradeExpired(user.schoolId)
+    const wasDowngraded = await checkAndDowngradeExpired(user.schoolId!)
 
     // Re-fetch school if downgraded to get updated plan
     const school = wasDowngraded
-      ? await prisma.school.findUnique({ where: { id: user.schoolId } })
+      ? await prisma.school.findUnique({ where: { id: user.schoolId! } })
       : user.school
 
     return NextResponse.json({

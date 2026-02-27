@@ -1,30 +1,22 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useRouter, usePathname } from '@/i18n/navigation'
+import { useRouter } from '@/i18n/navigation'
 import { useUserStore } from '@/store/userStore'
-import { canAccessRoute } from '@/lib/permissions'
 import { Loader2 } from 'lucide-react'
 
-export function AuthGuard({ children }: { children: React.ReactNode }) {
+export function AdminAuthGuard({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useUserStore()
   const router = useRouter()
-  const pathname = usePathname()
 
   useEffect(() => {
     if (!isLoading && !user) {
       router.push('/auth/login')
     }
-    // SUPER_ADMIN should use the /admin section, not the school app
-    if (!isLoading && user && user.role === 'SUPER_ADMIN') {
-      router.push('/admin')
-      return
-    }
-    // Role-based route protection
-    if (!isLoading && user && !canAccessRoute(user.role, pathname)) {
+    if (!isLoading && user && user.role !== 'SUPER_ADMIN') {
       router.push('/dashboard')
     }
-  }, [user, isLoading, router, pathname])
+  }, [user, isLoading, router])
 
   if (isLoading) {
     return (
@@ -37,12 +29,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     )
   }
 
-  if (!user) {
-    return null
-  }
-
-  // Block rendering for unauthorized routes
-  if (!canAccessRoute(user.role, pathname)) {
+  if (!user || user.role !== 'SUPER_ADMIN') {
     return null
   }
 
