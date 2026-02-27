@@ -555,6 +555,34 @@ model AppSettings {
   updatedAt             DateTime @updatedAt
 }
 
+// ─── PRICING PLANS ────────────────────────────────────────────
+model PricingPlan {
+  id              String   @id         // "FREE", "STARTER", "PRO", "ENTERPRISE"
+  nameEn          String
+  nameFr          String
+  nameAr          String
+  priceMonthly    Int?                 // TND (null = custom/contact)
+  priceAnnual     Int?                 // TND
+  maxTeachers     Int      @default(-1)
+  maxClasses      Int      @default(-1)
+  maxTimetables   Int      @default(-1)
+  aiGeneration    Boolean  @default(false)
+  aiAssistant     Boolean  @default(false)
+  substituteAI    Boolean  @default(false)
+  exportPDF       Boolean  @default(true)
+  exportExcel     Boolean  @default(false)
+  shareLink       Boolean  @default(false)
+  multiUser       Boolean  @default(false)
+  support         String   @default("community")
+  featureListEn   String   @default("[]")
+  featureListFr   String   @default("[]")
+  featureListAr   String   @default("[]")
+  highlighted     Boolean  @default(false)
+  sortOrder       Int      @default(0)
+  isActive        Boolean  @default(true)
+  updatedAt       DateTime @updatedAt
+}
+
 // ─── PAYMENTS ──────────────────────────────────────────────
 model Payment {
   id           String    @id @default(cuid())

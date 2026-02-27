@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import { useSearchParams } from 'next/navigation'
 import { useUserStore } from '@/store/userStore'
-import { PLANS } from '@/lib/plans'
+import type { PlanDef } from '@/lib/plans'
 import { Modal } from '@/components/ui/Modal'
 import {
   Check,
@@ -47,17 +47,25 @@ export default function BillingPage() {
   const [invoices, setInvoices] = useState<InvoiceRecord[]>([])
   const [downgradeConfirm, setDowngradeConfirm] = useState(false)
   const [downgrading, setDowngrading] = useState(false)
+  const [plansMap, setPlansMap] = useState<Record<string, PlanDef>>({})
 
   const userPlanKey = (user?.plan ?? 'FREE').toUpperCase()
-  const currentPlan = PLANS[userPlanKey] ?? PLANS.FREE
-  const plans = Object.entries(PLANS)
+  const currentPlan = plansMap[userPlanKey] ?? plansMap.FREE
+  const plans = Object.entries(plansMap)
 
-  const planTranslationKeys: Record<string, string> = {
-    FREE: 'plan_free',
-    STARTER: 'plan_starter',
-    PRO: 'plan_pro',
-    ENTERPRISE: 'plan_enterprise',
-  }
+  // Fetch plans from API
+  useEffect(() => {
+    fetch('/api/plans')
+      .then((r) => r.json())
+      .then((data: PlanDef[]) => {
+        if (Array.isArray(data)) {
+          const map: Record<string, PlanDef> = {}
+          for (const p of data) map[p.id] = p
+          setPlansMap(map)
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   // Pre-fill name from user
   useEffect(() => {
@@ -239,12 +247,26 @@ export default function BillingPage() {
     )
   }
 
-  const selectedPlanDef = selectedPlan ? PLANS[selectedPlan] : null
+  const selectedPlanDef = selectedPlan ? plansMap[selectedPlan] : null
   const selectedPrice = selectedPlanDef
     ? billingCycle === 'monthly'
       ? selectedPlanDef.price.monthly
       : selectedPlanDef.price.annual
     : 0
+
+  const getPlanName = (key: string) => {
+    const p = plansMap[key]
+    if (p) return p.name[locale] || p.name.en
+    return key
+  }
+
+  if (plans.length === 0 && !verifying) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-accent" />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -282,7 +304,7 @@ export default function BillingPage() {
                   {t('billing.current_plan')}
                 </h2>
                 <span className="rounded-full bg-success/10 px-3 py-1 text-xs font-semibold text-success">
-                  {t(`billing.${planTranslationKeys[userPlanKey] ?? 'plan_free'}`)}
+                  {getPlanName(userPlanKey)}
                 </span>
                 {statusBadge()}
               </div>
@@ -369,10 +391,9 @@ export default function BillingPage() {
             billingCycle === 'monthly' ? plan.price.monthly : plan.price.annual
           const features = plan.featureList[locale] || plan.featureList.en
           const isCurrentPlan = key === userPlanKey
-          const translationKey = planTranslationKeys[key] ?? 'plan_free'
           const isDowngrade =
-            Object.keys(PLANS).indexOf(key) <
-            Object.keys(PLANS).indexOf(userPlanKey)
+            Object.keys(plansMap).indexOf(key) <
+            Object.keys(plansMap).indexOf(userPlanKey)
 
           return (
             <div
@@ -395,7 +416,7 @@ export default function BillingPage() {
 
               {/* Plan Name */}
               <h3 className="font-display text-lg font-semibold text-text-primary">
-                {t(`billing.${translationKey}`)}
+                {plan.name[locale] || plan.name.en}
               </h3>
 
               {/* Price */}
@@ -565,9 +586,7 @@ export default function BillingPage() {
                       {inv.amount / 1000} DT
                     </td>
                     <td className="px-4 py-3 text-sm text-text-secondary">
-                      {t(
-                        `billing.${planTranslationKeys[inv.plan] ?? 'plan_free'}`
-                      )}
+                      {getPlanName(inv.plan)}
                     </td>
                     <td className="px-4 py-3">
                       <span className="rounded-full bg-success/10 px-2.5 py-0.5 text-xs font-semibold text-success">
@@ -602,9 +621,7 @@ export default function BillingPage() {
                 {t('billing.upgrading_to')}
               </p>
               <p className="font-display text-lg font-bold text-text-primary">
-                {t(
-                  `billing.${planTranslationKeys[selectedPlan!] ?? 'plan_free'}`
-                )}
+                {getPlanName(selectedPlan!)}
               </p>
               <p className="mt-1 text-sm text-text-secondary">
                 <span className="font-semibold text-text-primary">

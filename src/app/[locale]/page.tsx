@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import { Link } from '@/i18n/navigation'
 import { motion } from 'framer-motion'
@@ -8,7 +8,7 @@ import {
   Sparkles, Calendar, Users, Shield, Globe, Zap,
   Check, Star, ArrowRight, MessageSquare,
 } from 'lucide-react'
-import { PLANS } from '@/lib/plans'
+import type { PlanDef } from '@/lib/plans'
 import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher'
 import type { Locale } from '@/i18n/config'
 
@@ -33,8 +33,16 @@ export default function LandingPage() {
   const t = useTranslations()
   const locale = useLocale() as Locale
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly')
+  const [plans, setPlans] = useState<PlanDef[]>([])
 
-  const plans = Object.values(PLANS)
+  useEffect(() => {
+    fetch('/api/plans')
+      .then((r) => r.json())
+      .then((data: PlanDef[]) => {
+        if (Array.isArray(data)) setPlans(data)
+      })
+      .catch(() => {})
+  }, [])
 
   return (
     <div className="min-h-screen bg-bg-base">

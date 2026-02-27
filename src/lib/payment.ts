@@ -1,4 +1,5 @@
 import { getCloudflareContext } from '@opennextjs/cloudflare'
+import { getPlan } from '@/lib/plans'
 
 export type PaymentProvider = 'konnect' | 'paymee'
 export type BillingCycle = 'monthly' | 'annual'
@@ -36,12 +37,11 @@ export function generateOrderId(schoolId: string): string {
   return `SCQ-${schoolId.slice(-6)}-${Date.now().toString(36).toUpperCase()}`
 }
 
-export function computeAmount(plan: string, cycle: BillingCycle): number {
-  const prices: Record<string, { monthly: number; annual: number }> = {
-    STARTER: { monthly: 89, annual: 854 },
-    PRO: { monthly: 249, annual: 2390 },
-  }
-  return prices[plan]?.[cycle] ?? 0
+export async function computeAmount(plan: string, cycle: BillingCycle): Promise<number> {
+  const planDef = await getPlan(plan)
+  if (!planDef) return 0
+  const price = cycle === 'monthly' ? planDef.price.monthly : planDef.price.annual
+  return price ?? 0
 }
 
 // ── Konnect ─────────────────────────────────────────────────

@@ -7,6 +7,7 @@ import {
 } from '@/lib/payment'
 import type { PaymentProvider, BillingCycle } from '@/lib/payment'
 import { requireSchoolAccess } from '@/lib/auth/require-auth'
+import { getPlan } from '@/lib/plans'
 
 export async function POST(req: NextRequest) {
   try {
@@ -43,7 +44,12 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    if (!['STARTER', 'PRO'].includes(plan)) {
+    const planDef = await getPlan(plan)
+    if (!planDef || planDef.price.monthly === null && planDef.price.annual === null) {
+      return NextResponse.json({ error: 'Invalid plan' }, { status: 400 })
+    }
+    // Cannot purchase free plans or contact-sales-only plans
+    if (planDef.price.monthly === 0 && planDef.price.annual === 0) {
       return NextResponse.json({ error: 'Invalid plan' }, { status: 400 })
     }
 
@@ -60,7 +66,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
-    const amount = computeAmount(plan, billingCycle as BillingCycle)
+    const amount = await computeAmount(plan, billingCycle as BillingCycle)
     if (amount <= 0) {
       return NextResponse.json({ error: 'Invalid amount' }, { status: 400 })
     }
