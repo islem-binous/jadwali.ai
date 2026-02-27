@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
+import { verifyPassword } from '@/lib/auth/password'
+import { createSession, setSessionCookie } from '@/lib/auth/session'
 import { checkAndDowngradeExpired } from '@/lib/subscription'
 
 export async function POST(request: Request) {
@@ -27,12 +29,35 @@ export async function POST(request: Request) {
       )
     }
 
-    // In local dev, we skip password verification (no hashing setup)
-    // In production, this would use Supabase Auth
+    if (!user.isActive) {
+      return NextResponse.json(
+        { error: 'Account is deactivated' },
+        { status: 403 }
+      )
+    }
+
+    // Verify password
+    if (!user.passwordHash) {
+      return NextResponse.json(
+        { error: 'This account uses Google sign-in' },
+        { status: 400 }
+      )
+    }
+
+    const validPassword = await verifyPassword(password, user.passwordHash)
+    if (!validPassword) {
+      return NextResponse.json(
+        { error: 'Invalid email or password' },
+        { status: 401 }
+      )
+    }
+
+    // Create server-side session + JWT
+    const token = await createSession(user.id)
 
     // SUPER_ADMIN: no school, no subscription
     if (user.role === 'SUPER_ADMIN') {
-      return NextResponse.json({
+      const response = NextResponse.json({
         user: {
           id: user.id,
           email: user.email,
@@ -51,6 +76,7 @@ export async function POST(request: Request) {
           classId: null,
         },
       })
+      return setSessionCookie(response, token)
     }
 
     // Check and downgrade expired subscriptions on login
@@ -61,7 +87,7 @@ export async function POST(request: Request) {
       ? await prisma.school.findUnique({ where: { id: user.schoolId! } })
       : user.school
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       user: {
         id: user.id,
         email: user.email,
@@ -80,6 +106,7 @@ export async function POST(request: Request) {
         classId: user.student?.classId ?? null,
       },
     })
+    return setSessionCookie(response, token)
   } catch (err) {
     console.error('[API Error]', err)
     return NextResponse.json(

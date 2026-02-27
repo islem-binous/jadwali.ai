@@ -6,6 +6,7 @@ import {
   computeAmount,
 } from '@/lib/payment'
 import type { PaymentProvider, BillingCycle } from '@/lib/payment'
+import { requireSchoolAccess } from '@/lib/auth/require-auth'
 
 export async function POST(req: NextRequest) {
   try {
@@ -23,6 +24,9 @@ export async function POST(req: NextRequest) {
       phone,
       locale,
     } = body
+
+    const { error: authError } = await requireSchoolAccess(req, schoolId)
+    if (authError) return authError
 
     if (
       !schoolId ||

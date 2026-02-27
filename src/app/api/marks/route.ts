@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
+import { requireSchoolAccess, requireAuth } from '@/lib/auth/require-auth'
 
 // GET /api/marks?examId=xxx          — grade sheet for one exam
 // GET /api/marks?studentId=xxx&termId=xxx — all marks for a student in a term
@@ -7,6 +8,10 @@ export async function GET(req: NextRequest) {
   const examId = req.nextUrl.searchParams.get('examId')
   const studentId = req.nextUrl.searchParams.get('studentId')
   const termId = req.nextUrl.searchParams.get('termId')
+  const schoolId = req.nextUrl.searchParams.get('schoolId')
+
+  const { error: authError } = await requireSchoolAccess(req, schoolId)
+  if (authError) return authError
 
   if (!examId && !(studentId && termId)) {
     return NextResponse.json(
@@ -79,6 +84,9 @@ export async function POST(req: NextRequest) {
       enteredBy?: string
     }
 
+    const { error: authError } = await requireSchoolAccess(req, body.schoolId)
+    if (authError) return authError
+
     if (!examId || !Array.isArray(marks) || marks.length === 0) {
       return NextResponse.json(
         { error: 'examId and a non-empty marks array are required' },
@@ -126,6 +134,9 @@ export async function POST(req: NextRequest) {
 
 // PUT /api/marks — single mark edit
 export async function PUT(req: NextRequest) {
+  const { error: authError } = await requireAuth(req)
+  if (authError) return authError
+
   try {
     const prisma = await getPrisma()
     const body = await req.json()

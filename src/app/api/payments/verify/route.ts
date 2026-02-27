@@ -2,8 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
 import { verifyKonnectPayment, verifyPaymeePayment } from '@/lib/payment'
 import { activateSubscription, computePeriodEnd } from '@/lib/subscription'
+import { requireAuth } from '@/lib/auth/require-auth'
 
 export async function GET(req: NextRequest) {
+  const { error: authError } = await requireAuth(req)
+  if (authError) return authError
+
   const orderId = req.nextUrl.searchParams.get('orderId')
 
   if (!orderId) {

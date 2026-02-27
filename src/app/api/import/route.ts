@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
 import { parseCSV, normalizeName, findColumn } from '@/lib/csv'
+import { requireSchoolAccess } from '@/lib/auth/require-auth'
 
 type RowStatus = 'ok' | 'update' | 'error'
 
@@ -24,6 +25,9 @@ export async function POST(req: NextRequest) {
     if (!type || !schoolId || !file) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
+
+    const { error: authError } = await requireSchoolAccess(req, schoolId)
+    if (authError) return authError
 
     const text = await file.text()
     const allRows = parseCSV(text)

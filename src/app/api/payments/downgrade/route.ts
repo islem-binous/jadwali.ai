@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
+import { requireSchoolAccess } from '@/lib/auth/require-auth'
 
 export async function POST(req: NextRequest) {
   try {
     const prisma = await getPrisma()
     const { schoolId, userId } = await req.json()
+
+    const { error: authError } = await requireSchoolAccess(req, schoolId)
+    if (authError) return authError
 
     const user = await prisma.user.findUnique({ where: { id: userId } })
     if (

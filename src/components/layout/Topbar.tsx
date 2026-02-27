@@ -94,6 +94,15 @@ export function Topbar() {
                 </div>
 
                 <Link
+                  href="/profile"
+                  onClick={() => setShowDropdown(false)}
+                  className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-text-secondary hover:bg-bg-surface hover:text-text-primary transition"
+                >
+                  <User className="h-4 w-4" />
+                  {t('nav.profile')}
+                </Link>
+
+                <Link
                   href="/settings"
                   onClick={() => setShowDropdown(false)}
                   className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-text-secondary hover:bg-bg-surface hover:text-text-primary transition"

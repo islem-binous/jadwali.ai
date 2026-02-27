@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
+import { requireAuth, requireSchoolAccess } from '@/lib/auth/require-auth'
 
 export async function GET(req: NextRequest) {
   const schoolId = req.nextUrl.searchParams.get('schoolId')
   if (!schoolId) {
     return NextResponse.json({ error: 'Missing schoolId' }, { status: 400 })
   }
+
+  const { error: authError } = await requireSchoolAccess(req, schoolId)
+  if (authError) return authError
 
   try {
     const prisma = await getPrisma()
@@ -47,6 +51,9 @@ export async function POST(req: NextRequest) {
     const prisma = await getPrisma()
     const body = await req.json()
     const { schoolId, termId, subjectId, classId, teacherId, type, date, coefficient, maxScore } = body
+
+    const { error: authError } = await requireSchoolAccess(req, schoolId)
+    if (authError) return authError
 
     // Check uniqueness of [termId, subjectId, classId, type]
     const existing = await prisma.exam.findUnique({
@@ -97,6 +104,9 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
+    const { error: authError } = await requireAuth(req)
+    if (authError) return authError
+
     const prisma = await getPrisma()
     const body = await req.json()
     const { id, date, coefficient, maxScore } = body
@@ -130,6 +140,9 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const { error: authError } = await requireAuth(req)
+  if (authError) return authError
+
   const id = req.nextUrl.searchParams.get('id')
   if (!id) {
     return NextResponse.json({ error: 'Missing id' }, { status: 400 })

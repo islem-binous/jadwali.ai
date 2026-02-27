@@ -1,15 +1,36 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useRouter, usePathname } from '@/i18n/navigation'
-import { useUserStore } from '@/store/userStore'
+import { useUserStore, type AuthUser } from '@/store/userStore'
 import { canAccessRoute } from '@/lib/permissions'
 import { Loader2 } from 'lucide-react'
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useUserStore()
+  const { user, isLoading, setUser, signOut } = useUserStore()
   const router = useRouter()
   const pathname = usePathname()
+  const revalidated = useRef(false)
+
+  // Revalidate session on mount by calling /api/auth/me
+  useEffect(() => {
+    if (revalidated.current) return
+    revalidated.current = true
+
+    fetch('/api/auth/me', { credentials: 'same-origin' })
+      .then(async (res) => {
+        if (res.ok) {
+          const data: { user: AuthUser } = await res.json()
+          setUser(data.user)
+        } else {
+          // Session invalid — clear local state and redirect
+          signOut()
+        }
+      })
+      .catch(() => {
+        // Network error — keep current state (offline support)
+      })
+  }, [setUser, signOut])
 
   useEffect(() => {
     if (!isLoading && !user) {

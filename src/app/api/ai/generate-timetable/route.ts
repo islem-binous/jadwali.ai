@@ -3,11 +3,15 @@ import { getPrisma } from '@/lib/prisma'
 import { solveTimetable } from '@/lib/schedule-solver'
 import type { ScheduleConstraints } from '@/lib/schedule-engine'
 import { detectConflicts } from '@/lib/conflict-detector'
+import { requireSchoolAccess } from '@/lib/auth/require-auth'
 
 export async function POST(req: NextRequest) {
   try {
     const prisma = await getPrisma()
     const { schoolId } = await req.json()
+
+    const { error: authError } = await requireSchoolAccess(req, schoolId)
+    if (authError) return authError
 
     if (!schoolId || typeof schoolId !== 'string') {
       return Response.json({ success: false, error: 'Missing schoolId' }, { status: 400 })

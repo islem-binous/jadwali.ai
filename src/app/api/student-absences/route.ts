@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
+import { requireAuth, requireSchoolAccess } from '@/lib/auth/require-auth'
 
 export async function GET(req: NextRequest) {
   try {
@@ -13,6 +14,9 @@ export async function GET(req: NextRequest) {
     if (!schoolId) {
       return NextResponse.json({ error: 'Missing schoolId' }, { status: 400 })
     }
+
+    const { error: authError } = await requireSchoolAccess(req, schoolId)
+    if (authError) return authError
 
     const where: Record<string, unknown> = { schoolId }
 
@@ -59,6 +63,9 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { schoolId, studentId, date, periodIds, type, reason, reportedBy } = body
 
+    const { error: authError } = await requireSchoolAccess(req, schoolId)
+    if (authError) return authError
+
     if (!schoolId || !studentId || !date) {
       return NextResponse.json(
         { error: 'schoolId, studentId, and date are required' },
@@ -96,6 +103,9 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
+    const { error: authError } = await requireAuth(req)
+    if (authError) return authError
+
     const prisma = await getPrisma()
     const body = await req.json()
     const { id, type, reason, justifiedBy, note } = body
@@ -135,6 +145,9 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const { error: authError } = await requireAuth(req)
+  if (authError) return authError
+
   const id = req.nextUrl.searchParams.get('id')
   if (!id) {
     return NextResponse.json({ error: 'Missing id' }, { status: 400 })

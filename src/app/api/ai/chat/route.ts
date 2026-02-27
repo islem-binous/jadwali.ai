@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
+import { requireAuth, requireSchoolAccess } from '@/lib/auth/require-auth'
 
 // Build school context for the AI
 async function buildSchoolContext(schoolId: string) {
@@ -253,7 +254,10 @@ async function streamOpenAI(
 }
 
 // GET: return available providers so the UI can show the toggle
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const { error: authError } = await requireAuth(req)
+  if (authError) return authError
+
   const providers: string[] = []
   if (process.env.ANTHROPIC_API_KEY) providers.push('claude')
   if (process.env.OPENAI_API_KEY) providers.push('openai')
@@ -265,6 +269,9 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const { message, schoolId, history, provider: requestedProvider } = await req.json()
+
+  const { error: authError } = await requireSchoolAccess(req, schoolId)
+  if (authError) return authError
 
   if (!message || typeof message !== 'string') {
     return new Response(JSON.stringify({ error: 'Missing message' }), {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
+import { requireSchoolAccess } from '@/lib/auth/require-auth'
 
 // ── Subject category mapping ───────────────────────────────
 const LANGUAGE_CODES = new Set([
@@ -58,6 +59,9 @@ export async function POST(req: NextRequest) {
       schoolId: string
       items: GradeItem[] | SubjectItem[]
     }
+
+    const { error: authError } = await requireSchoolAccess(req, schoolId)
+    if (authError) return authError
 
     if (!schoolId || !type || !items?.length) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })

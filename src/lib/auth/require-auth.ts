@@ -1,0 +1,80 @@
+/**
+ * API route protection helpers.
+ * Use these in route handlers to require authentication and authorization.
+ */
+
+import { NextResponse } from 'next/server'
+import { validateSession } from './session'
+import { getSessionCookieName } from './jwt'
+
+type AuthUser = {
+  id: string
+  email: string
+  name: string
+  role: string
+  schoolId: string | null
+  isActive: boolean
+}
+
+type AuthResult =
+  | { user: AuthUser; error: null }
+  | { user: null; error: NextResponse }
+
+/**
+ * Require authenticated user. Reads session cookie, validates JWT + DB session.
+ */
+export async function requireAuth(request: Request): Promise<AuthResult> {
+  const cookieHeader = request.headers.get('cookie') || ''
+  const cookieName = getSessionCookieName()
+  const match = cookieHeader.match(new RegExp(`(?:^|;\\s*)${cookieName}=([^;]+)`))
+  const token = match?.[1]
+
+  if (!token) {
+    return {
+      user: null,
+      error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
+    }
+  }
+
+  const result = await validateSession(token)
+  if (!result) {
+    return {
+      user: null,
+      error: NextResponse.json({ error: 'Session expired' }, { status: 401 }),
+    }
+  }
+
+  return {
+    user: {
+      id: result.user.id,
+      email: result.user.email,
+      name: result.user.name,
+      role: result.user.role,
+      schoolId: result.user.schoolId,
+      isActive: result.user.isActive,
+    },
+    error: null,
+  }
+}
+
+/**
+ * Require authenticated user who belongs to the given school (or is SUPER_ADMIN).
+ */
+export async function requireSchoolAccess(
+  request: Request,
+  schoolId: string | null
+): Promise<AuthResult> {
+  const result = await requireAuth(request)
+  if (result.error) return result
+
+  if (result.user.role === 'SUPER_ADMIN') return result
+
+  if (!schoolId || result.user.schoolId !== schoolId) {
+    return {
+      user: null,
+      error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }),
+    }
+  }
+
+  return result
+}

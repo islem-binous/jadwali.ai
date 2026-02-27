@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
+import { requireSchoolAccess, requireAuth } from '@/lib/auth/require-auth'
 
 export async function GET(req: NextRequest) {
   try {
     const prisma = await getPrisma()
     const timetableId = req.nextUrl.searchParams.get('timetableId')
+    const schoolId = req.nextUrl.searchParams.get('schoolId')
     if (!timetableId) {
       return NextResponse.json({ error: 'Missing timetableId' }, { status: 400 })
     }
+
+    const { error: authError } = await requireSchoolAccess(req, schoolId)
+    if (authError) return authError
 
     const lessons = await prisma.lesson.findMany({
       where: { timetableId },
@@ -31,6 +36,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  const { error: authError } = await requireAuth(req)
+  if (authError) return authError
+
   try {
     const prisma = await getPrisma()
     const body = await req.json()
@@ -79,6 +87,9 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { timetableId, classId, subjectId, teacherId, roomId, periodId, dayOfWeek } = body
 
+    const { error: authError } = await requireSchoolAccess(req, body.schoolId)
+    if (authError) return authError
+
     if (!timetableId || !classId || !subjectId || !teacherId || !periodId || dayOfWeek === undefined) {
       return NextResponse.json(
         { error: 'Missing required fields' },
@@ -116,6 +127,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const { error: authError } = await requireAuth(req)
+  if (authError) return authError
+
   try {
     const prisma = await getPrisma()
     const id = req.nextUrl.searchParams.get('id')

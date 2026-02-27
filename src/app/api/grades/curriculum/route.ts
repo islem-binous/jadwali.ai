@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
+import { requireSchoolAccess } from '@/lib/auth/require-auth'
 
 export async function GET(req: NextRequest) {
   try {
     const prisma = await getPrisma()
     const gradeId = req.nextUrl.searchParams.get('gradeId')
+    const schoolId = req.nextUrl.searchParams.get('schoolId')
     if (!gradeId) {
       return NextResponse.json({ error: 'Missing gradeId' }, { status: 400 })
     }
+
+    const { error: authError } = await requireSchoolAccess(req, schoolId)
+    if (authError) return authError
 
     const curriculum = await prisma.gradeCurriculum.findMany({
       where: { gradeId },
@@ -31,6 +36,9 @@ export async function POST(req: NextRequest) {
       gradeId: string
       subjects: { subjectId: string; hoursPerWeek: number }[]
     }
+
+    const { error: authError } = await requireSchoolAccess(req, body.schoolId)
+    if (authError) return authError
 
     if (!gradeId || !Array.isArray(subjects)) {
       return NextResponse.json({ error: 'gradeId and subjects array required' }, { status: 400 })

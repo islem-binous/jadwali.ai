@@ -10,31 +10,23 @@ export default function AuthCallbackPage() {
   const setUser = useUserStore((s) => s.setUser)
 
   useEffect(() => {
-    try {
-      // Read auth_result cookie
-      const match = document.cookie
-        .split('; ')
-        .find((c) => c.startsWith('auth_result='))
-      if (!match) {
+    // After Google OAuth, server set an httpOnly session cookie.
+    // Call /api/auth/me to get user data from that session.
+    fetch('/api/auth/me', { credentials: 'same-origin' })
+      .then(async (res) => {
+        if (!res.ok) throw new Error('Session invalid')
+        const data = await res.json()
+        setUser(data.user)
+        // Redirect based on role
+        if (data.user.role === 'SUPER_ADMIN') {
+          router.push('/admin')
+        } else {
+          router.push('/dashboard')
+        }
+      })
+      .catch(() => {
         router.push('/auth/login')
-        return
-      }
-
-      const value = decodeURIComponent(match.split('=')[1])
-      // decodeURIComponent after atob to handle Unicode (Arabic names)
-      const user = JSON.parse(decodeURIComponent(atob(value)))
-
-      // Store in Zustand
-      setUser(user)
-
-      // Delete cookie
-      document.cookie = 'auth_result=; path=/; max-age=0'
-
-      // Redirect to dashboard
-      router.push('/dashboard')
-    } catch {
-      router.push('/auth/login')
-    }
+      })
   }, [router, setUser])
 
   return (

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
 import { findSubstitutes } from '@/lib/substitute-matcher'
+import { requireSchoolAccess } from '@/lib/auth/require-auth'
 
 export async function GET(req: NextRequest) {
   try {
@@ -10,6 +11,9 @@ export async function GET(req: NextRequest) {
     if (!absenceId || !schoolId) {
       return NextResponse.json({ error: 'Missing params' }, { status: 400 })
     }
+
+    const { error: authError } = await requireSchoolAccess(req, schoolId)
+    if (authError) return authError
 
     const absence = await prisma.absence.findUnique({
       where: { id: absenceId },

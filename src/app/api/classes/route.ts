@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
+import { requireAuth, requireSchoolAccess } from '@/lib/auth/require-auth'
 
 export async function GET(req: NextRequest) {
   try {
@@ -8,6 +9,9 @@ export async function GET(req: NextRequest) {
     if (!schoolId) {
       return NextResponse.json({ error: 'Missing schoolId' }, { status: 400 })
     }
+
+    const { error: authError } = await requireSchoolAccess(req, schoolId)
+    if (authError) return authError
 
     const classes = await prisma.class.findMany({
       where: { schoolId },
@@ -31,6 +35,9 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { schoolId, name, gradeId, capacity, colorHex } = body
 
+    const { error: authError } = await requireSchoolAccess(req, schoolId)
+    if (authError) return authError
+
     const created = await prisma.class.create({
       data: {
         schoolId,
@@ -52,6 +59,9 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
+    const { error: authError } = await requireAuth(req)
+    if (authError) return authError
+
     const prisma = await getPrisma()
     const body = await req.json()
     const { id, name, gradeId, capacity, colorHex } = body
@@ -76,6 +86,9 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const { error: authError } = await requireAuth(req)
+  if (authError) return authError
+
   const id = req.nextUrl.searchParams.get('id')
   if (!id) {
     return NextResponse.json({ error: 'Missing id' }, { status: 400 })

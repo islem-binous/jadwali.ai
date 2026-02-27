@@ -16,6 +16,7 @@ export function useAuth() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
+        credentials: 'same-origin',
       })
 
       if (!res.ok) {
@@ -58,6 +59,7 @@ export function useAuth() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
+        credentials: 'same-origin',
       })
 
       if (!res.ok) {
@@ -72,10 +74,52 @@ export function useAuth() {
     [setUser]
   )
 
-  const signOut = useCallback(() => {
+  const signOut = useCallback(async () => {
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'same-origin',
+      })
+    } catch {
+      // Continue with client-side cleanup even if server call fails
+    }
     clearUser()
     router.push('/auth/login')
   }, [clearUser, router])
+
+  const changePassword = useCallback(
+    async (currentPassword: string, newPassword: string) => {
+      const res = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword, newPassword }),
+        credentials: 'same-origin',
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Failed to change password')
+      }
+    },
+    []
+  )
+
+  const deleteAccount = useCallback(
+    async (password: string) => {
+      const res = await fetch('/api/auth/delete-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+        credentials: 'same-origin',
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Failed to delete account')
+      }
+      clearUser()
+      router.push('/auth/login')
+    },
+    [clearUser, router]
+  )
 
   return {
     user,
@@ -85,5 +129,7 @@ export function useAuth() {
     signInWithGoogle,
     signUp,
     signOut,
+    changePassword,
+    deleteAccount,
   }
 }

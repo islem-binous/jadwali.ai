@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
+import { hashPassword } from '@/lib/auth/password'
+import { createSession, setSessionCookie } from '@/lib/auth/session'
 
 function slugify(text: string): string {
   return text
@@ -8,8 +10,8 @@ function slugify(text: string): string {
     .replace(/(^-|-$)/g, '')
 }
 
-function authUserResponse(user: any, school: any, extra?: Record<string, any>) {
-  return NextResponse.json({
+function authUserResponse(user: any, school: any, token: string, extra?: Record<string, any>) {
+  const response = NextResponse.json({
     user: {
       id: user.id,
       email: user.email,
@@ -28,6 +30,7 @@ function authUserResponse(user: any, school: any, extra?: Record<string, any>) {
       classId: extra?.classId ?? null,
     },
   })
+  return setSessionCookie(response, token)
 }
 
 export async function POST(request: Request) {
@@ -50,7 +53,15 @@ export async function POST(request: Request) {
       )
     }
 
+    if (!googleId && password && password.length < 8) {
+      return NextResponse.json(
+        { error: 'Password must be at least 8 characters' },
+        { status: 400 }
+      )
+    }
+
     const authId = googleId ? `google_${googleId}` : `local_${crypto.randomUUID()}`
+    const passwordHash = googleId ? null : await hashPassword(password)
 
     const existing = await prisma.user.findUnique({ where: { email } })
     if (existing) {
@@ -107,6 +118,7 @@ export async function POST(request: Request) {
           authId,
           email,
           name,
+          passwordHash,
           role: 'TEACHER',
           language: language || school.language || 'FR',
           schoolId,
@@ -114,7 +126,8 @@ export async function POST(request: Request) {
         },
       })
 
-      return authUserResponse(user, school)
+      const token = await createSession(user.id)
+      return authUserResponse(user, school, token)
     }
 
     // ── STUDENT SIGNUP ──────────────────────────────────────
@@ -171,6 +184,7 @@ export async function POST(request: Request) {
           authId,
           email,
           name,
+          passwordHash,
           role: 'STUDENT',
           language: language || school.language || 'FR',
           schoolId,
@@ -178,7 +192,8 @@ export async function POST(request: Request) {
         },
       })
 
-      return authUserResponse(user, school, { classId: student.classId })
+      const token = await createSession(user.id)
+      return authUserResponse(user, school, token, { classId: student.classId })
     }
 
     // ── STAFF SIGNUP ──────────────────────────────────────
@@ -225,6 +240,7 @@ export async function POST(request: Request) {
           authId,
           email,
           name,
+          passwordHash,
           role: 'STAFF',
           language: language || school.language || 'FR',
           schoolId,
@@ -232,7 +248,8 @@ export async function POST(request: Request) {
         },
       })
 
-      return authUserResponse(user, school)
+      const token = await createSession(user.id)
+      return authUserResponse(user, school, token)
     }
 
     // ── ADMIN SIGNUP (school code required) ──────────────────
@@ -255,13 +272,15 @@ export async function POST(request: Request) {
           authId,
           email,
           name,
+          passwordHash,
           role: 'ADMIN',
           language: language || school.language || 'FR',
           schoolId,
         },
       })
 
-      return authUserResponse(user, school)
+      const token = await createSession(user.id)
+      return authUserResponse(user, school, token)
     }
 
     // ── DIRECTOR SIGNUP (creates school) ──────────────────────
@@ -311,6 +330,7 @@ export async function POST(request: Request) {
             authId,
             email,
             name,
+            passwordHash,
             role: 'DIRECTOR',
             language: language || 'FR',
           },
@@ -339,7 +359,8 @@ export async function POST(request: Request) {
       })
     }
 
-    return authUserResponse(user, school)
+    const token = await createSession(user.id)
+    return authUserResponse(user, school, token)
   } catch (error) {
     console.error('Signup error:', error)
     return NextResponse.json(

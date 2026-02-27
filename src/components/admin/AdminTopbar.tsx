@@ -2,8 +2,9 @@
 
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { LogOut, Shield, Menu } from 'lucide-react'
+import { LogOut, Shield, User } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
+import { Link } from '@/i18n/navigation'
 
 export function AdminTopbar() {
   const t = useTranslations()
@@ -55,6 +56,14 @@ export function AdminTopbar() {
                     SUPER_ADMIN
                   </span>
                 </div>
+                <Link
+                  href="/profile"
+                  onClick={() => setShowDropdown(false)}
+                  className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-text-secondary hover:bg-bg-surface hover:text-text-primary transition"
+                >
+                  <User className="h-4 w-4" />
+                  {t('nav.profile')}
+                </Link>
                 <button
                   onClick={() => {
                     setShowDropdown(false)

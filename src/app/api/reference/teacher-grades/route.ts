@@ -1,7 +1,11 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
+import { requireAuth } from '@/lib/auth/require-auth'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const { error: authError } = await requireAuth(req)
+  if (authError) return authError
+
   try {
     const prisma = await getPrisma()
     const grades = await prisma.tunisianTeacherGrade.findMany({

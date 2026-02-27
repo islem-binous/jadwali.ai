@@ -45,18 +45,19 @@ model School {
 
 // ─── USERS ─────────────────────────────────────────────────
 model User {
-  id        String   @id @default(cuid())
-  authId    String   @unique
-  email     String   @unique
-  name      String
-  role      String   @default("ADMIN")
-  language  String   @default("FR")
-  avatarUrl String?
-  phone     String?
-  isActive  Boolean  @default(true)
-  schoolId  String?
-  school    School?  @relation(fields: [schoolId], references: [id])
-  createdAt DateTime @default(now())
+  id           String   @id @default(cuid())
+  authId       String   @unique
+  email        String   @unique
+  name         String
+  passwordHash String?
+  role         String   @default("ADMIN")
+  language     String   @default("FR")
+  avatarUrl    String?
+  phone        String?
+  isActive     Boolean  @default(true)
+  schoolId     String?
+  school       School?  @relation(fields: [schoolId], references: [id])
+  createdAt    DateTime @default(now())
 
   teacherId String?  @unique
   teacher   Teacher? @relation(fields: [teacherId], references: [id])
@@ -64,6 +65,27 @@ model User {
   student   Student? @relation(fields: [studentId], references: [id])
   staffId   String?  @unique
   staff     Staff?   @relation(fields: [staffId], references: [id])
+
+  sessions           Session[]
+  passwordResetTokens PasswordResetToken[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
 }
 
 // ─── STAFF ────────────────────────────────────────────────

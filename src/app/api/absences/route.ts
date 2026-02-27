@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
+import { requireAuth, requireSchoolAccess } from '@/lib/auth/require-auth'
 
 export async function GET(req: NextRequest) {
   try {
@@ -10,6 +11,9 @@ export async function GET(req: NextRequest) {
     if (!schoolId) {
       return NextResponse.json({ error: 'Missing schoolId' }, { status: 400 })
     }
+
+    const { error: authError } = await requireSchoolAccess(req, schoolId)
+    if (authError) return authError
 
     const now = new Date()
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
@@ -50,6 +54,9 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { schoolId, teacherId, date, endDate, type, periods, note } = body
 
+    const { error: authError } = await requireSchoolAccess(req, schoolId)
+    if (authError) return authError
+
     if (!schoolId || !teacherId || !date) {
       return NextResponse.json(
         { error: 'schoolId, teacherId, and date are required' },
@@ -79,6 +86,9 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
+    const { error: authError } = await requireAuth(req)
+    if (authError) return authError
+
     const prisma = await getPrisma()
     const body = await req.json()
     const { id, teacherId, date, endDate, type, periods, note, status, substituteId } = body
@@ -110,6 +120,9 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const { error: authError } = await requireAuth(req)
+  if (authError) return authError
+
   const id = req.nextUrl.searchParams.get('id')
   if (!id) {
     return NextResponse.json({ error: 'Missing id' }, { status: 400 })

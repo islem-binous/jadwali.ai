@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
+import { requireSchoolAccess } from '@/lib/auth/require-auth'
 
 export async function GET(req: NextRequest) {
   const schoolId = req.nextUrl.searchParams.get('schoolId')
   if (!schoolId) {
     return NextResponse.json({ error: 'Missing schoolId' }, { status: 400 })
   }
+
+  const { error: authError } = await requireSchoolAccess(req, schoolId)
+  if (authError) return authError
 
   try {
     const prisma = await getPrisma()
@@ -40,6 +44,9 @@ export async function PUT(req: NextRequest) {
     if (!id) {
       return NextResponse.json({ error: 'Missing school id' }, { status: 400 })
     }
+
+    const { error: authError } = await requireSchoolAccess(req, id)
+    if (authError) return authError
 
     const data: Record<string, unknown> = {}
     if (country !== undefined) data.country = country

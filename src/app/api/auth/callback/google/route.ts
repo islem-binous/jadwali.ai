@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCloudflareContext } from '@opennextjs/cloudflare'
 import { getPrisma } from '@/lib/prisma'
 import { checkAndDowngradeExpired } from '@/lib/subscription'
+import { createSession, setSessionCookie } from '@/lib/auth/session'
 
 interface GoogleProfile {
   id: string
@@ -171,17 +172,10 @@ export async function GET(request: NextRequest) {
         classId: existingUser.student?.classId ?? null,
       }
 
-      // Set auth result cookie (readable by client JS)
-      // Use encodeURIComponent before btoa to handle non-Latin1 chars (Arabic names)
-      const cookieValue = btoa(encodeURIComponent(JSON.stringify(authUser)))
+      // Create server-side session + set httpOnly cookie
+      const sessionToken = await createSession(existingUser.id)
       const response = NextResponse.redirect(`${origin}/${locale}/auth/callback`)
-      response.cookies.set('auth_result', cookieValue, {
-        httpOnly: false,
-        secure: true,
-        sameSite: 'lax',
-        path: '/',
-        maxAge: 60,
-      })
+      setSessionCookie(response, sessionToken)
       response.cookies.delete('oauth_state')
       return response
     }
@@ -203,35 +197,11 @@ export async function GET(request: NextRequest) {
         await checkAndDowngradeExpired(existingUser.schoolId)
       }
 
-      step = 'cookie_signup'
-      const school = existingUser.school
-      const authUser = {
-        id: existingUser.id,
-        email: existingUser.email,
-        name: existingUser.name,
-        role: existingUser.role,
-        language: existingUser.language,
-        avatarUrl: profile.picture || existingUser.avatarUrl,
-        schoolId: existingUser.schoolId,
-        schoolName: school?.name || '',
-        plan: school?.plan || 'FREE',
-        subscriptionStatus: school?.subscriptionStatus ?? 'INACTIVE',
-        subscriptionEndsAt: school?.subscriptionEndsAt?.toISOString() ?? null,
-        teacherId: existingUser.teacherId,
-        studentId: existingUser.studentId,
-        staffId: existingUser.staffId ?? null,
-        classId: existingUser.student?.classId ?? null,
-      }
-
-      const cookieValue = btoa(encodeURIComponent(JSON.stringify(authUser)))
+      // Create server-side session + set httpOnly cookie
+      step = 'session_signup'
+      const sessionToken2 = await createSession(existingUser.id)
       const response = NextResponse.redirect(`${origin}/${locale}/auth/callback`)
-      response.cookies.set('auth_result', cookieValue, {
-        httpOnly: false,
-        secure: true,
-        sameSite: 'lax',
-        path: '/',
-        maxAge: 60,
-      })
+      setSessionCookie(response, sessionToken2)
       response.cookies.delete('oauth_state')
       return response
     }

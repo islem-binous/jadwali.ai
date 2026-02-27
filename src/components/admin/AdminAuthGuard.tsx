@@ -1,13 +1,31 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useRouter } from '@/i18n/navigation'
-import { useUserStore } from '@/store/userStore'
+import { useUserStore, type AuthUser } from '@/store/userStore'
 import { Loader2 } from 'lucide-react'
 
 export function AdminAuthGuard({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useUserStore()
+  const { user, isLoading, setUser, signOut } = useUserStore()
   const router = useRouter()
+  const revalidated = useRef(false)
+
+  // Revalidate session on mount
+  useEffect(() => {
+    if (revalidated.current) return
+    revalidated.current = true
+
+    fetch('/api/auth/me', { credentials: 'same-origin' })
+      .then(async (res) => {
+        if (res.ok) {
+          const data: { user: AuthUser } = await res.json()
+          setUser(data.user)
+        } else {
+          signOut()
+        }
+      })
+      .catch(() => {})
+  }, [setUser, signOut])
 
   useEffect(() => {
     if (!isLoading && !user) {
