@@ -4,7 +4,6 @@
  */
 
 import { SignJWT, jwtVerify, type JWTPayload } from 'jose'
-import { getCloudflareContext } from '@opennextjs/cloudflare'
 
 export interface SessionPayload extends JWTPayload {
   sub: string // userId
@@ -29,6 +28,7 @@ async function getSecret(): Promise<Uint8Array> {
   }
   // Try Cloudflare Workers secret
   try {
+    const { getCloudflareContext } = await import('@opennextjs/cloudflare')
     const { env } = await getCloudflareContext()
     const secret = (env as unknown as Record<string, string>).JWT_SECRET
     if (secret) return new TextEncoder().encode(secret)

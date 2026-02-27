@@ -39,6 +39,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Query too short' }, { status: 400 })
     }
 
+    // 1. Search registered schools
     const schools = await prisma.school.findMany({
       where: {
         OR: [
@@ -52,6 +53,7 @@ export async function GET(req: NextRequest) {
         id: true,
         name: true,
         slug: true,
+        tunisianSchoolId: true,
         classes: {
           select: { id: true, name: true, grade: true },
           orderBy: { name: 'asc' },
@@ -65,10 +67,53 @@ export async function GET(req: NextRequest) {
       orderBy: { name: 'asc' },
     })
 
-    const results = schools.map(({ users, ...rest }) => ({
+    const registeredTsIds = schools
+      .map((s) => s.tunisianSchoolId)
+      .filter((id): id is string => !!id)
+
+    const results = schools.map(({ users, tunisianSchoolId, ...rest }) => ({
       ...rest,
       hasDirector: users.length > 0,
+      needsCreation: false as const,
     }))
+
+    // 2. Also search TunisianSchool registry for unregistered schools
+    const remaining = Math.max(0, 20 - results.length)
+    if (remaining > 0) {
+      const unregistered = await prisma.tunisianSchool.findMany({
+        where: {
+          OR: [
+            { code: { contains: q } },
+            { nameAr: { contains: q } },
+          ],
+          registeredSchools: { none: {} },
+          ...(registeredTsIds.length > 0
+            ? { id: { notIn: registeredTsIds } }
+            : {}),
+        },
+        select: {
+          id: true,
+          code: true,
+          nameAr: true,
+          governorate: true,
+        },
+        take: remaining,
+        orderBy: { code: 'asc' },
+      })
+
+      for (const ts of unregistered) {
+        results.push({
+          id: null as unknown as string,
+          name: ts.nameAr,
+          slug: ts.code,
+          classes: [],
+          hasDirector: false,
+          needsCreation: true as unknown as false,
+          tunisianSchoolId: ts.id,
+          governorate: ts.governorate,
+        } as any)
+      }
+    }
 
     return NextResponse.json(results)
   } catch (err) {

@@ -95,46 +95,92 @@ export async function POST(request: Request) {
       )
     }
 
+    // Helper: resolve school from schoolId or auto-create from tunisianSchoolId
+    async function resolveSchool(schoolId?: string, tunisianSchoolId?: string) {
+      if (schoolId) {
+        const school = await prisma.school.findUnique({ where: { id: schoolId } })
+        return school
+      }
+      if (tunisianSchoolId) {
+        // Check if a school was already created for this TunisianSchool
+        const existing = await prisma.school.findFirst({ where: { tunisianSchoolId } })
+        if (existing) return existing
+
+        // Auto-create school from TunisianSchool registry
+        const ts = await prisma.tunisianSchool.findUnique({ where: { id: tunisianSchoolId } })
+        if (!ts) return null
+
+        const school = await prisma.school.create({
+          data: {
+            name: ts.nameAr,
+            slug: ts.code,
+            language: language || 'FR',
+            plan: 'FREE',
+            tunisianSchoolId: ts.id,
+          },
+        })
+
+        // Seed default periods for the new school
+        const defaultPeriods = [
+          { name: 'Period 1', startTime: '08:00', endTime: '09:00', order: 1, isBreak: false },
+          { name: 'Period 2', startTime: '09:00', endTime: '10:00', order: 2, isBreak: false },
+          { name: 'Break', startTime: '10:00', endTime: '10:15', order: 3, isBreak: true, breakLabel: 'Break' },
+          { name: 'Period 3', startTime: '10:15', endTime: '11:15', order: 4, isBreak: false },
+          { name: 'Period 4', startTime: '11:15', endTime: '12:15', order: 5, isBreak: false },
+          { name: 'Lunch', startTime: '12:15', endTime: '13:15', order: 6, isBreak: true, breakLabel: 'Lunch' },
+          { name: 'Period 5', startTime: '13:15', endTime: '14:15', order: 7, isBreak: false },
+          { name: 'Period 6', startTime: '14:15', endTime: '15:15', order: 8, isBreak: false },
+        ]
+        for (const period of defaultPeriods) {
+          await prisma.period.create({ data: { ...period, schoolId: school.id } })
+        }
+
+        return school
+      }
+      return null
+    }
+
     // ── TEACHER SIGNUP ──────────────────────────────────────
     if (role === 'TEACHER') {
-      const { schoolId, cin, matricule } = body
-      if (!schoolId) {
+      const { schoolId, tunisianSchoolId, cin, matricule } = body
+      if (!schoolId && !tunisianSchoolId) {
         return NextResponse.json(
           { error: 'School is required for teacher signup' },
           { status: 400 }
         )
       }
 
-      const school = await prisma.school.findUnique({ where: { id: schoolId } })
+      const school = await resolveSchool(schoolId, tunisianSchoolId)
       if (!school) {
         return NextResponse.json({ error: 'School not found' }, { status: 404 })
       }
 
       // Match teacher by email OR by CIN+matricule
-      const teacher = await prisma.teacher.findFirst({
+      let teacher = await prisma.teacher.findFirst({
         where: {
-          schoolId,
+          schoolId: school.id,
           OR: [
             { email },
             ...(cin && matricule ? [{ cin, matricule }] : []),
           ],
         },
       })
-      if (!teacher) {
-        return NextResponse.json(
-          { error: 'No teacher record found. Contact your school admin.' },
-          { status: 404 }
-        )
-      }
 
-      const alreadyLinked = await prisma.user.findFirst({
-        where: { teacherId: teacher.id },
-      })
-      if (alreadyLinked) {
-        return NextResponse.json(
-          { error: 'This teacher account is already linked to another user' },
-          { status: 409 }
-        )
+      if (teacher) {
+        const alreadyLinked = await prisma.user.findFirst({
+          where: { teacherId: teacher.id },
+        })
+        if (alreadyLinked) {
+          return NextResponse.json(
+            { error: 'This teacher account is already linked to another user' },
+            { status: 409 }
+          )
+        }
+      } else {
+        // No matching teacher record — create one (school may be newly created)
+        teacher = await prisma.teacher.create({
+          data: { schoolId: school.id, name, email, cin: cin || null, matricule: matricule || null },
+        })
       }
 
       const user = await prisma.user.create({
@@ -145,7 +191,7 @@ export async function POST(request: Request) {
           passwordHash,
           role: 'TEACHER',
           language: language || school.language || 'FR',
-          schoolId,
+          schoolId: school.id,
           teacherId: teacher.id,
         },
       })
@@ -156,30 +202,34 @@ export async function POST(request: Request) {
 
     // ── STUDENT SIGNUP ──────────────────────────────────────
     if (role === 'STUDENT') {
-      const { schoolId, classId, matricule } = body
-      if (!schoolId || !classId) {
+      const { schoolId, tunisianSchoolId, classId, matricule } = body
+      if (!schoolId && !tunisianSchoolId) {
         return NextResponse.json(
-          { error: 'School and class are required for student signup' },
+          { error: 'School is required for student signup' },
           { status: 400 }
         )
       }
 
-      const school = await prisma.school.findUnique({ where: { id: schoolId } })
+      const school = await resolveSchool(schoolId, tunisianSchoolId)
       if (!school) {
         return NextResponse.json({ error: 'School not found' }, { status: 404 })
       }
 
-      const classRecord = await prisma.class.findFirst({
-        where: { id: classId, schoolId },
-      })
-      if (!classRecord) {
-        return NextResponse.json({ error: 'Class not found' }, { status: 404 })
+      // Validate class if provided
+      let validClassId = classId || null
+      if (classId) {
+        const classRecord = await prisma.class.findFirst({
+          where: { id: classId, schoolId: school.id },
+        })
+        if (!classRecord) {
+          return NextResponse.json({ error: 'Class not found' }, { status: 404 })
+        }
       }
 
       // Find student by email or matricule
       let student = await prisma.student.findFirst({
         where: {
-          schoolId,
+          schoolId: school.id,
           OR: [
             ...(email ? [{ email }] : []),
             ...(matricule ? [{ matricule }] : []),
@@ -199,7 +249,7 @@ export async function POST(request: Request) {
         }
       } else {
         student = await prisma.student.create({
-          data: { schoolId, name, email, classId, matricule: matricule || null },
+          data: { schoolId: school.id, name, email, classId: validClassId, matricule: matricule || null },
         })
       }
 
@@ -211,7 +261,7 @@ export async function POST(request: Request) {
           passwordHash,
           role: 'STUDENT',
           language: language || school.language || 'FR',
-          schoolId,
+          schoolId: school.id,
           studentId: student.id,
         },
       })
@@ -222,15 +272,15 @@ export async function POST(request: Request) {
 
     // ── STAFF SIGNUP ──────────────────────────────────────
     if (role === 'STAFF') {
-      const { schoolId, cin, matricule } = body
-      if (!schoolId || !cin || !matricule) {
+      const { schoolId, tunisianSchoolId, cin, matricule } = body
+      if ((!schoolId && !tunisianSchoolId) || !cin || !matricule) {
         return NextResponse.json(
           { error: 'School, CIN, and matricule are required for staff signup' },
           { status: 400 }
         )
       }
 
-      const school = await prisma.school.findUnique({ where: { id: schoolId } })
+      const school = await resolveSchool(schoolId, tunisianSchoolId)
       if (!school) {
         return NextResponse.json({ error: 'School not found' }, { status: 404 })
       }
@@ -238,7 +288,7 @@ export async function POST(request: Request) {
       // Find existing staff by CIN or matricule
       let staff = await prisma.staff.findFirst({
         where: {
-          schoolId,
+          schoolId: school.id,
           OR: [{ cin }, { matricule }],
         },
       })
@@ -255,7 +305,7 @@ export async function POST(request: Request) {
         }
       } else {
         staff = await prisma.staff.create({
-          data: { schoolId, name, email, cin, matricule },
+          data: { schoolId: school.id, name, email, cin, matricule },
         })
       }
 
@@ -267,7 +317,7 @@ export async function POST(request: Request) {
           passwordHash,
           role: 'STAFF',
           language: language || school.language || 'FR',
-          schoolId,
+          schoolId: school.id,
           staffId: staff.id,
         },
       })
@@ -278,15 +328,15 @@ export async function POST(request: Request) {
 
     // ── ADMIN SIGNUP (school code required) ──────────────────
     if (role === 'ADMIN') {
-      const { schoolId } = body
-      if (!schoolId) {
+      const { schoolId, tunisianSchoolId } = body
+      if (!schoolId && !tunisianSchoolId) {
         return NextResponse.json(
           { error: 'School is required for admin signup' },
           { status: 400 }
         )
       }
 
-      const school = await prisma.school.findUnique({ where: { id: schoolId } })
+      const school = await resolveSchool(schoolId, tunisianSchoolId)
       if (!school) {
         return NextResponse.json({ error: 'School not found' }, { status: 404 })
       }
@@ -299,7 +349,7 @@ export async function POST(request: Request) {
           passwordHash,
           role: 'ADMIN',
           language: language || school.language || 'FR',
-          schoolId,
+          schoolId: school.id,
         },
       })
 
@@ -327,14 +377,33 @@ export async function POST(request: Request) {
           { status: 404 }
         )
       }
-      const existingSchool = await prisma.school.findUnique({
+      // Check if a school already exists for this TunisianSchool
+      const existingSchool = await prisma.school.findFirst({
         where: { tunisianSchoolId },
+        include: { users: { where: { role: 'DIRECTOR' } } },
       })
       if (existingSchool) {
-        return NextResponse.json(
-          { error: 'This school is already registered' },
-          { status: 409 }
-        )
+        // School already has a director — block
+        if (existingSchool.users.length > 0) {
+          return NextResponse.json(
+            { error: 'This school is already registered' },
+            { status: 409 }
+          )
+        }
+        // School exists but was auto-created without a director — claim it
+        const user = await prisma.user.create({
+          data: {
+            authId,
+            email,
+            name,
+            passwordHash,
+            role: 'DIRECTOR',
+            language: language || existingSchool.language || 'FR',
+            schoolId: existingSchool.id,
+          },
+        })
+        const token = await createSession(user.id)
+        return authUserResponse(user, existingSchool, token)
       }
     }
 

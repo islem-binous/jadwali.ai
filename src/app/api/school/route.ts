@@ -8,10 +8,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Missing schoolId' }, { status: 400 })
   }
 
-  const { error: authError } = await requireSchoolAccess(req, schoolId)
-  if (authError) return authError
-
   try {
+    const { error: authError } = await requireSchoolAccess(req, schoolId)
+    if (authError) return authError
+
     const prisma = await getPrisma()
     const school = await prisma.school.findUnique({
       where: { id: schoolId },

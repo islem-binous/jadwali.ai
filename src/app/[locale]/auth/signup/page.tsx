@@ -9,20 +9,14 @@ import { Eye, EyeOff, Loader2, Crown, Shield, Briefcase, BookOpen, GraduationCap
 
 type SignupRole = 'DIRECTOR' | 'ADMIN' | 'STAFF' | 'TEACHER' | 'STUDENT'
 
-type TunisianSchoolResult = {
-  id: string
-  code: string
-  nameAr: string
-  governorate: string
-  zipCode: string
-  isClaimed?: boolean
-}
-
 type SchoolLookupResult = {
-  id: string
+  id: string | null
   name: string
   slug: string
   hasDirector: boolean
+  needsCreation?: boolean
+  tunisianSchoolId?: string
+  governorate?: string
   classes: { id: string; name: string; grade: string | null }[]
 }
 
@@ -41,7 +35,6 @@ function SignupForm() {
   const [name, setName] = useState('')
   const [cin, setCin] = useState('')
   const [matricule, setMatricule] = useState('')
-  const [schoolName, setSchoolName] = useState('')
   const [schoolCode, setSchoolCode] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -83,66 +76,7 @@ function SignupForm() {
     }
   }, [isGoogleSignup])
 
-  // Tunisian school autocomplete state (for director)
-  const [tunisianResults, setTunisianResults] = useState<TunisianSchoolResult[]>([])
-  const [selectedTunisianSchool, setSelectedTunisianSchool] = useState<TunisianSchoolResult | null>(null)
-  const [showSuggestions, setShowSuggestions] = useState(false)
-  const [searchingSchools, setSearchingSchools] = useState(false)
-  const suggestionsRef = useRef<HTMLDivElement>(null)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const searchTunisianSchools = useCallback(async (query: string) => {
-    if (query.length < 2) {
-      setTunisianResults([])
-      setShowSuggestions(false)
-      return
-    }
-    setSearchingSchools(true)
-    try {
-      const res = await fetch(`/api/schools/search?q=${encodeURIComponent(query)}`)
-      if (res.ok) {
-        const data: TunisianSchoolResult[] = await res.json()
-        setTunisianResults(data)
-        setShowSuggestions(data.length > 0)
-      }
-    } catch {
-      // Silently fail — user can still type manually
-    } finally {
-      setSearchingSchools(false)
-    }
-  }, [])
-
-  function handleSchoolNameChange(value: string) {
-    setSchoolName(value)
-    setSelectedTunisianSchool(null)
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => searchTunisianSchools(value), 300)
-  }
-
-  function handleSelectTunisianSchool(school: TunisianSchoolResult) {
-    setSelectedTunisianSchool(school)
-    setSchoolName(school.nameAr)
-    setShowSuggestions(false)
-    setTunisianResults([])
-  }
-
-  function handleClearTunisianSchool() {
-    setSelectedTunisianSchool(null)
-    setSchoolName('')
-  }
-
-  // Close suggestions on outside click
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (suggestionsRef.current && !suggestionsRef.current.contains(e.target as Node)) {
-        setShowSuggestions(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
-
-  // School lookup state (for non-director roles)
+  // School lookup state (all roles)
   const [schoolLookup, setSchoolLookup] = useState<SchoolLookupResult | null>(null)
   const [schoolSearchResults, setSchoolSearchResults] = useState<SchoolLookupResult[]>([])
   const [showSchoolResults, setShowSchoolResults] = useState(false)
@@ -221,13 +155,14 @@ function SignupForm() {
       }
     }
 
-    if (role === 'DIRECTOR' && !schoolName.trim()) {
-      setError('School name is required')
+    if (!schoolLookup) {
+      setError(t('auth.school_not_found'))
       return
     }
 
-    if (role !== 'DIRECTOR' && !schoolLookup) {
-      setError(t('auth.school_not_found'))
+    // Director cannot select a school that already has a director
+    if (role === 'DIRECTOR' && schoolLookup.hasDirector) {
+      setError(t('auth.school_already_registered'))
       return
     }
 
@@ -241,7 +176,8 @@ function SignupForm() {
       return
     }
 
-    if (role === 'STUDENT' && !selectedClassId) {
+    // Class is only required for STUDENT when school already exists (has classes)
+    if (role === 'STUDENT' && !schoolLookup?.needsCreation && !selectedClassId) {
       setError(t('auth.select_class'))
       return
     }
@@ -255,10 +191,10 @@ function SignupForm() {
         name,
         language: locale.toUpperCase(),
         role,
-        schoolName: role === 'DIRECTOR' ? schoolName : undefined,
-        tunisianSchoolId: role === 'DIRECTOR' ? selectedTunisianSchool?.id : undefined,
-        schoolId: schoolLookup?.id,
-        classId: role === 'STUDENT' ? selectedClassId : undefined,
+        schoolName: role === 'DIRECTOR' ? schoolLookup?.name : undefined,
+        tunisianSchoolId: schoolLookup?.tunisianSchoolId || undefined,
+        schoolId: schoolLookup?.needsCreation ? undefined : schoolLookup?.id || undefined,
+        classId: role === 'STUDENT' && selectedClassId ? selectedClassId : undefined,
         googleId: googleId || undefined,
         cin: cin || undefined,
         matricule: matricule || undefined,
@@ -318,8 +254,6 @@ function SignupForm() {
                       setSchoolLookup(null)
                       setSchoolCode('')
                       setSelectedClassId('')
-                      setSelectedTunisianSchool(null)
-                      setSchoolName('')
                       setCin('')
                       setMatricule('')
                       setSchoolSearchResults([])
@@ -396,81 +330,8 @@ function SignupForm() {
               />
             </div>
 
-            {/* Director: School Name with autocomplete */}
-            {role === 'DIRECTOR' && (
-              <div>
-                <label htmlFor="school" className="mb-1.5 block text-sm font-medium text-text-secondary">
-                  {t('auth.school_name')}
-                </label>
-                <div className="relative" ref={suggestionsRef}>
-                  {selectedTunisianSchool ? (
-                    <div className="flex items-center gap-2 rounded-md border border-accent bg-accent-dim px-3 py-2.5">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-text-primary truncate">{selectedTunisianSchool.nameAr}</p>
-                        <p className="text-xs text-text-muted">{selectedTunisianSchool.governorate} — {selectedTunisianSchool.code}</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleClearTunisianSchool}
-                        className="shrink-0 text-text-muted hover:text-text-primary"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="relative">
-                        <input
-                          id="school"
-                          type="text"
-                          required
-                          value={schoolName}
-                          onChange={(e) => handleSchoolNameChange(e.target.value)}
-                          onFocus={() => tunisianResults.length > 0 && setShowSuggestions(true)}
-                          className={inputClass}
-                          placeholder={t('auth.school_name_placeholder')}
-                          autoComplete="off"
-                        />
-                        {searchingSchools && (
-                          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-text-muted" />
-                        )}
-                      </div>
-                      {showSuggestions && tunisianResults.length > 0 && (
-                        <div className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-md border border-border-default bg-bg-card shadow-lg">
-                          {tunisianResults.map((school) => (
-                            <button
-                              key={school.id}
-                              type="button"
-                              disabled={school.isClaimed}
-                              onClick={() => !school.isClaimed && handleSelectTunisianSchool(school)}
-                              className={`flex w-full items-start gap-2 px-3 py-2 text-start transition ${
-                                school.isClaimed
-                                  ? 'opacity-50 cursor-not-allowed'
-                                  : 'hover:bg-bg-elevated cursor-pointer'
-                              }`}
-                            >
-                              <div className="min-w-0 flex-1">
-                                <p className="text-sm text-text-primary truncate">{school.nameAr}</p>
-                                <p className="text-xs text-text-muted">{school.governorate} — {school.code}</p>
-                              </div>
-                              {school.isClaimed && (
-                                <span className="shrink-0 rounded bg-warning/20 px-1.5 py-0.5 text-[10px] font-medium text-warning">
-                                  {t('auth.school_already_registered')}
-                                </span>
-                              )}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Non-Director: School Search */}
-            {role !== 'DIRECTOR' && (
-              <div>
+            {/* School Search (all roles) */}
+            <div>
                 <label htmlFor="schoolCode" className="mb-1.5 block text-sm font-medium text-text-secondary">
                   {t('auth.school_code')}
                 </label>
@@ -479,7 +340,10 @@ function SignupForm() {
                     <div className="flex items-center gap-2 rounded-md border border-accent bg-accent-dim px-3 py-2.5">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-text-primary truncate">{schoolLookup.name}</p>
-                        <p className="text-xs text-text-muted">{schoolLookup.slug}</p>
+                        <p className="text-xs text-text-muted">
+                          {schoolLookup.slug}
+                          {schoolLookup.governorate ? ` — ${schoolLookup.governorate}` : ''}
+                        </p>
                       </div>
                       <button
                         type="button"
@@ -508,32 +372,47 @@ function SignupForm() {
                       </div>
                       {showSchoolResults && schoolSearchResults.length > 0 && (
                         <div className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-md border border-border-default bg-bg-card shadow-lg">
-                          {schoolSearchResults.map((school) => (
-                            <button
-                              key={school.id}
-                              type="button"
-                              onClick={() => handleSelectSchool(school)}
-                              className="flex w-full items-start gap-2 px-3 py-2 text-start transition hover:bg-bg-elevated cursor-pointer"
-                            >
-                              <div className="min-w-0 flex-1">
-                                <p className="text-sm text-text-primary truncate">{school.name}</p>
-                                <p className="text-xs text-text-muted">{school.slug}</p>
-                              </div>
-                              {!school.hasDirector && (
-                                <span className="shrink-0 flex items-center gap-1 rounded bg-warning/20 px-1.5 py-0.5 text-[10px] font-medium text-warning">
-                                  <AlertTriangle className="h-3 w-3" />
-                                  {t('auth.no_director')}
-                                </span>
-                              )}
-                            </button>
-                          ))}
+                          {schoolSearchResults.map((school, idx) => {
+                            const isDirectorBlocked = role === 'DIRECTOR' && school.hasDirector
+                            return (
+                              <button
+                                key={school.id ?? `ts-${idx}`}
+                                type="button"
+                                disabled={isDirectorBlocked}
+                                onClick={() => !isDirectorBlocked && handleSelectSchool(school)}
+                                className={`flex w-full items-start gap-2 px-3 py-2 text-start transition ${
+                                  isDirectorBlocked
+                                    ? 'opacity-50 cursor-not-allowed'
+                                    : 'hover:bg-bg-elevated cursor-pointer'
+                                }`}
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm text-text-primary truncate">{school.name}</p>
+                                  <p className="text-xs text-text-muted">
+                                    {school.slug}
+                                    {school.governorate ? ` — ${school.governorate}` : ''}
+                                  </p>
+                                </div>
+                                {isDirectorBlocked ? (
+                                  <span className="shrink-0 rounded bg-warning/20 px-1.5 py-0.5 text-[10px] font-medium text-warning">
+                                    {t('auth.school_already_registered')}
+                                  </span>
+                                ) : !school.hasDirector && (
+                                  <span className="shrink-0 flex items-center gap-1 rounded bg-warning/20 px-1.5 py-0.5 text-[10px] font-medium text-warning">
+                                    <AlertTriangle className="h-3 w-3" />
+                                    {t('auth.no_director')}
+                                  </span>
+                                )}
+                              </button>
+                            )
+                          })}
                         </div>
                       )}
                     </>
                   )}
                 </div>
-                {/* Unclaimed school warning */}
-                {schoolLookup && !schoolLookup.hasDirector && (
+                {/* Unclaimed school warning (non-director roles only) */}
+                {role !== 'DIRECTOR' && schoolLookup && !schoolLookup.hasDirector && (
                   <div className="mt-2 flex items-start gap-2 rounded-md bg-warning/10 border border-warning/20 p-3">
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
                     <div className="flex-1 min-w-0">
@@ -554,8 +433,7 @@ function SignupForm() {
                     </div>
                   </div>
                 )}
-              </div>
-            )}
+            </div>
 
             {/* Staff/Teacher: CIN */}
             {(role === 'STAFF' || role === 'TEACHER') && (
@@ -591,8 +469,8 @@ function SignupForm() {
               </div>
             )}
 
-            {/* Student: Class picker */}
-            {role === 'STUDENT' && schoolLookup && (
+            {/* Student: Class picker (only when school already exists with classes) */}
+            {role === 'STUDENT' && schoolLookup && !schoolLookup.needsCreation && schoolLookup.classes.length > 0 && (
               <div>
                 <label htmlFor="classId" className="mb-1.5 block text-sm font-medium text-text-secondary">
                   {t('auth.select_class')}

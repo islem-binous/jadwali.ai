@@ -28,57 +28,65 @@ type AuthResult =
  * Require authenticated user. Reads session cookie, validates JWT + DB session.
  */
 export async function requireAuth(request: Request): Promise<AuthResult> {
-  const cookieHeader = request.headers.get('cookie') || ''
-  const cookieName = getSessionCookieName()
-  const match = cookieHeader.match(new RegExp(`(?:^|;\\s*)${cookieName}=([^;]+)`))
-  const token = match?.[1]
+  try {
+    const cookieHeader = request.headers.get('cookie') || ''
+    const cookieName = getSessionCookieName()
+    const match = cookieHeader.match(new RegExp(`(?:^|;\\s*)${cookieName}=([^;]+)`))
+    const token = match?.[1]
 
-  if (!token) {
-    return {
-      user: null,
-      error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
-    }
-  }
-
-  const result = await validateSession(token)
-  if (!result) {
-    return {
-      user: null,
-      error: NextResponse.json({ error: 'Session expired' }, { status: 401 }),
-    }
-  }
-
-  const authUser: AuthUser = {
-    id: result.user.id,
-    email: result.user.email,
-    name: result.user.name,
-    role: result.user.role,
-    schoolId: result.user.schoolId,
-    isActive: result.user.isActive,
-    teacherId: result.user.teacherId ?? null,
-    studentId: result.user.studentId ?? null,
-    staffId: result.user.staffId ?? null,
-  }
-
-  // Enforce maintenance mode (SUPER_ADMIN exempt)
-  if (authUser.role !== 'SUPER_ADMIN') {
-    try {
-      const settings = await getAppSettings()
-      if (settings.maintenanceMode) {
-        return {
-          user: null,
-          error: NextResponse.json(
-            { error: 'Platform is under maintenance' },
-            { status: 503 }
-          ),
-        }
+    if (!token) {
+      return {
+        user: null,
+        error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
       }
-    } catch {
-      // If settings fetch fails, don't block the request
+    }
+
+    const result = await validateSession(token)
+    if (!result) {
+      return {
+        user: null,
+        error: NextResponse.json({ error: 'Session expired' }, { status: 401 }),
+      }
+    }
+
+    const authUser: AuthUser = {
+      id: result.user.id,
+      email: result.user.email,
+      name: result.user.name,
+      role: result.user.role,
+      schoolId: result.user.schoolId,
+      isActive: result.user.isActive,
+      teacherId: result.user.teacherId ?? null,
+      studentId: result.user.studentId ?? null,
+      staffId: result.user.staffId ?? null,
+    }
+
+    // Enforce maintenance mode (SUPER_ADMIN exempt)
+    if (authUser.role !== 'SUPER_ADMIN') {
+      try {
+        const settings = await getAppSettings()
+        if (settings.maintenanceMode) {
+          return {
+            user: null,
+            error: NextResponse.json(
+              { error: 'Platform is under maintenance' },
+              { status: 503 }
+            ),
+          }
+        }
+      } catch {
+        // If settings fetch fails, don't block the request
+      }
+    }
+
+    return { user: authUser, error: null }
+  } catch (err) {
+    console.error('[requireAuth] Internal error:', err)
+    return {
+      user: null,
+      error: NextResponse.json({ error: 'Internal server error' }, { status: 500 }),
     }
   }
-
-  return { user: authUser, error: null }
 }
 
 /**
@@ -88,19 +96,27 @@ export async function requireSchoolAccess(
   request: Request,
   schoolId: string | null
 ): Promise<AuthResult> {
-  const result = await requireAuth(request)
-  if (result.error) return result
+  try {
+    const result = await requireAuth(request)
+    if (result.error) return result
 
-  if (result.user.role === 'SUPER_ADMIN') return result
+    if (result.user.role === 'SUPER_ADMIN') return result
 
-  if (!schoolId || result.user.schoolId !== schoolId) {
+    if (!schoolId || result.user.schoolId !== schoolId) {
+      return {
+        user: null,
+        error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }),
+      }
+    }
+
+    return result
+  } catch (err) {
+    console.error('[requireSchoolAccess] Internal error:', err)
     return {
       user: null,
-      error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }),
+      error: NextResponse.json({ error: 'Internal server error' }, { status: 500 }),
     }
   }
-
-  return result
 }
 
 /**
