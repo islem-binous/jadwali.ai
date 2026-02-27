@@ -15,6 +15,9 @@ type AuthUser = {
   role: string
   schoolId: string | null
   isActive: boolean
+  teacherId: string | null
+  studentId: string | null
+  staffId: string | null
 }
 
 type AuthResult =
@@ -52,6 +55,9 @@ export async function requireAuth(request: Request): Promise<AuthResult> {
     role: result.user.role,
     schoolId: result.user.schoolId,
     isActive: result.user.isActive,
+    teacherId: result.user.teacherId ?? null,
+    studentId: result.user.studentId ?? null,
+    staffId: result.user.staffId ?? null,
   }
 
   // Enforce maintenance mode (SUPER_ADMIN exempt)
@@ -96,3 +102,8 @@ export async function requireSchoolAccess(
 
   return result
 }
+
+/**
+ * Export AuthUser type for use in route handlers.
+ */
+export type { AuthUser, AuthResult }

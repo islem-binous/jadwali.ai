@@ -782,7 +782,14 @@
     "google_no_account": "Aucun compte trouvé avec cet e-mail Google. Veuillez vous inscrire d'abord.",
     "google_denied": "La connexion Google a été annulée.",
     "google_error": "Une erreur est survenue avec la connexion Google. Veuillez réessayer.",
-    "school_already_registered": "Déjà enregistré"
+    "school_already_registered": "Déjà enregistré",
+    "school_search_placeholder": "Rechercher par nom ou code d'école...",
+    "no_director": "Pas de directeur",
+    "school_no_director_warning": "Cette école n'a pas encore été activée par son directeur. Certaines fonctionnalités peuvent être limitées. Partagez SchediQ avec votre directeur pour débloquer toutes les fonctionnalités.",
+    "share_with_director": "Partager avec le directeur",
+    "share_message": "Rejoignez SchediQ pour gérer notre école : {url}",
+    "school_unclaimed_banner": "Votre école n'a pas encore été activée par un directeur. Partagez l'application avec le directeur de votre école pour débloquer toutes les fonctionnalités.",
+    "dismiss": "Fermer"
   },
   "help": {
     "title": "Centre d'aide",

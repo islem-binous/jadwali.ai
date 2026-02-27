@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
     if (teacherId) lessonWhere.teacherId = teacherId
     if (classId) lessonWhere.classId = classId
 
-    const [classCount, teacherCount, roomCount, studentCount, absencesToday, studentAbsencesToday, pendingAuthorizations, timetable] =
+    const [classCount, teacherCount, roomCount, studentCount, absencesToday, studentAbsencesToday, pendingAuthorizations, timetable, directorCount] =
       await Promise.all([
         prisma.class.count({ where: { schoolId } }),
         prisma.teacher.count({ where: { schoolId } }),
@@ -65,6 +65,7 @@ export async function GET(req: NextRequest) {
             },
           },
         }),
+        prisma.user.count({ where: { schoolId, role: 'DIRECTOR' } }),
       ])
 
     const totalLessons = timetable?.lessons.length ?? 0
@@ -91,6 +92,7 @@ export async function GET(req: NextRequest) {
       coverage,
       todayLessons,
       timetableStatus: timetable?.status ?? null,
+      hasDirector: directorCount > 0,
     })
   } catch (err) {
     console.error('[API Error]', err)

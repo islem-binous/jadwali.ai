@@ -5,7 +5,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Link, useRouter } from '@/i18n/navigation'
 import { useSearchParams } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
-import { Eye, EyeOff, Loader2, Crown, Shield, Briefcase, BookOpen, GraduationCap, X } from 'lucide-react'
+import { Eye, EyeOff, Loader2, Crown, Shield, Briefcase, BookOpen, GraduationCap, X, AlertTriangle, Share2 } from 'lucide-react'
 
 type SignupRole = 'DIRECTOR' | 'ADMIN' | 'STAFF' | 'TEACHER' | 'STUDENT'
 
@@ -16,6 +16,14 @@ type TunisianSchoolResult = {
   governorate: string
   zipCode: string
   isClaimed?: boolean
+}
+
+type SchoolLookupResult = {
+  id: string
+  name: string
+  slug: string
+  hasDirector: boolean
+  classes: { id: string; name: string; grade: string | null }[]
 }
 
 function SignupForm() {
@@ -135,30 +143,67 @@ function SignupForm() {
   }, [])
 
   // School lookup state (for non-director roles)
-  const [schoolLookup, setSchoolLookup] = useState<{ id: string; name: string; classes: { id: string; name: string; grade: string | null }[] } | null>(null)
-  const [lookingUp, setLookingUp] = useState(false)
+  const [schoolLookup, setSchoolLookup] = useState<SchoolLookupResult | null>(null)
+  const [schoolSearchResults, setSchoolSearchResults] = useState<SchoolLookupResult[]>([])
+  const [showSchoolResults, setShowSchoolResults] = useState(false)
+  const [searchingSchoolLookup, setSearchingSchoolLookup] = useState(false)
   const [selectedClassId, setSelectedClassId] = useState('')
+  const schoolSearchRef = useRef<HTMLDivElement>(null)
+  const schoolDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  async function handleSchoolLookup() {
-    if (!schoolCode.trim()) return
-    setLookingUp(true)
-    setError('')
-    setSchoolLookup(null)
-    try {
-      const res = await fetch(`/api/school/lookup?slug=${encodeURIComponent(schoolCode.trim())}`)
-      if (!res.ok) {
-        const data = await res.json()
-        setError(data.error || t('auth.school_not_found'))
-        return
-      }
-      const data = await res.json()
-      setSchoolLookup(data)
-    } catch {
-      setError(t('auth.school_not_found'))
-    } finally {
-      setLookingUp(false)
+  const searchSchools = useCallback(async (query: string) => {
+    if (query.length < 2) {
+      setSchoolSearchResults([])
+      setShowSchoolResults(false)
+      return
     }
+    setSearchingSchoolLookup(true)
+    try {
+      const res = await fetch(`/api/school/lookup?q=${encodeURIComponent(query)}`)
+      if (res.ok) {
+        const data: SchoolLookupResult[] = await res.json()
+        setSchoolSearchResults(data)
+        setShowSchoolResults(data.length > 0)
+      }
+    } catch {
+      // Silently fail
+    } finally {
+      setSearchingSchoolLookup(false)
+    }
+  }, [])
+
+  function handleSchoolSearchChange(value: string) {
+    setSchoolCode(value)
+    setSchoolLookup(null)
+    setSelectedClassId('')
+    if (schoolDebounceRef.current) clearTimeout(schoolDebounceRef.current)
+    schoolDebounceRef.current = setTimeout(() => searchSchools(value), 300)
   }
+
+  function handleSelectSchool(school: SchoolLookupResult) {
+    setSchoolLookup(school)
+    setSchoolCode(school.name)
+    setShowSchoolResults(false)
+    setSchoolSearchResults([])
+    setSelectedClassId('')
+  }
+
+  function handleClearSchool() {
+    setSchoolLookup(null)
+    setSchoolCode('')
+    setSelectedClassId('')
+  }
+
+  // Close school suggestions on outside click
+  useEffect(() => {
+    function handleClickOutsideSchool(e: MouseEvent) {
+      if (schoolSearchRef.current && !schoolSearchRef.current.contains(e.target as Node)) {
+        setShowSchoolResults(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutsideSchool)
+    return () => document.removeEventListener('mousedown', handleClickOutsideSchool)
+  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -277,6 +322,8 @@ function SignupForm() {
                       setSchoolName('')
                       setCin('')
                       setMatricule('')
+                      setSchoolSearchResults([])
+                      setShowSchoolResults(false)
                     }}
                     className={`flex flex-col items-center gap-1.5 rounded-lg border px-3 py-3 text-xs font-medium transition ${
                       isSelected
@@ -421,36 +468,91 @@ function SignupForm() {
               </div>
             )}
 
-            {/* Non-Director: School Code */}
+            {/* Non-Director: School Search */}
             {role !== 'DIRECTOR' && (
               <div>
                 <label htmlFor="schoolCode" className="mb-1.5 block text-sm font-medium text-text-secondary">
                   {t('auth.school_code')}
                 </label>
-                <div className="flex gap-2">
-                  <input
-                    id="schoolCode"
-                    type="text"
-                    required
-                    value={schoolCode}
-                    onChange={(e) => {
-                      setSchoolCode(e.target.value)
-                      setSchoolLookup(null)
-                    }}
-                    className={inputClass}
-                    placeholder={t('auth.school_code_hint')}
-                  />
-                  <button
-                    type="button"
-                    onClick={handleSchoolLookup}
-                    disabled={lookingUp || !schoolCode.trim()}
-                    className="shrink-0 rounded-md bg-accent px-4 py-2.5 text-sm font-medium text-white transition hover:bg-accent-hover disabled:opacity-50"
-                  >
-                    {lookingUp ? <Loader2 className="h-4 w-4 animate-spin" /> : t('app.search')}
-                  </button>
+                <div className="relative" ref={schoolSearchRef}>
+                  {schoolLookup ? (
+                    <div className="flex items-center gap-2 rounded-md border border-accent bg-accent-dim px-3 py-2.5">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-text-primary truncate">{schoolLookup.name}</p>
+                        <p className="text-xs text-text-muted">{schoolLookup.slug}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleClearSchool}
+                        className="shrink-0 text-text-muted hover:text-text-primary"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="relative">
+                        <input
+                          id="schoolCode"
+                          type="text"
+                          value={schoolCode}
+                          onChange={(e) => handleSchoolSearchChange(e.target.value)}
+                          onFocus={() => schoolSearchResults.length > 0 && setShowSchoolResults(true)}
+                          className={inputClass}
+                          placeholder={t('auth.school_search_placeholder')}
+                          autoComplete="off"
+                        />
+                        {searchingSchoolLookup && (
+                          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-text-muted" />
+                        )}
+                      </div>
+                      {showSchoolResults && schoolSearchResults.length > 0 && (
+                        <div className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-md border border-border-default bg-bg-card shadow-lg">
+                          {schoolSearchResults.map((school) => (
+                            <button
+                              key={school.id}
+                              type="button"
+                              onClick={() => handleSelectSchool(school)}
+                              className="flex w-full items-start gap-2 px-3 py-2 text-start transition hover:bg-bg-elevated cursor-pointer"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm text-text-primary truncate">{school.name}</p>
+                                <p className="text-xs text-text-muted">{school.slug}</p>
+                              </div>
+                              {!school.hasDirector && (
+                                <span className="shrink-0 flex items-center gap-1 rounded bg-warning/20 px-1.5 py-0.5 text-[10px] font-medium text-warning">
+                                  <AlertTriangle className="h-3 w-3" />
+                                  {t('auth.no_director')}
+                                </span>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
-                {schoolLookup && (
-                  <p className="mt-1.5 text-xs text-success">{schoolLookup.name}</p>
+                {/* Unclaimed school warning */}
+                {schoolLookup && !schoolLookup.hasDirector && (
+                  <div className="mt-2 flex items-start gap-2 rounded-md bg-warning/10 border border-warning/20 p-3">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-warning">
+                        {t('auth.school_no_director_warning')}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const msg = t('auth.share_message', { url: window.location.origin })
+                          navigator.clipboard.writeText(msg).catch(() => {})
+                        }}
+                        className="mt-1.5 flex items-center gap-1 text-xs font-medium text-accent hover:text-accent-hover transition"
+                      >
+                        <Share2 className="h-3 w-3" />
+                        {t('auth.share_with_director')}
+                      </button>
+                    </div>
+                  </div>
                 )}
               </div>
             )}

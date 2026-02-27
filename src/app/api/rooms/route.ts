@@ -58,12 +58,19 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
-    const { error: authError } = await requireAuth(req)
+    const { error: authError, user } = await requireAuth(req)
     if (authError) return authError
 
     const prisma = await getPrisma()
     const body = await req.json()
     const { id, name, building, capacity, type } = body
+
+    // Verify ownership
+    const existing = await prisma.room.findUnique({ where: { id }, select: { schoolId: true } })
+    if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (user!.role !== 'SUPER_ADMIN' && existing.schoolId !== user!.schoolId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
     const updated = await prisma.room.update({
       where: { id },
@@ -85,7 +92,7 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const { error: authError } = await requireAuth(req)
+  const { error: authError, user } = await requireAuth(req)
   if (authError) return authError
 
   const id = req.nextUrl.searchParams.get('id')
@@ -95,6 +102,14 @@ export async function DELETE(req: NextRequest) {
 
   try {
     const prisma = await getPrisma()
+
+    // Verify ownership
+    const existing = await prisma.room.findUnique({ where: { id }, select: { schoolId: true } })
+    if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (user!.role !== 'SUPER_ADMIN' && existing.schoolId !== user!.schoolId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     // Unlink lessons from this room (roomId is nullable) instead of deleting them
     await prisma.$transaction([
       prisma.lesson.updateMany({ where: { roomId: id }, data: { roomId: null } }),

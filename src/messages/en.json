@@ -782,7 +782,14 @@
     "google_no_account": "No account found with this Google email. Please sign up first.",
     "google_denied": "Google sign-in was cancelled.",
     "google_error": "Something went wrong with Google sign-in. Please try again.",
-    "school_already_registered": "Already registered"
+    "school_already_registered": "Already registered",
+    "school_search_placeholder": "Search by school name or code...",
+    "no_director": "No director",
+    "school_no_director_warning": "This school hasn't been activated by its director yet. Some features may be limited. Share SchediQ with your director to unlock the full experience.",
+    "share_with_director": "Share with director",
+    "share_message": "Join SchediQ to manage our school: {url}",
+    "school_unclaimed_banner": "Your school hasn't been activated by a director yet. Share the app with your school director to unlock all features.",
+    "dismiss": "Dismiss"
   },
   "help": {
     "title": "Help Center",

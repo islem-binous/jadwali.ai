@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Missing schoolId' }, { status: 400 })
   }
 
-  const { error: authError } = await requireSchoolAccess(req, schoolId)
+  const { error: authError, user } = await requireSchoolAccess(req, schoolId)
   if (authError) return authError
 
   try {
@@ -19,8 +19,14 @@ export async function GET(req: NextRequest) {
       select: { id: true },
     })
 
+    // Role-based filtering
+    const where: Record<string, unknown> = { schoolId }
+    if (user!.role === 'TEACHER' && user!.teacherId) {
+      where.id = user!.teacherId // Teachers see only their own record
+    }
+
     const teachers = await prisma.teacher.findMany({
-      where: { schoolId },
+      where,
       include: {
         subjects: { include: { subject: true } },
         professionalGrade: true,
@@ -108,7 +114,7 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
-    const { error: authError } = await requireAuth(req)
+    const { error: authError, user } = await requireAuth(req)
     if (authError) return authError
 
     const prisma = await getPrisma()
@@ -129,6 +135,13 @@ export async function PUT(req: NextRequest) {
       professionalGradeId,
       subjectIds,
     } = body
+
+    // Verify ownership
+    const existing = await prisma.teacher.findUnique({ where: { id }, select: { schoolId: true } })
+    if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (user!.role !== 'SUPER_ADMIN' && existing.schoolId !== user!.schoolId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
     // Delete old subjects and recreate
     await prisma.teacherSubject.deleteMany({ where: { teacherId: id } })
@@ -168,7 +181,7 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const { error: authError } = await requireAuth(req)
+  const { error: authError, user } = await requireAuth(req)
   if (authError) return authError
 
   const id = req.nextUrl.searchParams.get('id')
@@ -178,6 +191,14 @@ export async function DELETE(req: NextRequest) {
 
   try {
     const prisma = await getPrisma()
+
+    // Verify ownership
+    const existing = await prisma.teacher.findUnique({ where: { id }, select: { schoolId: true } })
+    if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (user!.role !== 'SUPER_ADMIN' && existing.schoolId !== user!.schoolId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     await prisma.$transaction([
       prisma.lesson.deleteMany({ where: { teacherId: id } }),
       prisma.teacherSubject.deleteMany({ where: { teacherId: id } }),

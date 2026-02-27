@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Missing schoolId' }, { status: 400 })
   }
 
-  const { error: authError } = await requireSchoolAccess(req, schoolId)
+  const { error: authError, user } = await requireSchoolAccess(req, schoolId)
   if (authError) return authError
 
   const classId = req.nextUrl.searchParams.get('classId')
@@ -18,6 +18,24 @@ export async function GET(req: NextRequest) {
     const prisma = await getPrisma()
 
     const where: Record<string, unknown> = { schoolId }
+
+    // Role-based filtering
+    if (user!.role === 'STUDENT' && user!.studentId) {
+      where.id = user!.studentId // Students see only their own record
+    } else if (user!.role === 'TEACHER' && user!.teacherId) {
+      // Teachers see students in classes they teach
+      const teacherLessons = await prisma.lesson.findMany({
+        where: { teacherId: user!.teacherId },
+        select: { classId: true },
+        distinct: ['classId'],
+      })
+      const teacherClassIds = teacherLessons.map((l) => l.classId)
+      if (teacherClassIds.length > 0) {
+        where.classId = { in: teacherClassIds }
+      } else {
+        where.classId = '__none__' // No classes → no students
+      }
+    }
 
     if (classId) {
       where.classId = classId
@@ -87,7 +105,7 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
-    const { error: authError } = await requireAuth(req)
+    const { error: authError, user } = await requireAuth(req)
     if (authError) return authError
 
     const prisma = await getPrisma()
@@ -96,6 +114,13 @@ export async function PUT(req: NextRequest) {
 
     if (!id) {
       return NextResponse.json({ error: 'Missing student id' }, { status: 400 })
+    }
+
+    // Verify ownership
+    const existing = await prisma.student.findUnique({ where: { id }, select: { schoolId: true } })
+    if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (user!.role !== 'SUPER_ADMIN' && existing.schoolId !== user!.schoolId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const student = await prisma.student.update({
@@ -122,7 +147,7 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const { error: authError } = await requireAuth(req)
+  const { error: authError, user } = await requireAuth(req)
   if (authError) return authError
 
   const id = req.nextUrl.searchParams.get('id')
@@ -132,6 +157,13 @@ export async function DELETE(req: NextRequest) {
 
   try {
     const prisma = await getPrisma()
+
+    // Verify ownership
+    const existing = await prisma.student.findUnique({ where: { id }, select: { schoolId: true } })
+    if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (user!.role !== 'SUPER_ADMIN' && existing.schoolId !== user!.schoolId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
     await prisma.$transaction([
       prisma.studentAbsence.deleteMany({ where: { studentId: id } }),

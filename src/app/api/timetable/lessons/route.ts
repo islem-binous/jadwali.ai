@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  const { error: authError } = await requireAuth(req)
+  const { error: authError, user } = await requireAuth(req)
   if (authError) return authError
 
   try {
@@ -49,6 +49,16 @@ export async function PUT(req: NextRequest) {
         { error: 'id is required' },
         { status: 400 }
       )
+    }
+
+    // Verify ownership via timetable
+    const existing = await prisma.lesson.findUnique({
+      where: { id },
+      select: { timetable: { select: { schoolId: true } } },
+    })
+    if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (user!.role !== 'SUPER_ADMIN' && existing.timetable.schoolId !== user!.schoolId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const data: Record<string, unknown> = {}
@@ -127,7 +137,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const { error: authError } = await requireAuth(req)
+  const { error: authError, user } = await requireAuth(req)
   if (authError) return authError
 
   try {
@@ -135,6 +145,16 @@ export async function DELETE(req: NextRequest) {
     const id = req.nextUrl.searchParams.get('id')
     if (!id) {
       return NextResponse.json({ error: 'Missing lesson id' }, { status: 400 })
+    }
+
+    // Verify ownership via timetable
+    const existing = await prisma.lesson.findUnique({
+      where: { id },
+      select: { timetable: { select: { schoolId: true } } },
+    })
+    if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (user!.role !== 'SUPER_ADMIN' && existing.timetable.schoolId !== user!.schoolId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     await prisma.lesson.delete({ where: { id } })

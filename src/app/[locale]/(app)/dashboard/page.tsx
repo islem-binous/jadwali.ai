@@ -21,6 +21,8 @@ import {
   Calendar,
   FileCheck,
   ClipboardCheck,
+  Share2,
+  X,
 } from 'lucide-react'
 
 interface DashboardLesson {
@@ -46,6 +48,7 @@ interface DashboardData {
   coverage: number
   todayLessons: DashboardLesson[]
   timetableStatus: string | null
+  hasDirector: boolean
 }
 
 export default function DashboardPage() {
@@ -54,6 +57,12 @@ export default function DashboardPage() {
   const user = useUserStore((s) => s.user)
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [bannerDismissed, setBannerDismissed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('unclaimed-school-banner-dismissed') === 'true'
+    }
+    return false
+  })
 
   const adminUser = checkIsAdmin(user?.role || '')
 
@@ -265,6 +274,37 @@ export default function DashboardPage() {
           {new Date().toLocaleDateString()}
         </p>
       </div>
+
+      {/* Unclaimed school banner */}
+      {data && !data.hasDirector && !bannerDismissed && user?.role !== 'DIRECTOR' && user?.role !== 'SUPER_ADMIN' && (
+        <div className="flex items-start gap-3 rounded-xl border border-warning/30 bg-warning/10 p-4">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-warning" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-warning">
+              {t('auth.school_unclaimed_banner')}
+            </p>
+            <button
+              onClick={() => {
+                const msg = t('auth.share_message', { url: window.location.origin })
+                navigator.clipboard.writeText(msg).catch(() => {})
+              }}
+              className="mt-2 flex items-center gap-1.5 text-xs font-medium text-accent hover:text-accent-hover transition"
+            >
+              <Share2 className="h-3.5 w-3.5" />
+              {t('auth.share_with_director')}
+            </button>
+          </div>
+          <button
+            onClick={() => {
+              setBannerDismissed(true)
+              localStorage.setItem('unclaimed-school-banner-dismissed', 'true')
+            }}
+            className="shrink-0 rounded-md p-1 text-text-muted hover:text-text-primary hover:bg-bg-surface transition"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {/* Stats Grid */}
       {loading ? (

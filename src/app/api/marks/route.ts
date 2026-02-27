@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
   const termId = req.nextUrl.searchParams.get('termId')
   const schoolId = req.nextUrl.searchParams.get('schoolId')
 
-  const { error: authError } = await requireSchoolAccess(req, schoolId)
+  const { error: authError, user } = await requireSchoolAccess(req, schoolId)
   if (authError) return authError
 
   if (!examId && !(studentId && termId)) {
@@ -20,13 +20,33 @@ export async function GET(req: NextRequest) {
     )
   }
 
+  // Role-based: students can only see their own marks
+  const effectiveStudentId = user!.role === 'STUDENT' && user!.studentId
+    ? user!.studentId
+    : studentId
+
   try {
     const prisma = await getPrisma()
 
     if (examId) {
-      // Grade sheet for one exam — all students
+      // Grade sheet for one exam
+      const markWhere: Record<string, unknown> = { examId }
+      // Students only see their own marks in an exam
+      if (user!.role === 'STUDENT' && user!.studentId) {
+        markWhere.studentId = user!.studentId
+      }
+      // Teachers only see marks for exams they own
+      if (user!.role === 'TEACHER' && user!.teacherId) {
+        const exam = await prisma.exam.findUnique({
+          where: { id: examId },
+          select: { teacherId: true },
+        })
+        if (exam && exam.teacherId !== user!.teacherId) {
+          return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        }
+      }
       const marks = await prisma.examMark.findMany({
-        where: { examId },
+        where: markWhere,
         include: {
           student: { select: { id: true, name: true } },
           exam: {
@@ -48,7 +68,7 @@ export async function GET(req: NextRequest) {
     // All marks for a student in a given term
     const marks = await prisma.examMark.findMany({
       where: {
-        studentId: studentId!,
+        studentId: effectiveStudentId!,
         exam: { termId: termId! },
       },
       include: {
@@ -134,7 +154,7 @@ export async function POST(req: NextRequest) {
 
 // PUT /api/marks — single mark edit
 export async function PUT(req: NextRequest) {
-  const { error: authError } = await requireAuth(req)
+  const { error: authError, user } = await requireAuth(req)
   if (authError) return authError
 
   try {
@@ -149,6 +169,16 @@ export async function PUT(req: NextRequest) {
 
     if (!id) {
       return NextResponse.json({ error: 'Missing mark id' }, { status: 400 })
+    }
+
+    // Verify ownership
+    const existing = await prisma.examMark.findUnique({
+      where: { id },
+      select: { exam: { select: { schoolId: true } } },
+    })
+    if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (user!.role !== 'SUPER_ADMIN' && existing.exam.schoolId !== user!.schoolId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const data: Record<string, unknown> = {}
