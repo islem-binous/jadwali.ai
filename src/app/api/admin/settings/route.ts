@@ -9,11 +9,10 @@ export async function GET(request: Request) {
 
   try {
     const prisma = await getPrisma()
-    const settings = await prisma.appSettings.upsert({
-      where: { id: 'default' },
-      create: { id: 'default' },
-      update: {},
-    })
+    let settings = await prisma.appSettings.findFirst({ where: { id: 'default' } })
+    if (!settings) {
+      settings = await prisma.appSettings.create({ data: { id: 'default' } })
+    }
     return NextResponse.json(settings)
   } catch (err) {
     console.error('[Settings GET Error]', err)
@@ -39,11 +38,12 @@ export async function PUT(request: Request) {
       if (key in body) data[key] = body[key]
     }
 
-    const settings = await prisma.appSettings.upsert({
-      where: { id: 'default' },
-      create: { id: 'default', ...data },
-      update: data,
-    })
+    let settings = await prisma.appSettings.findFirst({ where: { id: 'default' } })
+    if (!settings) {
+      settings = await prisma.appSettings.create({ data: { id: 'default', ...data } })
+    } else {
+      settings = await prisma.appSettings.update({ where: { id: 'default' }, data })
+    }
 
     invalidateSettingsCache()
     return NextResponse.json(settings)

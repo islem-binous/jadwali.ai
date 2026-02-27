@@ -53,9 +53,7 @@ export default function AdminSchoolsPage() {
 
   const planColors: Record<string, string> = {
     FREE: 'bg-gray-500/10 text-gray-400',
-    STARTER: 'bg-blue-500/10 text-blue-400',
     PRO: 'bg-purple-500/10 text-purple-400',
-    ENTERPRISE: 'bg-amber-500/10 text-amber-400',
   }
 
   return (
@@ -85,9 +83,7 @@ export default function AdminSchoolsPage() {
         >
           <option value="">{t('all_plans')}</option>
           <option value="FREE">FREE</option>
-          <option value="STARTER">STARTER</option>
           <option value="PRO">PRO</option>
-          <option value="ENTERPRISE">ENTERPRISE</option>
         </select>
       </div>
 

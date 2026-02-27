@@ -385,7 +385,7 @@ export default function BillingPage() {
       </div>
 
       {/* Plan Comparison Grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 max-w-3xl mx-auto">
         {plans.map(([key, plan]) => {
           const price =
             billingCycle === 'monthly' ? plan.price.monthly : plan.price.annual

@@ -7,6 +7,7 @@ import { motion } from 'framer-motion'
 import {
   Sparkles, Calendar, Users, Shield, Globe, Zap,
   Check, Star, ArrowRight, MessageSquare,
+  GraduationCap, FileText, ClipboardCheck, BookOpen, Printer, X as XIcon,
 } from 'lucide-react'
 import type { PlanDef } from '@/lib/plans'
 import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher'
@@ -29,10 +30,19 @@ const FEATURE_KEYS = [
   { icon: Zap, key: 'pwa', color: 'text-danger' },
 ] as const
 
+const DETAIL_FEATURES = [
+  { icon: GraduationCap, key: 'marks', color: 'text-accent' },
+  { icon: ClipboardCheck, key: 'authorisation', color: 'text-success' },
+  { icon: BookOpen, key: 'teacher_marks', color: 'text-warning' },
+  { icon: FileText, key: 'reports', color: 'text-info' },
+  { icon: Printer, key: 'export', color: 'text-violet' },
+  { icon: XIcon, key: 'leave', color: 'text-danger' },
+] as const
+
 export default function LandingPage() {
   const t = useTranslations()
   const locale = useLocale() as Locale
-  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly')
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('annual')
   const [plans, setPlans] = useState<PlanDef[]>([])
 
   useEffect(() => {
@@ -116,7 +126,7 @@ export default function LandingPage() {
           </motion.div>
         </section>
 
-        {/* ── Features ── */}
+        {/* ── Core Features ── */}
         <section className="border-t border-border-subtle px-4 py-20">
           <div className="mx-auto max-w-6xl">
             <motion.div
@@ -159,9 +169,52 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* ── Detailed Features (marks, absences, authorisations, etc.) ── */}
+        <section className="border-t border-border-subtle px-4 py-20 bg-bg-elevated/30">
+          <div className="mx-auto max-w-6xl">
+            <motion.div
+              className="text-center"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5 }}
+            >
+              <h2 className="font-display text-3xl font-bold text-text-primary sm:text-4xl">
+                {t('landing.detail_features_title')}
+              </h2>
+              <p className="mx-auto mt-3 max-w-xl text-text-secondary">
+                {t('landing.detail_features_subtitle')}
+              </p>
+            </motion.div>
+
+            <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {DETAIL_FEATURES.map((feature, i) => (
+                <motion.div
+                  key={feature.key}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.1, duration: 0.4 }}
+                  className="group rounded-xl border border-border-subtle bg-bg-card p-6 transition hover:border-accent/30 hover:shadow-card"
+                >
+                  <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-lg bg-accent-dim">
+                    <feature.icon className={`h-5 w-5 ${feature.color}`} />
+                  </div>
+                  <h3 className="font-display text-lg font-semibold text-text-primary">
+                    {t(`landing.feat_${feature.key}_title`)}
+                  </h3>
+                  <p className="mt-2 text-sm leading-relaxed text-text-secondary">
+                    {t(`landing.feat_${feature.key}_desc`)}
+                  </p>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </section>
+
         {/* ── Pricing ── */}
         <section id="pricing" className="border-t border-border-subtle px-4 py-20">
-          <div className="mx-auto max-w-6xl">
+          <div className="mx-auto max-w-4xl">
             <motion.div
               className="text-center"
               initial={{ opacity: 0, y: 20 }}
@@ -172,7 +225,7 @@ export default function LandingPage() {
                 {t('billing.title')}
               </h2>
               <p className="mx-auto mt-3 max-w-xl text-text-secondary">
-                {t('billing.save_annual')}
+                {t('landing.pricing_subtitle')}
               </p>
 
               {/* Toggle */}
@@ -196,11 +249,14 @@ export default function LandingPage() {
                   }`}
                 >
                   {t('billing.billed_annually')}
+                  <span className="ml-1.5 rounded-full bg-success/20 px-2 py-0.5 text-[10px] font-semibold text-success">
+                    {t('landing.save_2_months')}
+                  </span>
                 </button>
               </div>
             </motion.div>
 
-            <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mt-12 grid gap-6 sm:grid-cols-2">
               {plans.map((plan, i) => {
                 const price = billingCycle === 'monthly' ? plan.price.monthly : plan.price.annual
                 const features = plan.featureList[locale] || plan.featureList.en
@@ -213,7 +269,7 @@ export default function LandingPage() {
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
                     transition={{ delay: i * 0.1 }}
-                    className={`relative flex flex-col rounded-xl border p-6 transition ${
+                    className={`relative flex flex-col rounded-xl border p-8 transition ${
                       plan.highlighted
                         ? 'border-accent bg-bg-card shadow-accent-glow/20'
                         : 'border-border-subtle bg-bg-card hover:border-border-default'
@@ -225,23 +281,31 @@ export default function LandingPage() {
                       </div>
                     )}
 
-                    <h3 className="font-display text-lg font-semibold text-text-primary">
+                    <h3 className="font-display text-xl font-semibold text-text-primary">
                       {planName}
                     </h3>
 
                     <div className="mt-4">
-                      {price !== null ? (
+                      {price !== null && price !== undefined ? (
                         <>
-                          <span className="font-display text-4xl font-bold text-text-primary">
-                            {billingCycle === 'annual' ? Math.round(price / 12) : price}
-                          </span>
-                          <span className="ml-1 text-sm text-text-muted">
-                            {t('landing.price_per_month')}
-                          </span>
-                          {billingCycle === 'annual' && price > 0 && (
-                            <p className="mt-1 text-xs text-success">
-                              {t('landing.price_per_year_savings', { price })}
-                            </p>
+                          {price === 0 ? (
+                            <span className="font-display text-4xl font-bold text-text-primary">
+                              0 <span className="text-lg font-medium text-text-muted">DT</span>
+                            </span>
+                          ) : (
+                            <>
+                              <span className="font-display text-4xl font-bold text-text-primary">
+                                {billingCycle === 'annual' ? Math.round(price / 12) : price}
+                              </span>
+                              <span className="ml-1 text-sm text-text-muted">
+                                {t('landing.price_per_month')}
+                              </span>
+                              {billingCycle === 'annual' && (
+                                <p className="mt-1 text-xs text-success">
+                                  {price} DT / {t('landing.per_year')} — {t('landing.save_2_months')}
+                                </p>
+                              )}
+                            </>
                           )}
                         </>
                       ) : (
@@ -251,9 +315,9 @@ export default function LandingPage() {
                       )}
                     </div>
 
-                    <ul className="mt-6 flex-1 space-y-2.5">
+                    <ul className="mt-6 flex-1 space-y-3">
                       {features.map((feat) => (
-                        <li key={feat} className="flex items-start gap-2 text-sm text-text-secondary">
+                        <li key={feat} className="flex items-start gap-2.5 text-sm text-text-secondary">
                           <Check className="mt-0.5 h-4 w-4 shrink-0 text-success" />
                           {feat}
                         </li>
@@ -262,17 +326,15 @@ export default function LandingPage() {
 
                     <Link
                       href="/auth/signup"
-                      className={`mt-6 block rounded-lg py-2.5 text-center text-sm font-semibold transition ${
+                      className={`mt-8 block rounded-lg py-3 text-center text-sm font-semibold transition ${
                         plan.highlighted
-                          ? 'bg-accent text-white hover:bg-accent-hover'
+                          ? 'bg-accent text-white hover:bg-accent-hover shadow-accent-glow'
                           : 'border border-border-default bg-bg-surface text-text-primary hover:bg-bg-surface2'
                       }`}
                     >
                       {price === 0
                         ? t('landing.start_free')
-                        : price === null
-                          ? t('landing.contact_sales')
-                          : t('billing.upgrade')}
+                        : t('billing.upgrade')}
                     </Link>
                   </motion.div>
                 )

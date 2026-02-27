@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCloudflareContext } from '@opennextjs/cloudflare'
+import { getAppSettings } from '@/lib/app-settings'
 
 async function getEnv(key: string): Promise<string | undefined> {
   if (process.env[key]) return process.env[key]
@@ -17,9 +18,27 @@ export async function GET(request: NextRequest) {
   const locale = searchParams.get('locale') || 'fr'
   const role = searchParams.get('role') || ''
 
+  // Check if Google OAuth is enabled before redirecting to Google
+  try {
+    const settings = await getAppSettings()
+    if (!settings.googleOAuthEnabled) {
+      const origin = request.headers.get('x-forwarded-host')
+        ? `https://${request.headers.get('x-forwarded-host')}`
+        : new URL(request.url).origin
+      const page = mode === 'signup' ? 'signup' : 'login'
+      return NextResponse.redirect(`${origin}/${locale}/auth/${page}?error=google_disabled`)
+    }
+  } catch {
+    // If settings fetch fails, allow OAuth to proceed
+  }
+
   const clientId = await getEnv('GOOGLE_CLIENT_ID')
   if (!clientId) {
-    return NextResponse.json({ error: 'Google OAuth not configured' }, { status: 500 })
+    const origin = request.headers.get('x-forwarded-host')
+      ? `https://${request.headers.get('x-forwarded-host')}`
+      : new URL(request.url).origin
+    const page = mode === 'signup' ? 'signup' : 'login'
+    return NextResponse.redirect(`${origin}/${locale}/auth/${page}?error=google_error`)
   }
 
   // Determine redirect URI based on request origin

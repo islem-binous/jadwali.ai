@@ -363,8 +363,8 @@ function OverviewTab({ school, editing, editForm, setEditForm, onSave, onCancel,
           <label className="mb-1 block text-xs font-medium text-text-muted">{t('plan')}</label>
           <select value={editForm.plan} onChange={(e) => setEditForm({ ...editForm, plan: e.target.value })}
             className="w-full rounded-md border border-border-subtle bg-bg-surface px-3 py-2 text-sm text-text-primary">
-            <option value="FREE">FREE</option><option value="STARTER">STARTER</option>
-            <option value="PRO">PRO</option><option value="ENTERPRISE">ENTERPRISE</option>
+            <option value="FREE">FREE</option>
+            <option value="PRO">PRO</option>
           </select>
         </div>
         <div>

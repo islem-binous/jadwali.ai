@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
 import { Link, usePathname } from '@/i18n/navigation'
 import {
@@ -26,6 +27,14 @@ const navItems = [
 export function AdminSidebar() {
   const t = useTranslations('admin_nav')
   const pathname = usePathname()
+  const [platformName, setPlatformName] = useState('SchediQ')
+
+  useEffect(() => {
+    fetch('/api/settings/public')
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => { if (data?.platformName) setPlatformName(data.platformName) })
+      .catch(() => {})
+  }, [])
 
   return (
     <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 ltr:lg:left-0 rtl:lg:right-0 z-40 border-r rtl:border-r-0 rtl:border-l border-border-subtle bg-bg-elevated">
@@ -36,7 +45,7 @@ export function AdminSidebar() {
         </div>
         <div>
           <span className="font-display text-lg font-bold text-text-primary">
-            SchediQ
+            {platformName}
           </span>
           <span className="block text-[10px] font-semibold uppercase tracking-wider text-danger">
             {t('admin_label')}

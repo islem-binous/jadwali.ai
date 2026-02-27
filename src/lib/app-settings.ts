@@ -27,11 +27,10 @@ export async function getAppSettings(): Promise<AppSettings> {
   }
 
   const prisma = await getPrisma()
-  const row = await prisma.appSettings.upsert({
-    where: { id: 'default' },
-    create: { id: 'default' },
-    update: {},
-  })
+  let row = await prisma.appSettings.findFirst({ where: { id: 'default' } })
+  if (!row) {
+    row = await prisma.appSettings.create({ data: { id: 'default' } })
+  }
 
   const data: AppSettings = {
     platformName: row.platformName,

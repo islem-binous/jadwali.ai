@@ -27,10 +27,16 @@ export async function GET(request: NextRequest) {
   try {
     const settings = await getAppSettings()
     if (!settings.googleOAuthEnabled) {
-      return NextResponse.json(
-        { error: 'Google sign-in is currently disabled' },
-        { status: 403 }
-      )
+      const origin = request.headers.get('x-forwarded-host')
+        ? `https://${request.headers.get('x-forwarded-host')}`
+        : new URL(request.url).origin
+      // Try to parse locale from state
+      let locale = 'fr'
+      try {
+        const parsed = JSON.parse(atob(new URL(request.url).searchParams.get('state') || ''))
+        locale = parsed.locale || 'fr'
+      } catch { /* use default */ }
+      return NextResponse.redirect(`${origin}/${locale}/auth/login?error=google_disabled`)
     }
   } catch {
     // If settings fetch fails, allow OAuth to proceed
@@ -231,7 +237,8 @@ export async function GET(request: NextRequest) {
     }
 
     const cookieValue = btoa(encodeURIComponent(JSON.stringify(googleData)))
-    const response = NextResponse.redirect(`${origin}/${locale}/auth/signup?google=true`)
+    const roleParam = role ? `&role=${encodeURIComponent(role)}` : ''
+    const response = NextResponse.redirect(`${origin}/${locale}/auth/signup?google=true${roleParam}`)
     response.cookies.set('auth_result', cookieValue, {
       httpOnly: false,
       secure: true,
