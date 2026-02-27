@@ -49,10 +49,12 @@ export async function PUT(
     where: { id },
     data: {
       name: body.name ?? user.name,
+      email: body.email ?? user.email,
       role: body.role ?? user.role,
       isActive: body.isActive ?? user.isActive,
       schoolId: body.schoolId !== undefined ? body.schoolId : user.schoolId,
       language: body.language ?? user.language,
+      phone: body.phone !== undefined ? (body.phone || null) : user.phone,
     },
     include: { school: { select: { name: true } } },
   })

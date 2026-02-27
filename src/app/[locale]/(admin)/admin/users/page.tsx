@@ -18,6 +18,7 @@ interface UserRow {
   name: string
   role: string
   language: string
+  phone: string | null
   isActive: boolean
   schoolId: string | null
   createdAt: string
@@ -34,6 +35,12 @@ export default function AdminUsersPage() {
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState('')
 
+  // Edit modal state
+  const [editUser, setEditUser] = useState<UserRow | null>(null)
+  const [editFields, setEditFields] = useState<Record<string, any>>({})
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
+
   const load = useCallback(() => {
     setLoading(true)
     const params = new URLSearchParams()
@@ -47,22 +54,6 @@ export default function AdminUsersPage() {
 
   useEffect(() => { load() }, [load])
 
-  const handleToggleActive = async (id: string, isActive: boolean) => {
-    await adminFetch(`/api/admin/users/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify({ isActive: !isActive }),
-    })
-    load()
-  }
-
-  const handleChangeRole = async (id: string, role: string) => {
-    await adminFetch(`/api/admin/users/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify({ role }),
-    })
-    load()
-  }
-
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`Delete user "${name}"? This cannot be undone.`)) return
     const res = await adminFetch(`/api/admin/users/${id}`, { method: 'DELETE' })
@@ -72,6 +63,43 @@ export default function AdminUsersPage() {
       return
     }
     load()
+  }
+
+  // Open edit modal
+  function openEditModal(user: UserRow) {
+    setEditUser(user)
+    setSaveError('')
+    setEditFields({
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      language: user.language,
+      phone: user.phone || '',
+      isActive: user.isActive,
+    })
+  }
+
+  // Save edit
+  async function handleEditSave() {
+    if (!editUser) return
+    setSaving(true)
+    setSaveError('')
+    try {
+      const res = await adminFetch(`/api/admin/users/${editUser.id}`, {
+        method: 'PUT',
+        body: JSON.stringify(editFields),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Save failed')
+      }
+      setEditUser(null)
+      load()
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Save failed')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const roleColors: Record<string, string> = {
@@ -127,44 +155,40 @@ export default function AdminUsersPage() {
                 <th className="px-4 py-3">{t('email')}</th>
                 <th className="px-4 py-3">{t('role')}</th>
                 <th className="px-4 py-3">{t('school')}</th>
+                <th className="px-4 py-3">{t('language')}</th>
+                <th className="px-4 py-3">Phone</th>
                 <th className="px-4 py-3">{t('active')}</th>
                 <th className="px-4 py-3">{t('actions')}</th>
               </tr>
             </thead>
             <tbody>
               {users.map((u) => (
-                <tr key={u.id} className="border-b border-border-subtle last:border-0 hover:bg-bg-surface/50">
+                <tr
+                  key={u.id}
+                  onClick={() => openEditModal(u)}
+                  className="border-b border-border-subtle last:border-0 hover:bg-bg-surface/50 cursor-pointer transition"
+                >
                   <td className="px-4 py-3 font-medium text-text-primary">{u.name}</td>
                   <td className="px-4 py-3 text-text-muted text-xs">{u.email}</td>
                   <td className="px-4 py-3">
-                    <select
-                      value={u.role}
-                      onChange={(e) => handleChangeRole(u.id, e.target.value)}
-                      className={`rounded-full px-2 py-0.5 text-xs font-medium border-0 cursor-pointer ${roleColors[u.role] || ''}`}
-                      disabled={u.role === 'SUPER_ADMIN'}
-                    >
-                      {ROLES.map((r) => (
-                        <option key={r} value={r}>{r}</option>
-                      ))}
-                    </select>
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${roleColors[u.role] || 'bg-gray-500/10 text-gray-400'}`}>
+                      {u.role}
+                    </span>
                   </td>
                   <td className="px-4 py-3 text-text-secondary text-xs">{u.school?.name || '—'}</td>
+                  <td className="px-4 py-3 text-text-secondary text-xs">{u.language}</td>
+                  <td className="px-4 py-3 text-text-secondary text-xs">{u.phone || '—'}</td>
                   <td className="px-4 py-3">
-                    <button
-                      onClick={() => handleToggleActive(u.id, u.isActive)}
-                      className={`rounded p-1 transition ${
-                        u.isActive
-                          ? 'text-green-400 hover:bg-green-500/10'
-                          : 'text-red-400 hover:bg-red-500/10'
-                      }`}
-                    >
-                      {u.isActive ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
-                    </button>
+                    {u.isActive ? (
+                      <Check className="h-4 w-4 text-green-400" />
+                    ) : (
+                      <X className="h-4 w-4 text-red-400" />
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     {u.role !== 'SUPER_ADMIN' && (
                       <button
-                        onClick={() => handleDelete(u.id, u.name)}
+                        onClick={(e) => { e.stopPropagation(); handleDelete(u.id, u.name) }}
                         className="rounded p-1 text-text-muted hover:bg-danger-dim hover:text-danger transition"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -175,13 +199,141 @@ export default function AdminUsersPage() {
               ))}
               {users.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-text-muted">
+                  <td colSpan={8} className="px-4 py-8 text-center text-text-muted">
                     {t('no_results')}
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {editUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-lg mx-4 rounded-xl border border-border-subtle bg-bg-card shadow-lg">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle">
+              <h2 className="text-base font-semibold text-text-primary">Edit User</h2>
+              <button
+                onClick={() => setEditUser(null)}
+                className="rounded-md p-1 text-text-muted hover:text-text-primary hover:bg-bg-surface transition"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="px-5 py-4 space-y-3 max-h-[60vh] overflow-y-auto">
+              {saveError && (
+                <div className="rounded-md bg-danger-dim p-3 text-sm text-danger">{saveError}</div>
+              )}
+
+              {/* School (read-only) */}
+              <div>
+                <label className="mb-1 block text-xs font-medium text-text-muted">School</label>
+                <input
+                  type="text"
+                  value={editUser.school?.name || '—'}
+                  disabled
+                  className="w-full rounded-md border border-border-default bg-bg-elevated px-3 py-2 text-sm text-text-primary opacity-50"
+                />
+              </div>
+
+              {/* Name */}
+              <div>
+                <label className="mb-1 block text-xs font-medium text-text-muted">
+                  Name <span className="text-danger">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={editFields.name || ''}
+                  onChange={(e) => setEditFields({ ...editFields, name: e.target.value })}
+                  className="w-full rounded-md border border-border-default bg-bg-elevated px-3 py-2 text-sm text-text-primary outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+                />
+              </div>
+
+              {/* Email */}
+              <div>
+                <label className="mb-1 block text-xs font-medium text-text-muted">
+                  Email <span className="text-danger">*</span>
+                </label>
+                <input
+                  type="email"
+                  value={editFields.email || ''}
+                  onChange={(e) => setEditFields({ ...editFields, email: e.target.value })}
+                  className="w-full rounded-md border border-border-default bg-bg-elevated px-3 py-2 text-sm text-text-primary outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+                />
+              </div>
+
+              {/* Role */}
+              <div>
+                <label className="mb-1 block text-xs font-medium text-text-muted">Role</label>
+                <select
+                  value={editFields.role || ''}
+                  onChange={(e) => setEditFields({ ...editFields, role: e.target.value })}
+                  disabled={editUser.role === 'SUPER_ADMIN'}
+                  className="w-full rounded-md border border-border-default bg-bg-elevated px-3 py-2 text-sm text-text-primary outline-none focus:border-accent focus:ring-1 focus:ring-accent disabled:opacity-50"
+                >
+                  {ROLES.map((r) => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Language */}
+              <div>
+                <label className="mb-1 block text-xs font-medium text-text-muted">Language</label>
+                <select
+                  value={editFields.language || 'FR'}
+                  onChange={(e) => setEditFields({ ...editFields, language: e.target.value })}
+                  className="w-full rounded-md border border-border-default bg-bg-elevated px-3 py-2 text-sm text-text-primary outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+                >
+                  <option value="FR">French</option>
+                  <option value="EN">English</option>
+                  <option value="AR">Arabic</option>
+                </select>
+              </div>
+
+              {/* Phone */}
+              <div>
+                <label className="mb-1 block text-xs font-medium text-text-muted">Phone</label>
+                <input
+                  type="text"
+                  value={editFields.phone || ''}
+                  onChange={(e) => setEditFields({ ...editFields, phone: e.target.value })}
+                  className="w-full rounded-md border border-border-default bg-bg-elevated px-3 py-2 text-sm text-text-primary outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+                />
+              </div>
+
+              {/* Active */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={!!editFields.isActive}
+                  onChange={(e) => setEditFields({ ...editFields, isActive: e.target.checked })}
+                  className="h-4 w-4 rounded border-border-default accent-accent"
+                />
+                <label className="text-sm text-text-primary">Active</label>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-border-subtle">
+              <button
+                onClick={() => setEditUser(null)}
+                className="rounded-md border border-border-default bg-bg-elevated px-4 py-2 text-sm font-medium text-text-secondary hover:bg-bg-surface transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleEditSave}
+                disabled={saving}
+                className="flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:opacity-50"
+              >
+                {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+                Save
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
