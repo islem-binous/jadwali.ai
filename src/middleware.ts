@@ -20,9 +20,20 @@ function isApiRoute(pathname: string): boolean {
   return pathname.startsWith('/api/')
 }
 
+async function getJwtSecret(): Promise<string | null> {
+  if (process.env.JWT_SECRET) return process.env.JWT_SECRET
+  try {
+    const { getCloudflareContext } = await import('@opennextjs/cloudflare')
+    const { env } = await getCloudflareContext()
+    return (env as unknown as Record<string, string>).JWT_SECRET || null
+  } catch {
+    return null
+  }
+}
+
 async function isValidToken(token: string): Promise<boolean> {
   try {
-    const secret = process.env.JWT_SECRET
+    const secret = await getJwtSecret()
     if (!secret) return false
     const key = new TextEncoder().encode(secret)
     await jwtVerify(token, key)
