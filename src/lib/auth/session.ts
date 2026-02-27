@@ -10,9 +10,21 @@ import {
   verifySessionToken,
   getSessionCookieName,
   getSessionDuration,
+  setSessionDurationHours,
 } from './jwt'
+import { getAppSettings } from '@/lib/app-settings'
 
 export async function createSession(userId: string): Promise<string> {
+  // Load dynamic session duration from app settings
+  try {
+    const settings = await getAppSettings()
+    if (settings.sessionDurationHours > 0) {
+      setSessionDurationHours(settings.sessionDurationHours)
+    }
+  } catch {
+    // Use default duration if settings unavailable
+  }
+
   const prisma = await getPrisma()
   const expiresAt = new Date(Date.now() + getSessionDuration() * 1000)
 

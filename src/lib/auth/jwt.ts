@@ -11,8 +11,16 @@ export interface SessionPayload extends JWTPayload {
   sid: string // sessionId
 }
 
-const SESSION_DURATION = 7 * 24 * 60 * 60 // 7 days in seconds
+const DEFAULT_SESSION_DURATION = 7 * 24 * 60 * 60 // 7 days in seconds
 const COOKIE_NAME = 'session'
+let _sessionDurationOverride: number | null = null
+
+/**
+ * Set session duration from app settings (called by session.ts before creating sessions).
+ */
+export function setSessionDurationHours(hours: number) {
+  _sessionDurationOverride = hours * 60 * 60
+}
 
 async function getSecret(): Promise<Uint8Array> {
   // Try environment variable first (local dev)
@@ -39,7 +47,7 @@ export async function createSessionToken(
     .setProtectedHeader({ alg: 'HS256' })
     .setSubject(userId)
     .setIssuedAt()
-    .setExpirationTime(`${SESSION_DURATION}s`)
+    .setExpirationTime(`${_sessionDurationOverride ?? DEFAULT_SESSION_DURATION}s`)
     .sign(secret)
 }
 
@@ -77,5 +85,5 @@ export function getSessionCookieName(): string {
 }
 
 export function getSessionDuration(): number {
-  return SESSION_DURATION
+  return _sessionDurationOverride ?? DEFAULT_SESSION_DURATION
 }

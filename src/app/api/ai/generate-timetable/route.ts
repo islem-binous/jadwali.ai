@@ -4,6 +4,7 @@ import { solveTimetable } from '@/lib/schedule-solver'
 import type { ScheduleConstraints } from '@/lib/schedule-engine'
 import { detectConflicts } from '@/lib/conflict-detector'
 import { requireSchoolAccess } from '@/lib/auth/require-auth'
+import { getAppSettings } from '@/lib/app-settings'
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,6 +13,16 @@ export async function POST(req: NextRequest) {
 
     const { error: authError } = await requireSchoolAccess(req, schoolId)
     if (authError) return authError
+
+    // Check if AI features are enabled
+    try {
+      const settings = await getAppSettings()
+      if (!settings.aiEnabled) {
+        return Response.json({ success: false, error: 'AI features are currently disabled' }, { status: 403 })
+      }
+    } catch {
+      // If settings fetch fails, allow AI to proceed
+    }
 
     if (!schoolId || typeof schoolId !== 'string') {
       return Response.json({ success: false, error: 'Missing schoolId' }, { status: 400 })

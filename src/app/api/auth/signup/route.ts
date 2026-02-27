@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
 import { hashPassword } from '@/lib/auth/password'
 import { createSession, setSessionCookie } from '@/lib/auth/session'
+import { getAppSettings } from '@/lib/app-settings'
 
 function slugify(text: string): string {
   return text
@@ -35,6 +36,15 @@ function authUserResponse(user: any, school: any, token: string, extra?: Record<
 
 export async function POST(request: Request) {
   try {
+    // Enforce platform settings
+    const settings = await getAppSettings()
+    if (!settings.registrationEnabled) {
+      return NextResponse.json(
+        { error: 'Registration is currently disabled' },
+        { status: 403 }
+      )
+    }
+
     const prisma = await getPrisma()
     const body = await request.json()
     const { email, password, name, language, role, googleId } = body
@@ -53,11 +63,25 @@ export async function POST(request: Request) {
       )
     }
 
-    if (!googleId && password && password.length < 8) {
+    const minPwdLen = settings.passwordMinLength || 8
+    if (!googleId && password && password.length < minPwdLen) {
       return NextResponse.json(
-        { error: 'Password must be at least 8 characters' },
+        { error: `Password must be at least ${minPwdLen} characters` },
         { status: 400 }
       )
+    }
+
+    // Enforce max schools limit for new school creation (DIRECTOR signup)
+    if (!role || role === 'DIRECTOR') {
+      if (settings.maxSchools > 0) {
+        const schoolCount = await prisma.school.count()
+        if (schoolCount >= settings.maxSchools) {
+          return NextResponse.json(
+            { error: 'Maximum number of schools reached' },
+            { status: 403 }
+          )
+        }
+      }
     }
 
     const authId = googleId ? `google_${googleId}` : `local_${crypto.randomUUID()}`

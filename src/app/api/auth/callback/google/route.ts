@@ -3,6 +3,7 @@ import { getCloudflareContext } from '@opennextjs/cloudflare'
 import { getPrisma } from '@/lib/prisma'
 import { checkAndDowngradeExpired } from '@/lib/subscription'
 import { createSession, setSessionCookie } from '@/lib/auth/session'
+import { getAppSettings } from '@/lib/app-settings'
 
 interface GoogleProfile {
   id: string
@@ -22,6 +23,19 @@ async function getEnv(key: string): Promise<string> {
 }
 
 export async function GET(request: NextRequest) {
+  // Check if Google OAuth is enabled
+  try {
+    const settings = await getAppSettings()
+    if (!settings.googleOAuthEnabled) {
+      return NextResponse.json(
+        { error: 'Google sign-in is currently disabled' },
+        { status: 403 }
+      )
+    }
+  } catch {
+    // If settings fetch fails, allow OAuth to proceed
+  }
+
   const { searchParams } = new URL(request.url)
   const code = searchParams.get('code')
   const stateParam = searchParams.get('state')

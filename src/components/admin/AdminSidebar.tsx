@@ -9,6 +9,7 @@ import {
   CreditCard,
   Database,
   Shield,
+  Settings,
 } from 'lucide-react'
 
 const navItems = [
@@ -17,6 +18,7 @@ const navItems = [
   { key: 'users', href: '/admin/users', icon: Users },
   { key: 'payments', href: '/admin/payments', icon: CreditCard },
   { key: 'reference', href: '/admin/reference', icon: Database },
+  { key: 'settings', href: '/admin/settings', icon: Settings },
 ]
 
 export function AdminSidebar() {

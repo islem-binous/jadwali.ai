@@ -3,6 +3,7 @@ import { getPrisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth/require-auth'
 import { verifyPassword, hashPassword } from '@/lib/auth/password'
 import { invalidateAllSessions, createSession, setSessionCookie } from '@/lib/auth/session'
+import { getAppSettings } from '@/lib/app-settings'
 
 export async function POST(request: Request) {
   const { user, error } = await requireAuth(request)
@@ -18,9 +19,11 @@ export async function POST(request: Request) {
       )
     }
 
-    if (newPassword.length < 8) {
+    const settings = await getAppSettings()
+    const minPwdLen = settings.passwordMinLength || 8
+    if (newPassword.length < minPwdLen) {
       return NextResponse.json(
-        { error: 'New password must be at least 8 characters' },
+        { error: `New password must be at least ${minPwdLen} characters` },
         { status: 400 }
       )
     }

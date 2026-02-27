@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
 import { requireAuth, requireSchoolAccess } from '@/lib/auth/require-auth'
+import { getAppSettings } from '@/lib/app-settings'
 
 // Build school context for the AI
 async function buildSchoolContext(schoolId: string) {
@@ -272,6 +273,19 @@ export async function POST(req: NextRequest) {
 
   const { error: authError } = await requireSchoolAccess(req, schoolId)
   if (authError) return authError
+
+  // Check if AI features are enabled
+  try {
+    const settings = await getAppSettings()
+    if (!settings.aiEnabled) {
+      return new Response(JSON.stringify({ error: 'AI features are currently disabled' }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+  } catch {
+    // If settings fetch fails, allow AI to proceed
+  }
 
   if (!message || typeof message !== 'string') {
     return new Response(JSON.stringify({ error: 'Missing message' }), {

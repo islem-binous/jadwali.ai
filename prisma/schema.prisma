@@ -539,6 +539,22 @@ model TunisianTeacherGrade {
   teachers Teacher[]
 }
 
+// ─── APP SETTINGS ────────────────────────────────────────────
+model AppSettings {
+  id                    String   @id @default("default")
+  platformName          String   @default("SchediQ")
+  maintenanceMode       Boolean  @default(false)
+  registrationEnabled   Boolean  @default(true)
+  googleOAuthEnabled    Boolean  @default(true)
+  defaultLanguage       String   @default("FR")
+  passwordMinLength     Int      @default(8)
+  sessionDurationHours  Int      @default(168)
+  aiEnabled             Boolean  @default(true)
+  trialPeriodDays       Int      @default(14)
+  maxSchools            Int      @default(0)
+  updatedAt             DateTime @updatedAt
+}
+
 // ─── PAYMENTS ──────────────────────────────────────────────
 model Payment {
   id           String    @id @default(cuid())

@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server'
 import { validateSession } from './session'
 import { getSessionCookieName } from './jwt'
+import { getAppSettings } from '@/lib/app-settings'
 
 type AuthUser = {
   id: string
@@ -44,17 +45,34 @@ export async function requireAuth(request: Request): Promise<AuthResult> {
     }
   }
 
-  return {
-    user: {
-      id: result.user.id,
-      email: result.user.email,
-      name: result.user.name,
-      role: result.user.role,
-      schoolId: result.user.schoolId,
-      isActive: result.user.isActive,
-    },
-    error: null,
+  const authUser: AuthUser = {
+    id: result.user.id,
+    email: result.user.email,
+    name: result.user.name,
+    role: result.user.role,
+    schoolId: result.user.schoolId,
+    isActive: result.user.isActive,
   }
+
+  // Enforce maintenance mode (SUPER_ADMIN exempt)
+  if (authUser.role !== 'SUPER_ADMIN') {
+    try {
+      const settings = await getAppSettings()
+      if (settings.maintenanceMode) {
+        return {
+          user: null,
+          error: NextResponse.json(
+            { error: 'Platform is under maintenance' },
+            { status: 503 }
+          ),
+        }
+      }
+    } catch {
+      // If settings fetch fails, don't block the request
+    }
+  }
+
+  return { user: authUser, error: null }
 }
 
 /**
