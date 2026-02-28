@@ -25,7 +25,11 @@ function LoginForm() {
     try {
       const user = await signIn(email, password)
       router.push(user.role === 'SUPER_ADMIN' ? '/admin' : '/dashboard')
-    } catch (err) {
+    } catch (err: unknown) {
+      if (err && typeof err === 'object' && 'reason' in err && (err as { reason: string }).reason === 'pending_activation') {
+        router.push('/auth/pending-activation')
+        return
+      }
       setError(err instanceof Error ? err.message : 'Login failed')
     } finally {
       setLoading(false)

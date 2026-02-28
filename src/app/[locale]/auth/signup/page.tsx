@@ -145,7 +145,7 @@ function SignupForm() {
     setLoading(true)
 
     try {
-      await signUp({
+      const result = await signUp({
         email,
         password,
         name,
@@ -158,7 +158,12 @@ function SignupForm() {
         cin: cin || undefined,
         matricule: matricule || undefined,
       })
-      router.push('/dashboard')
+
+      if ('pendingActivation' in result) {
+        router.push('/auth/pending-activation')
+      } else {
+        router.push('/dashboard')
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Signup failed')
     } finally {

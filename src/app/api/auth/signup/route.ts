@@ -391,19 +391,20 @@ export async function POST(request: Request) {
           )
         }
         // School exists but was auto-created without a director — claim it
-        const user = await prisma.user.create({
+        await prisma.user.create({
           data: {
             authId,
             email,
             name,
             passwordHash,
             role: 'DIRECTOR',
+            isActive: false,
             language: language || existingSchool.language || 'FR',
             schoolId: existingSchool.id,
           },
         })
-        const token = await createSession(user.id)
-        return authUserResponse(user, existingSchool, token)
+        // Director accounts require admin activation — no session created
+        return NextResponse.json({ pendingActivation: true })
       }
     }
 
@@ -425,14 +426,12 @@ export async function POST(request: Request) {
             name,
             passwordHash,
             role: 'DIRECTOR',
+            isActive: false,
             language: language || 'FR',
           },
         },
       },
-      include: { users: true },
     })
-
-    const user = school.users[0]
 
     // Seed default periods
     const defaultPeriods = [
@@ -452,8 +451,8 @@ export async function POST(request: Request) {
       })
     }
 
-    const token = await createSession(user.id)
-    return authUserResponse(user, school, token)
+    // Director accounts require admin activation — no session created
+    return NextResponse.json({ pendingActivation: true })
   } catch (error) {
     console.error('Signup error:', error)
     return NextResponse.json(

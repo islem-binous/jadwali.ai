@@ -19,6 +19,9 @@ export function useAuth() {
 
       if (!res.ok) {
         const data = await res.json()
+        if (data.reason === 'pending_activation') {
+          throw Object.assign(new Error(data.error || 'Account is deactivated'), { reason: 'pending_activation' })
+        }
         throw new Error(data.error || 'Login failed')
       }
 
@@ -42,7 +45,7 @@ export function useAuth() {
       tunisianSchoolId?: string
       cin?: string
       matricule?: string
-    }) => {
+    }): Promise<{ user: AuthUser } | { pendingActivation: true }> => {
       const res = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -55,9 +58,15 @@ export function useAuth() {
         throw new Error(err.error || 'Signup failed')
       }
 
-      const result: { user: AuthUser } = await res.json()
+      const result = await res.json()
+
+      // Director accounts need admin activation — no session created
+      if (result.pendingActivation) {
+        return { pendingActivation: true }
+      }
+
       setUser(result.user)
-      return result.user
+      return { user: result.user }
     },
     [setUser]
   )
