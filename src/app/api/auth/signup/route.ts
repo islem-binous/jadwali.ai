@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getPrisma } from '@/lib/prisma'
 import { hashPassword } from '@/lib/auth/password'
-import { createSession, setSessionCookie } from '@/lib/auth/session'
 import { getAppSettings } from '@/lib/app-settings'
 
 function slugify(text: string): string {
@@ -9,29 +8,6 @@ function slugify(text: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '')
-}
-
-function authUserResponse(user: any, school: any, token: string, extra?: Record<string, any>) {
-  const response = NextResponse.json({
-    user: {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      language: user.language,
-      avatarUrl: user.avatarUrl,
-      schoolId: user.schoolId,
-      schoolName: school.name,
-      plan: school.plan,
-      subscriptionStatus: school.subscriptionStatus ?? 'INACTIVE',
-      subscriptionEndsAt: school.subscriptionEndsAt?.toISOString() ?? null,
-      teacherId: user.teacherId ?? null,
-      studentId: user.studentId ?? null,
-      staffId: user.staffId ?? null,
-      classId: extra?.classId ?? null,
-    },
-  })
-  return setSessionCookie(response, token)
 }
 
 export async function POST(request: Request) {
@@ -142,7 +118,7 @@ export async function POST(request: Request) {
 
     // ── TEACHER SIGNUP ──────────────────────────────────────
     if (role === 'TEACHER') {
-      const { schoolId, tunisianSchoolId, cin, matricule } = body
+      const { schoolId, tunisianSchoolId, cin, matricule, phone: teacherPhone } = body
       if (!schoolId && !tunisianSchoolId) {
         return NextResponse.json(
           { error: 'School is required for teacher signup' },
@@ -183,21 +159,24 @@ export async function POST(request: Request) {
         })
       }
 
-      const user = await prisma.user.create({
+      await prisma.user.create({
         data: {
           authId,
           email,
           name,
           passwordHash,
           role: 'TEACHER',
+          isActive: false,
+          cin: cin || null,
+          phone: teacherPhone || null,
           language: language || school.language || 'FR',
           schoolId: school.id,
           teacherId: teacher.id,
         },
       })
 
-      const token = await createSession(user.id)
-      return authUserResponse(user, school, token)
+      // All accounts require activation — no session created
+      return NextResponse.json({ pendingActivation: true })
     }
 
     // ── STUDENT SIGNUP ──────────────────────────────────────
@@ -253,21 +232,22 @@ export async function POST(request: Request) {
         })
       }
 
-      const user = await prisma.user.create({
+      await prisma.user.create({
         data: {
           authId,
           email,
           name,
           passwordHash,
           role: 'STUDENT',
+          isActive: false,
           language: language || school.language || 'FR',
           schoolId: school.id,
           studentId: student.id,
         },
       })
 
-      const token = await createSession(user.id)
-      return authUserResponse(user, school, token, { classId: student.classId })
+      // All accounts require activation — no session created
+      return NextResponse.json({ pendingActivation: true })
     }
 
     // ── STAFF SIGNUP ──────────────────────────────────────
@@ -309,21 +289,24 @@ export async function POST(request: Request) {
         })
       }
 
-      const user = await prisma.user.create({
+      await prisma.user.create({
         data: {
           authId,
           email,
           name,
           passwordHash,
           role: 'STAFF',
+          isActive: false,
+          cin: cin || null,
+          phone: body.phone || null,
           language: language || school.language || 'FR',
           schoolId: school.id,
           staffId: staff.id,
         },
       })
 
-      const token = await createSession(user.id)
-      return authUserResponse(user, school, token)
+      // All accounts require activation — no session created
+      return NextResponse.json({ pendingActivation: true })
     }
 
     // ── ADMIN SIGNUP (school code required) ──────────────────
@@ -341,20 +324,24 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'School not found' }, { status: 404 })
       }
 
-      const user = await prisma.user.create({
+      const { cin: adminCin, matricule: adminMatricule, phone: adminPhone } = body
+      await prisma.user.create({
         data: {
           authId,
           email,
           name,
           passwordHash,
           role: 'ADMIN',
+          isActive: false,
+          cin: adminCin || null,
+          phone: adminPhone || null,
           language: language || school.language || 'FR',
           schoolId: school.id,
         },
       })
 
-      const token = await createSession(user.id)
-      return authUserResponse(user, school, token)
+      // All accounts require activation — no session created
+      return NextResponse.json({ pendingActivation: true })
     }
 
     // ── DIRECTOR SIGNUP (creates school) ──────────────────────

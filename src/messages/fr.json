@@ -763,6 +763,7 @@
     "remember_me": "Se souvenir de moi",
     "pending_activation_title": "Compte en attente d'activation",
     "pending_activation_message": "Votre compte directeur a bien été créé. Un administrateur de la plateforme examinera et activera votre compte prochainement. Vous pourrez vous connecter une fois votre compte activé.",
+    "pending_activation_message_other": "Votre compte a bien été créé. L'administrateur de votre établissement examinera et activera votre compte prochainement. Vous pourrez vous connecter une fois votre compte activé.",
     "pending_activation_id_instruction": "Pour accélérer le processus d'activation, veuillez envoyer une photocopie de votre carte d'identité (CIN) à l'adresse email suivante :",
     "phone": "Numéro de téléphone",
     "back_to_login": "Retour à la connexion",

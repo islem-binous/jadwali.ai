@@ -127,12 +127,12 @@ function SignupForm() {
       return
     }
 
-    if ((role === 'DIRECTOR' || role === 'STAFF' || role === 'TEACHER') && !cin.trim()) {
+    if ((role === 'DIRECTOR' || role === 'ADMIN' || role === 'STAFF' || role === 'TEACHER') && !cin.trim()) {
       setError(t('auth.cin') + ' is required')
       return
     }
 
-    if ((role === 'STAFF' || role === 'TEACHER' || role === 'STUDENT') && !matricule.trim()) {
+    if ((role === 'ADMIN' || role === 'STAFF' || role === 'TEACHER' || role === 'STUDENT') && !matricule.trim()) {
       setError(t('auth.matricule') + ' is required')
       return
     }
@@ -162,7 +162,7 @@ function SignupForm() {
       })
 
       if ('pendingActivation' in result) {
-        router.push('/auth/pending-activation')
+        router.push(`/auth/pending-activation?role=${role}`)
       } else {
         router.push('/dashboard')
       }
@@ -221,6 +221,7 @@ function SignupForm() {
                       setSchoolCode('')
                       setSelectedClassId('')
                       setCin('')
+                      setPhone('')
                       setMatricule('')
                       setSchoolSearchResults([])
                       setShowSchoolResults(false)
@@ -368,8 +369,8 @@ function SignupForm() {
                 )}
             </div>
 
-            {/* Director/Staff/Teacher: CIN */}
-            {(role === 'DIRECTOR' || role === 'STAFF' || role === 'TEACHER') && (
+            {/* Director/Admin/Staff/Teacher: CIN */}
+            {(role === 'DIRECTOR' || role === 'ADMIN' || role === 'STAFF' || role === 'TEACHER') && (
               <div>
                 <label className="mb-1 block text-sm font-medium text-text-secondary">
                   {t('auth.cin')}
@@ -385,8 +386,8 @@ function SignupForm() {
               </div>
             )}
 
-            {/* Director: Phone (optional) */}
-            {role === 'DIRECTOR' && (
+            {/* Director/Admin/Staff/Teacher: Phone (optional) */}
+            {(role === 'DIRECTOR' || role === 'ADMIN' || role === 'STAFF' || role === 'TEACHER') && (
               <div>
                 <label className="mb-1 block text-sm font-medium text-text-secondary">
                   {t('auth.phone')}
@@ -401,8 +402,8 @@ function SignupForm() {
               </div>
             )}
 
-            {/* Staff/Teacher/Student: Matricule */}
-            {(role === 'STAFF' || role === 'TEACHER' || role === 'STUDENT') && (
+            {/* Admin/Staff/Teacher/Student: Matricule */}
+            {(role === 'ADMIN' || role === 'STAFF' || role === 'TEACHER' || role === 'STUDENT') && (
               <div>
                 <label className="mb-1 block text-sm font-medium text-text-secondary">
                   {t('auth.matricule')}

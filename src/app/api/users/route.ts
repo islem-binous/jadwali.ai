@@ -86,9 +86,21 @@ export async function POST(req: NextRequest) {
   }
 }
 
+// Activation permission matrix:
+// SUPER_ADMIN → can activate anyone (handled in admin API)
+// DIRECTOR → ADMIN, STAFF, TEACHER, STUDENT
+// ADMIN → STAFF, TEACHER, STUDENT
+// STAFF → STUDENT
+// TEACHER, STUDENT → nobody
+const ACTIVATION_PERMISSIONS: Record<string, string[]> = {
+  DIRECTOR: ['ADMIN', 'STAFF', 'TEACHER', 'STUDENT'],
+  ADMIN: ['STAFF', 'TEACHER', 'STUDENT'],
+  STAFF: ['STUDENT'],
+}
+
 export async function PUT(req: NextRequest) {
   try {
-    const { error: authError } = await requireAuth(req)
+    const { user: authUser, error: authError } = await requireAuth(req)
     if (authError) return authError
 
     const prisma = await getPrisma()
@@ -97,6 +109,27 @@ export async function PUT(req: NextRequest) {
 
     if (!id) {
       return NextResponse.json({ error: 'Missing user id' }, { status: 400 })
+    }
+
+    // If toggling isActive, enforce activation permissions
+    if (isActive !== undefined) {
+      const targetUser = await prisma.user.findUnique({ where: { id } })
+      if (!targetUser) {
+        return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      }
+
+      // Must be in the same school
+      if (authUser!.schoolId !== targetUser.schoolId) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
+
+      const allowedTargets = ACTIVATION_PERMISSIONS[authUser!.role] || []
+      if (!allowedTargets.includes(targetUser.role)) {
+        return NextResponse.json(
+          { error: 'You do not have permission to activate/deactivate this user' },
+          { status: 403 }
+        )
+      }
     }
 
     const data: Record<string, unknown> = {}
