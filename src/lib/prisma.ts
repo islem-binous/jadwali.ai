@@ -1,44 +1,63 @@
 // Prisma client with D1 adapter for Cloudflare Workers, SQLite fallback for local dev.
-// PrismaClient VALUE is dynamically imported to avoid WASM initialization crashes at module load time.
-// Type-only import is safe — stripped at compile time, no WASM loading.
+//
+// CRITICAL: D1 bindings (env.DB) are request-scoped in Cloudflare Workers.
+// Caching PrismaClient across requests causes hangs because the cached client
+// holds a stale D1 binding from a previous request context.
+// Solution: Create a fresh PrismaClient per request for D1, cache only for SQLite (local dev).
 
 import type { PrismaClient } from '@prisma/client/edge'
 
-let cachedPrisma: PrismaClient | null = null
+// Cache imported modules (class definitions are safe to cache across requests)
+let _PC: (new (opts?: unknown) => PrismaClient) | null = null
+let _PrismaD1: (new (db: unknown) => unknown) | null = null
+let _getCloudflareContext: (() => Promise<{ env: Record<string, unknown> }>) | null = null
+
+// Track whether we're running on D1 or SQLite
+let _isD1: boolean | null = null
+
+// SQLite client is safe to cache (no request-scoped bindings)
+let _sqlitePrisma: PrismaClient | null = null
+
+async function ensureImports(): Promise<void> {
+  if (_PC) return
+  const mod = await import('@prisma/client/edge')
+  _PC = mod.PrismaClient as unknown as typeof _PC
+}
 
 export async function getPrisma(): Promise<PrismaClient> {
-  if (cachedPrisma) return cachedPrisma
+  await ensureImports()
 
-  // Try Cloudflare D1 first (production), fall back to better-sqlite3 (local dev)
-  try {
-    const { PrismaClient: PC } = await import('@prisma/client/edge')
-    const { PrismaD1 } = await import('@prisma/adapter-d1')
-    const { getCloudflareContext } = await import('@opennextjs/cloudflare')
-    const { env } = await getCloudflareContext()
-    const adapter = new PrismaD1(env.DB)
-    cachedPrisma = new PC({ adapter }) as PrismaClient
-  } catch (d1Err) {
+  // Try Cloudflare D1 (production) — fresh client per request
+  if (_isD1 !== false) {
     try {
-      // Local dev: use better-sqlite3 adapter with SQLite file
-      const { PrismaClient: PC } = await import('@prisma/client/edge')
-      const { PrismaBetterSqlite3 } = await import('@prisma/adapter-better-sqlite3')
-      const path = await import('path')
-      const dbPath = path.join(process.cwd(), 'dev.db')
-      const adapter = new PrismaBetterSqlite3({ url: `file:${dbPath}` })
-      cachedPrisma = new PC({ adapter }) as PrismaClient
-    } catch (sqliteErr) {
-      console.error('[getPrisma] D1 error:', d1Err)
-      console.error('[getPrisma] SQLite fallback error:', sqliteErr)
-      throw new Error('Failed to initialize database connection')
+      if (!_PrismaD1) {
+        const mod = await import('@prisma/adapter-d1')
+        _PrismaD1 = mod.PrismaD1 as unknown as typeof _PrismaD1
+      }
+      if (!_getCloudflareContext) {
+        const mod = await import('@opennextjs/cloudflare')
+        _getCloudflareContext = mod.getCloudflareContext as unknown as typeof _getCloudflareContext
+      }
+
+      const { env } = await _getCloudflareContext!()
+      const adapter = new _PrismaD1!(env.DB)
+      _isD1 = true
+
+      // Always create a fresh PrismaClient with the current request's D1 binding
+      return new _PC!({ adapter }) as PrismaClient
+    } catch {
+      _isD1 = false
     }
   }
 
-  return cachedPrisma!
-}
+  // Local dev: SQLite fallback (safe to cache)
+  if (!_sqlitePrisma) {
+    const { PrismaBetterSqlite3 } = await import('@prisma/adapter-better-sqlite3')
+    const path = await import('path')
+    const dbPath = path.join(process.cwd(), 'dev.db')
+    const adapter = new PrismaBetterSqlite3({ url: `file:${dbPath}` })
+    _sqlitePrisma = new _PC!({ adapter }) as PrismaClient
+  }
 
-/**
- * Reset cached Prisma client. Call when a query fails due to stale connection.
- */
-export function resetPrismaCache() {
-  cachedPrisma = null
+  return _sqlitePrisma
 }
