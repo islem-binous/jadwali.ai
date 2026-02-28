@@ -73,7 +73,11 @@
     "reports": "Reports",
     "users": "Users",
     "help": "Help Center",
-    "profile": "Profile"
+    "profile": "Profile",
+    "scheduling": "Scheduling",
+    "students_group": "Students",
+    "personnel": "Personnel",
+    "school_group": "School"
   },
   "profile": {
     "title": "My Profile",

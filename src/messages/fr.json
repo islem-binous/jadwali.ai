@@ -73,7 +73,11 @@
     "reports": "Rapports",
     "users": "Utilisateurs",
     "help": "Centre d'aide",
-    "profile": "Profil"
+    "profile": "Profil",
+    "scheduling": "Planification",
+    "students_group": "Élèves",
+    "personnel": "Personnel",
+    "school_group": "Établissement"
   },
   "profile": {
     "title": "Mon Profil",

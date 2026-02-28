@@ -73,7 +73,11 @@
     "reports": "التقارير",
     "users": "المستخدمون",
     "help": "مركز المساعدة",
-    "profile": "الملف الشخصي"
+    "profile": "الملف الشخصي",
+    "scheduling": "الجدولة",
+    "students_group": "التلاميذ",
+    "personnel": "الموظفون",
+    "school_group": "المؤسسة"
   },
   "profile": {
     "title": "ملفي الشخصي",
