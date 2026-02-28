@@ -469,11 +469,13 @@ export default function StudentsPage() {
               {/* Bottom section: badges */}
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 {/* Class badge */}
-                <Badge variant="default" size="sm">
-                  {student.class.grade
-                    ? `${student.class.name} (${student.class.grade})`
-                    : student.class.name}
-                </Badge>
+                {student.class && (
+                  <Badge variant="default" size="sm">
+                    {student.class.grade
+                      ? `${student.class.name} (${student.class.grade})`
+                      : student.class.name}
+                  </Badge>
+                )}
 
                 {/* Matricule badge */}
                 {student.matricule && (
