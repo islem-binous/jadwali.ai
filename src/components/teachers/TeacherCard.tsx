@@ -32,6 +32,17 @@ interface TeacherAbsence {
   id: string
 }
 
+interface TeacherGradeAssignment {
+  gradeId: string
+  grade: {
+    id: string
+    name: string
+    nameAr?: string | null
+    nameFr?: string | null
+    level?: number | null
+  }
+}
+
 export interface TeacherData {
   id: string
   name: string
@@ -54,6 +65,7 @@ export interface TeacherData {
     nameEn?: string | null
   } | null
   subjects: TeacherSubject[]
+  grades?: TeacherGradeAssignment[]
   lessons: TeacherLesson[]
   absences: TeacherAbsence[]
 }
@@ -153,6 +165,11 @@ export function TeacherCard({ teacher, onEdit, onDelete }: TeacherCardProps) {
                 {gradeName}
               </Badge>
             )}
+            {teacher.grades && teacher.grades.length > 0 && teacher.grades.map((tg) => (
+              <Badge key={tg.gradeId} size="sm" variant="default">
+                {getLocalizedName(tg.grade, locale)}
+              </Badge>
+            ))}
           </div>
         </div>
 

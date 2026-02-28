@@ -28,12 +28,21 @@ export interface ProfessionalGradeOption {
   nameEn?: string | null
 }
 
+export interface GradeOption {
+  id: string
+  name: string
+  nameAr?: string | null
+  nameFr?: string | null
+  level?: number | null
+}
+
 interface TeacherModalProps {
   isOpen: boolean
   onClose: () => void
   teacher?: TeacherData | null
   subjects: SubjectOption[]
   professionalGrades: ProfessionalGradeOption[]
+  grades: GradeOption[]
   schoolId: string
   onSave: (data: TeacherFormData) => Promise<void>
 }
@@ -53,6 +62,7 @@ export interface TeacherFormData {
   sex: string
   professionalGradeId: string
   subjectIds: string[]
+  gradeIds: string[]
   schoolId: string
 }
 
@@ -79,6 +89,7 @@ export function TeacherModal({
   teacher,
   subjects,
   professionalGrades,
+  grades,
   schoolId,
   onSave,
 }: TeacherModalProps) {
@@ -94,6 +105,7 @@ export function TeacherModal({
   const [maxPeriodsPerWeek, setMaxPeriodsPerWeek] = useState(24)
   const [excludeFromCover, setExcludeFromCover] = useState(false)
   const [selectedSubjectIds, setSelectedSubjectIds] = useState<string[]>([])
+  const [selectedGradeIds, setSelectedGradeIds] = useState<string[]>([])
   const [matricule, setMatricule] = useState('')
   const [cin, setCin] = useState('')
   const [recruitmentDate, setRecruitmentDate] = useState('')
@@ -123,6 +135,7 @@ export function TeacherModal({
         a.isPrimary ? -1 : b.isPrimary ? 1 : 0
       )
       setSelectedSubjectIds(sorted.map((ts) => ts.subjectId))
+      setSelectedGradeIds(teacher.grades?.map((tg) => tg.gradeId) ?? [])
     } else {
       setName('')
       setEmail('')
@@ -132,6 +145,7 @@ export function TeacherModal({
       setMaxPeriodsPerWeek(24)
       setExcludeFromCover(false)
       setSelectedSubjectIds([])
+      setSelectedGradeIds([])
       setMatricule('')
       setCin('')
       setRecruitmentDate('')
@@ -145,6 +159,14 @@ export function TeacherModal({
       prev.includes(subjectId)
         ? prev.filter((id) => id !== subjectId)
         : [...prev, subjectId]
+    )
+  }
+
+  const toggleGrade = (gradeId: string) => {
+    setSelectedGradeIds((prev) =>
+      prev.includes(gradeId)
+        ? prev.filter((id) => id !== gradeId)
+        : [...prev, gradeId]
     )
   }
 
@@ -169,6 +191,7 @@ export function TeacherModal({
         sex,
         professionalGradeId,
         subjectIds: selectedSubjectIds,
+        gradeIds: selectedGradeIds,
         schoolId,
       })
       onClose()
@@ -361,6 +384,41 @@ export function TeacherModal({
                         {t('teachers.primary_subject')}
                       </span>
                     )}
+                  </label>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Grade levels multi-select */}
+        <div>
+          <label className="mb-1 block text-sm font-medium text-text-secondary">
+            {t('teachers.grades')}
+          </label>
+          <p className="mb-1.5 text-xs text-text-muted">
+            {t('teachers.grades_hint')}
+          </p>
+          {grades.length === 0 ? (
+            <p className="text-xs text-text-muted">
+              {t('teachers.grades')} &mdash; none available
+            </p>
+          ) : (
+            <div className="max-h-40 space-y-1.5 overflow-y-auto rounded-lg border border-border-default bg-bg-surface p-2">
+              {grades.map((grade) => {
+                const isChecked = selectedGradeIds.includes(grade.id)
+                return (
+                  <label
+                    key={grade.id}
+                    className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm transition hover:bg-bg-base"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => toggleGrade(grade.id)}
+                      className="h-4 w-4 rounded border-border-default text-accent focus:ring-accent"
+                    />
+                    <span className="text-text-primary">{getLocalizedName(grade, locale)}</span>
                   </label>
                 )
               })}

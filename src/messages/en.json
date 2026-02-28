@@ -264,6 +264,8 @@
     "phone": "Phone",
     "subjects": "Subjects",
     "primary_subject": "Primary Subject",
+    "grades": "Grade Levels",
+    "grades_hint": "Leave empty to allow all grades",
     "max_periods_day": "Max periods per day",
     "max_periods_week": "Max periods per week",
     "exclude_cover": "Exclude from substitutions",

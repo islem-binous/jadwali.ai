@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/Button'
 import { FilterPill } from '@/components/ui/FilterPill'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { TeacherCard, type TeacherData } from '@/components/teachers/TeacherCard'
-import { TeacherModal, type TeacherFormData, type ProfessionalGradeOption } from '@/components/teachers/TeacherModal'
+import { TeacherModal, type TeacherFormData, type ProfessionalGradeOption, type GradeOption } from '@/components/teachers/TeacherModal'
 import { useToast } from '@/components/ui/Toast'
 import { ImportModal } from '@/components/ui/ImportModal'
 import { triggerExport } from '@/lib/export-helpers'
@@ -40,6 +40,7 @@ export default function TeachersPage() {
   const [teachers, setTeachers] = useState<TeacherData[]>([])
   const [subjects, setSubjects] = useState<SubjectOption[]>([])
   const [professionalGrades, setProfessionalGrades] = useState<ProfessionalGradeOption[]>([])
+  const [grades, setGrades] = useState<GradeOption[]>([])
   const [loading, setLoading] = useState(true)
 
   // UI state
@@ -93,13 +94,26 @@ export default function TeachersPage() {
     }
   }, [])
 
+  const fetchGrades = useCallback(async () => {
+    if (!schoolId) return
+    try {
+      const res = await fetch(`/api/grades?schoolId=${schoolId}`)
+      if (res.ok) {
+        const data = await res.json()
+        setGrades(data)
+      }
+    } catch {
+      // silent
+    }
+  }, [schoolId])
+
   useEffect(() => {
     if (!schoolId) return
     setLoading(true)
-    Promise.all([fetchTeachers(), fetchSubjects(), fetchProfessionalGrades()]).finally(() =>
+    Promise.all([fetchTeachers(), fetchSubjects(), fetchProfessionalGrades(), fetchGrades()]).finally(() =>
       setLoading(false)
     )
-  }, [schoolId, fetchTeachers, fetchSubjects, fetchProfessionalGrades])
+  }, [schoolId, fetchTeachers, fetchSubjects, fetchProfessionalGrades, fetchGrades])
 
   /* ---------------------------------------------------------------- */
   /*  Handlers                                                         */
@@ -304,6 +318,7 @@ export default function TeachersPage() {
         teacher={editingTeacher}
         subjects={subjects}
         professionalGrades={professionalGrades}
+        grades={grades}
         schoolId={schoolId ?? ''}
         onSave={handleSave}
       />

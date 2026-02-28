@@ -29,6 +29,7 @@ export async function GET(req: NextRequest) {
       include: {
         subjects: { include: { subject: true } },
         professionalGrade: true,
+        grades: { include: { grade: true } },
         lessons: activeTimetable
           ? { where: { timetableId: activeTimetable.id } }
           : { where: { timetableId: '__none__' } },
@@ -72,6 +73,7 @@ export async function POST(req: NextRequest) {
       professionalGradeId,
       schoolId,
       subjectIds,
+      gradeIds,
     } = body
 
     const { error: authError } = await requireSchoolAccess(req, schoolId)
@@ -98,8 +100,13 @@ export async function POST(req: NextRequest) {
             isPrimary: i === 0,
           })),
         },
+        grades: {
+          create: (gradeIds ?? []).map((gid: string) => ({
+            gradeId: gid,
+          })),
+        },
       },
-      include: { subjects: { include: { subject: true } }, professionalGrade: true },
+      include: { subjects: { include: { subject: true } }, professionalGrade: true, grades: { include: { grade: true } } },
     })
     return NextResponse.json(teacher)
   } catch (err) {
@@ -133,6 +140,7 @@ export async function PUT(req: NextRequest) {
       sex,
       professionalGradeId,
       subjectIds,
+      gradeIds,
     } = body
 
     // Verify ownership
@@ -142,8 +150,9 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    // Delete old subjects and recreate
+    // Delete old subjects and grades, then recreate
     await prisma.teacherSubject.deleteMany({ where: { teacherId: id } })
+    await prisma.teacherGrade.deleteMany({ where: { teacherId: id } })
 
     const teacher = await prisma.teacher.update({
       where: { id },
@@ -166,8 +175,13 @@ export async function PUT(req: NextRequest) {
             isPrimary: i === 0,
           })),
         },
+        grades: {
+          create: (gradeIds ?? []).map((gid: string) => ({
+            gradeId: gid,
+          })),
+        },
       },
-      include: { subjects: { include: { subject: true } }, professionalGrade: true },
+      include: { subjects: { include: { subject: true } }, professionalGrade: true, grades: { include: { grade: true } } },
     })
     return NextResponse.json(teacher)
   } catch (err) {

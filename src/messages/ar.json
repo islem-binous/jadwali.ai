@@ -264,6 +264,8 @@
     "phone": "الهاتف",
     "subjects": "المواد",
     "primary_subject": "المادة الرئيسية",
+    "grades": "المستويات",
+    "grades_hint": "اتركه فارغًا للسماح بجميع المستويات",
     "max_periods_day": "أقصى حصص يومياً",
     "max_periods_week": "أقصى حصص أسبوعياً",
     "exclude_cover": "استبعاد من البدلاء",

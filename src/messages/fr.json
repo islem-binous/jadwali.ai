@@ -264,6 +264,8 @@
     "phone": "Téléphone",
     "subjects": "Matières",
     "primary_subject": "Matière principale",
+    "grades": "Niveaux",
+    "grades_hint": "Laisser vide pour tous les niveaux",
     "max_periods_day": "Max séances par jour",
     "max_periods_week": "Max séances par semaine",
     "exclude_cover": "Exclure des remplacements",
