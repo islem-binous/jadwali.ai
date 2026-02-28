@@ -1,106 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
 import createIntlMiddleware from 'next-intl/middleware'
 import { routing } from './i18n/routing'
-import { jwtVerify } from 'jose'
 
 const intlMiddleware = createIntlMiddleware(routing)
 
-const PUBLIC_PAGES = ['/auth/login', '/auth/signup', '/auth/forgot-password', '/auth/reset-password']
-const PUBLIC_API = ['/api/auth/', '/api/webhooks/', '/api/plans', '/api/settings/public', '/api/school/lookup', '/api/schools/search']
-
-function isPublicPage(pathname: string): boolean {
-  return PUBLIC_PAGES.some((page) => pathname.includes(page))
-}
-
-function isPublicApi(pathname: string): boolean {
-  return PUBLIC_API.some((prefix) => pathname.startsWith(prefix))
-}
-
-function isApiRoute(pathname: string): boolean {
-  return pathname.startsWith('/api/')
-}
-
-async function getJwtSecret(): Promise<string | null> {
-  if (process.env.JWT_SECRET) return process.env.JWT_SECRET
-  try {
-    const { getCloudflareContext } = await import('@opennextjs/cloudflare')
-    const { env } = await getCloudflareContext()
-    return (env as unknown as Record<string, string>).JWT_SECRET || null
-  } catch {
-    return null
-  }
-}
-
-async function isValidToken(token: string): Promise<boolean> {
-  try {
-    const secret = await getJwtSecret()
-    if (!secret) return false
-    const key = new TextEncoder().encode(secret)
-    await jwtVerify(token, key)
-    return true
-  } catch {
-    return false
-  }
-}
-
+/**
+ * Middleware handles i18n only.
+ * Auth is handled by:
+ *   - API routes: requireAuth() in each route handler
+ *   - Pages: AuthGuard component calls /api/auth/me
+ *
+ * JWT validation was removed from middleware because Cloudflare Workers
+ * middleware context cannot reliably access secrets via getCloudflareContext().
+ */
 export default async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // API routes: check auth for protected endpoints
-  if (isApiRoute(pathname)) {
-    if (isPublicApi(pathname)) {
-      return NextResponse.next()
-    }
-
-    const token = request.cookies.get('session')?.value
-    if (!token || !(await isValidToken(token))) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+  // API routes: pass through — each handler does its own auth via requireAuth()
+  if (pathname.startsWith('/api/')) {
     return NextResponse.next()
   }
 
-  // Page routes: run i18n middleware first
-  const response = intlMiddleware(request)
-
-  // Check if this is a public page
-  if (isPublicPage(pathname)) {
-    return response
-  }
-
-  // For protected pages, check session cookie
-  const isProtectedPage =
-    pathname.includes('/dashboard') ||
-    pathname.includes('/teachers') ||
-    pathname.includes('/students') ||
-    pathname.includes('/classes') ||
-    pathname.includes('/subjects') ||
-    pathname.includes('/rooms') ||
-    pathname.includes('/timetable') ||
-    pathname.includes('/absences') ||
-    pathname.includes('/events') ||
-    pathname.includes('/reports') ||
-    pathname.includes('/settings') ||
-    pathname.includes('/marks') ||
-    pathname.includes('/profile') ||
-    pathname.includes('/admin') ||
-    pathname.includes('/leave') ||
-    pathname.includes('/payments') ||
-    pathname.includes('/import') ||
-    pathname.includes('/export')
-
-  if (isProtectedPage) {
-    const token = request.cookies.get('session')?.value
-    if (!token || !(await isValidToken(token))) {
-      // Determine locale from URL
-      const localeMatch = pathname.match(/^\/(en|fr|ar)\//)
-      const locale = localeMatch ? localeMatch[1] : 'fr'
-      return NextResponse.redirect(
-        new URL(`/${locale}/auth/login`, request.url)
-      )
-    }
-  }
-
-  return response
+  // Page routes: run i18n middleware
+  return intlMiddleware(request)
 }
 
 export const config = {

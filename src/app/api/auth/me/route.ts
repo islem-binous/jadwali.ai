@@ -3,23 +3,25 @@ import { validateSession } from '@/lib/auth/session'
 import { getSessionCookieName } from '@/lib/auth/jwt'
 
 export async function GET(request: Request) {
+  let step = 'init'
   try {
+    step = 'cookie_parse'
     const cookieHeader = request.headers.get('cookie') || ''
     const cookieName = getSessionCookieName()
     const match = cookieHeader.match(new RegExp(`(?:^|;\\s*)${cookieName}=([^;]+)`))
     const token = match?.[1]
 
     if (!token) {
-      console.error('[/api/auth/me] No session cookie found')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized', step: 'no_cookie' }, { status: 401 })
     }
 
+    step = 'validate_session'
     const result = await validateSession(token)
     if (!result) {
-      console.error('[/api/auth/me] validateSession returned null (token present but invalid/expired)')
-      return NextResponse.json({ error: 'Session expired' }, { status: 401 })
+      return NextResponse.json({ error: 'Session expired', step: 'invalid_session' }, { status: 401 })
     }
 
+    step = 'build_response'
     const { user } = result
     const school = user.school
 
@@ -43,8 +45,8 @@ export async function GET(request: Request) {
       },
     })
   } catch (err) {
-    console.error('[/api/auth/me] Unhandled error:', err)
+    console.error(`[/api/auth/me] Error at step=${step}:`, err)
     const detail = err instanceof Error ? err.message : String(err)
-    return NextResponse.json({ error: 'Internal server error', detail }, { status: 500 })
+    return NextResponse.json({ error: 'Internal server error', detail, step }, { status: 500 })
   }
 }

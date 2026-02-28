@@ -37,10 +37,17 @@ export async function createSession(userId: string): Promise<string> {
 
 export async function validateSession(token: string) {
   try {
+    console.log('[validateSession] Verifying token...')
     const payload = await verifySessionToken(token)
-    if (!payload) return null
+    if (!payload) {
+      console.error('[validateSession] Token verification failed (invalid/expired JWT)')
+      return null
+    }
+    console.log('[validateSession] Token valid, sid:', payload.sid)
 
+    console.log('[validateSession] Getting prisma...')
     const prisma = await getPrisma()
+    console.log('[validateSession] Querying session...')
     const session = await prisma.session.findUnique({
       where: { id: payload.sid },
       include: {
@@ -50,14 +57,21 @@ export async function validateSession(token: string) {
       },
     })
 
-    if (!session) return null
+    if (!session) {
+      console.error('[validateSession] Session not found in DB, sid:', payload.sid)
+      return null
+    }
     if (session.expiresAt < new Date()) {
-      // Expired — clean up
+      console.error('[validateSession] Session expired:', session.expiresAt.toISOString())
       await prisma.session.delete({ where: { id: session.id } }).catch(() => {})
       return null
     }
-    if (!session.user.isActive) return null
+    if (!session.user.isActive) {
+      console.error('[validateSession] User inactive:', session.user.id)
+      return null
+    }
 
+    console.log('[validateSession] Success, user:', session.user.email)
     return { session, user: session.user }
   } catch (err) {
     console.error('[validateSession] Error:', err)

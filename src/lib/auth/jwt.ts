@@ -24,6 +24,7 @@ export function setSessionDurationHours(hours: number) {
 async function getSecret(): Promise<Uint8Array> {
   // Try environment variable first (local dev)
   if (process.env.JWT_SECRET) {
+    console.log('[getSecret] Using process.env.JWT_SECRET')
     return new TextEncoder().encode(process.env.JWT_SECRET)
   }
   // Try Cloudflare Workers secret
@@ -31,9 +32,13 @@ async function getSecret(): Promise<Uint8Array> {
     const { getCloudflareContext } = await import('@opennextjs/cloudflare')
     const { env } = await getCloudflareContext()
     const secret = (env as unknown as Record<string, string>).JWT_SECRET
-    if (secret) return new TextEncoder().encode(secret)
-  } catch {
-    // Not running on Cloudflare
+    if (secret) {
+      console.log('[getSecret] Using Cloudflare env.JWT_SECRET')
+      return new TextEncoder().encode(secret)
+    }
+    console.error('[getSecret] Cloudflare context found but JWT_SECRET is empty/undefined')
+  } catch (err) {
+    console.error('[getSecret] Failed to get Cloudflare context:', err)
   }
   throw new Error('JWT_SECRET is not configured')
 }
