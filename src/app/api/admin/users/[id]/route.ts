@@ -55,6 +55,7 @@ export async function PUT(
       schoolId: body.schoolId !== undefined ? body.schoolId : user.schoolId,
       language: body.language ?? user.language,
       phone: body.phone !== undefined ? (body.phone || null) : user.phone,
+      cin: body.cin !== undefined ? (body.cin || null) : user.cin,
     },
     include: { school: { select: { name: true } } },
   })
