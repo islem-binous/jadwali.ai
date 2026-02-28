@@ -35,6 +35,9 @@ export async function GET(req: NextRequest) {
     }
 
     const classId = student.classId
+    if (!classId || !student.class) {
+      return NextResponse.json({ error: 'Student is not assigned to a class' }, { status: 400 })
+    }
     const gradeId = student.class.gradeId
 
     // 2. Fetch all exams for this class in this term

@@ -433,8 +433,8 @@ model Student {
   matricule  String?
   sex        String?
   birthDate  DateTime?
-  classId    String
-  class      Class    @relation(fields: [classId], references: [id])
+  classId    String?
+  class      Class?   @relation(fields: [classId], references: [id])
   electives  String   @default("[]")
   createdAt  DateTime @default(now())
   user       User?
