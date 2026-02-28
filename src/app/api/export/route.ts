@@ -3,19 +3,18 @@ import { getPrisma } from '@/lib/prisma'
 import { requireSchoolAccess } from '@/lib/auth/require-auth'
 
 export async function GET(req: NextRequest) {
-  const schoolId = req.nextUrl.searchParams.get('schoolId')
-  const format = req.nextUrl.searchParams.get('format') || 'csv'
-  const type = req.nextUrl.searchParams.get('type') || 'timetable'
-  const timetableId = req.nextUrl.searchParams.get('timetableId')
-
-  if (!schoolId) {
-    return NextResponse.json({ error: 'Missing schoolId' }, { status: 400 })
-  }
-
-  const { error: authError } = await requireSchoolAccess(req, schoolId)
-  if (authError) return authError
-
   try {
+    const schoolId = req.nextUrl.searchParams.get('schoolId')
+    const format = req.nextUrl.searchParams.get('format') || 'csv'
+    const type = req.nextUrl.searchParams.get('type') || 'timetable'
+    const timetableId = req.nextUrl.searchParams.get('timetableId')
+
+    if (!schoolId) {
+      return NextResponse.json({ error: 'Missing schoolId' }, { status: 400 })
+    }
+
+    const { error: authError } = await requireSchoolAccess(req, schoolId)
+    if (authError) return authError
     const prisma = await getPrisma()
     switch (type) {
       case 'timetable': {

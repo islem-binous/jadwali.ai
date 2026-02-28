@@ -2,13 +2,11 @@
 
 import { useCallback } from 'react'
 import { useRouter } from '@/i18n/navigation'
-import { useLocale } from 'next-intl'
 import { useUserStore, type AuthUser } from '@/store/userStore'
 
 export function useAuth() {
   const { user, isLoading, setUser, signOut: clearUser } = useUserStore()
   const router = useRouter()
-  const locale = useLocale()
 
   const signIn = useCallback(
     async (email: string, password: string) => {
@@ -31,26 +29,16 @@ export function useAuth() {
     [setUser]
   )
 
-  const signInWithGoogle = useCallback(
-    (mode: 'login' | 'signup', role?: string) => {
-      const params = new URLSearchParams({ mode, locale })
-      if (role) params.set('role', role)
-      window.location.href = `/api/auth/google?${params.toString()}`
-    },
-    [locale]
-  )
-
   const signUp = useCallback(
     async (data: {
       email: string
-      password?: string
+      password: string
       name: string
       language: string
       role?: string
       schoolName?: string
       schoolId?: string
       classId?: string
-      googleId?: string
       tunisianSchoolId?: string
       cin?: string
       matricule?: string
@@ -126,7 +114,6 @@ export function useAuth() {
     isLoading,
     isAuthenticated: !!user,
     signIn,
-    signInWithGoogle,
     signUp,
     signOut,
     changePassword,

@@ -41,7 +41,7 @@ export async function GET(request: Request) {
     where: { status: 'COMPLETED' },
     select: { amount: true },
   })
-  const totalRevenue = payments.reduce((sum, p) => sum + p.amount, 0)
+  const totalRevenue = payments.reduce((sum: number, p: { amount: number }) => sum + p.amount, 0)
 
   return NextResponse.json({
     schoolCount,

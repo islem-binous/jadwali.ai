@@ -46,7 +46,6 @@ interface SettingsData {
   platformName: string
   maintenanceMode: boolean
   registrationEnabled: boolean
-  googleOAuthEnabled: boolean
   defaultLanguage: string
   passwordMinLength: number
   sessionDurationHours: number
@@ -59,7 +58,6 @@ const DEFAULTS: SettingsData = {
   platformName: 'SchediQ',
   maintenanceMode: false,
   registrationEnabled: true,
-  googleOAuthEnabled: false,
   defaultLanguage: 'fr',
   passwordMinLength: 8,
   sessionDurationHours: 24,
@@ -87,8 +85,6 @@ export default function AdminSettingsPage() {
           maintenanceMode: data.maintenanceMode ?? DEFAULTS.maintenanceMode,
           registrationEnabled:
             data.registrationEnabled ?? DEFAULTS.registrationEnabled,
-          googleOAuthEnabled:
-            data.googleOAuthEnabled ?? DEFAULTS.googleOAuthEnabled,
           defaultLanguage: data.defaultLanguage ?? DEFAULTS.defaultLanguage,
           passwordMinLength:
             data.passwordMinLength ?? DEFAULTS.passwordMinLength,
@@ -252,21 +248,6 @@ export default function AdminSettingsPage() {
             <Toggle
               checked={settings.registrationEnabled}
               onChange={(v) => update('registrationEnabled', v)}
-            />
-          </div>
-          {/* Google OAuth */}
-          <div className="flex items-center justify-between">
-            <div>
-              <span className="text-sm font-medium text-text-primary">
-                {t('google_oauth_enabled')}
-              </span>
-              <p className="text-xs text-text-muted">
-                {t('google_oauth_enabled_desc')}
-              </p>
-            </div>
-            <Toggle
-              checked={settings.googleOAuthEnabled}
-              onChange={(v) => update('googleOAuthEnabled', v)}
             />
           </div>
           {/* Min Password Length */}

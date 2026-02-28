@@ -7,14 +7,12 @@ export async function GET() {
     const settings = await getAppSettings()
     return NextResponse.json({
       platformName: settings.platformName,
-      googleOAuthEnabled: settings.googleOAuthEnabled,
       registrationEnabled: settings.registrationEnabled,
     })
   } catch (err) {
     console.error('[Public Settings Error]', err)
     return NextResponse.json({
       platformName: 'SchediQ',
-      googleOAuthEnabled: true,
       registrationEnabled: true,
     })
   }

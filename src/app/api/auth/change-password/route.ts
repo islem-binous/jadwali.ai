@@ -6,10 +6,9 @@ import { invalidateAllSessions, createSession, setSessionCookie } from '@/lib/au
 import { getAppSettings } from '@/lib/app-settings'
 
 export async function POST(request: Request) {
-  const { user, error } = await requireAuth(request)
-  if (error) return error
-
   try {
+    const { user, error } = await requireAuth(request)
+    if (error) return error
     const { currentPassword, newPassword } = await request.json()
 
     if (!currentPassword || !newPassword) {

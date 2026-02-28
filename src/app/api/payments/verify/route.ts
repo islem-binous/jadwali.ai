@@ -5,16 +5,15 @@ import { activateSubscription, computePeriodEnd } from '@/lib/subscription'
 import { requireAuth } from '@/lib/auth/require-auth'
 
 export async function GET(req: NextRequest) {
-  const { error: authError } = await requireAuth(req)
-  if (authError) return authError
-
-  const orderId = req.nextUrl.searchParams.get('orderId')
-
-  if (!orderId) {
-    return NextResponse.json({ error: 'Missing orderId' }, { status: 400 })
-  }
-
   try {
+    const { error: authError } = await requireAuth(req)
+    if (authError) return authError
+
+    const orderId = req.nextUrl.searchParams.get('orderId')
+
+    if (!orderId) {
+      return NextResponse.json({ error: 'Missing orderId' }, { status: 400 })
+    }
     const prisma = await getPrisma()
     const payment = await prisma.payment.findUnique({ where: { orderId } })
 

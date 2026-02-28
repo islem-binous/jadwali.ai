@@ -47,7 +47,7 @@ export async function POST(request: Request) {
 
     const prisma = await getPrisma()
     const body = await request.json()
-    const { email, password, name, language, role, googleId } = body
+    const { email, password, name, language, role } = body
 
     if (!email || !name) {
       return NextResponse.json(
@@ -56,7 +56,7 @@ export async function POST(request: Request) {
       )
     }
 
-    if (!googleId && !password) {
+    if (!password) {
       return NextResponse.json(
         { error: 'Password is required' },
         { status: 400 }
@@ -64,7 +64,7 @@ export async function POST(request: Request) {
     }
 
     const minPwdLen = settings.passwordMinLength || 8
-    if (!googleId && password && password.length < minPwdLen) {
+    if (password.length < minPwdLen) {
       return NextResponse.json(
         { error: `Password must be at least ${minPwdLen} characters` },
         { status: 400 }
@@ -84,8 +84,8 @@ export async function POST(request: Request) {
       }
     }
 
-    const authId = googleId ? `google_${googleId}` : `local_${crypto.randomUUID()}`
-    const passwordHash = googleId ? null : await hashPassword(password)
+    const authId = `local_${crypto.randomUUID()}`
+    const passwordHash = await hashPassword(password)
 
     const existing = await prisma.user.findUnique({ where: { email } })
     if (existing) {

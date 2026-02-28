@@ -3,18 +3,17 @@ import { getPrisma } from '@/lib/prisma'
 import { requireSchoolAccess } from '@/lib/auth/require-auth'
 
 export async function GET(req: NextRequest) {
-  const schoolId = req.nextUrl.searchParams.get('schoolId')
-  const teacherId = req.nextUrl.searchParams.get('teacherId')
-  const classId = req.nextUrl.searchParams.get('classId')
-
-  if (!schoolId) {
-    return NextResponse.json({ error: 'Missing schoolId' }, { status: 400 })
-  }
-
-  const { error: authError } = await requireSchoolAccess(req, schoolId)
-  if (authError) return authError
-
   try {
+    const schoolId = req.nextUrl.searchParams.get('schoolId')
+    const teacherId = req.nextUrl.searchParams.get('teacherId')
+    const classId = req.nextUrl.searchParams.get('classId')
+
+    if (!schoolId) {
+      return NextResponse.json({ error: 'Missing schoolId' }, { status: 400 })
+    }
+
+    const { error: authError } = await requireSchoolAccess(req, schoolId)
+    if (authError) return authError
     const prisma = await getPrisma()
     // Build lesson filter for today
     const todayDayIndex = (new Date().getDay() + 6) % 7 // Convert JS day (0=Sun) to our format (0=Mon)

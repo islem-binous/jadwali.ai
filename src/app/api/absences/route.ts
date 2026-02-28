@@ -132,15 +132,14 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const { error: authError, user } = await requireAuth(req)
-  if (authError) return authError
-
-  const id = req.nextUrl.searchParams.get('id')
-  if (!id) {
-    return NextResponse.json({ error: 'Missing id' }, { status: 400 })
-  }
-
   try {
+    const { error: authError, user } = await requireAuth(req)
+    if (authError) return authError
+
+    const id = req.nextUrl.searchParams.get('id')
+    if (!id) {
+      return NextResponse.json({ error: 'Missing id' }, { status: 400 })
+    }
     const prisma = await getPrisma()
 
     // Verify ownership

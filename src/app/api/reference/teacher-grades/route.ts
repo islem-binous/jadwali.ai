@@ -3,10 +3,9 @@ import { getPrisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth/require-auth'
 
 export async function GET(req: NextRequest) {
-  const { error: authError } = await requireAuth(req)
-  if (authError) return authError
-
   try {
+    const { error: authError } = await requireAuth(req)
+    if (authError) return authError
     const prisma = await getPrisma()
     const grades = await prisma.tunisianTeacherGrade.findMany({
       orderBy: { code: 'asc' },

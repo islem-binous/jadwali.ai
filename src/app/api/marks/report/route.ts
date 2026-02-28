@@ -5,21 +5,21 @@ import { requireSchoolAccess } from '@/lib/auth/require-auth'
 // GET /api/marks/report?studentId=xxx&termId=xxx
 // Computes a full report card for a student in a given term
 export async function GET(req: NextRequest) {
-  const studentId = req.nextUrl.searchParams.get('studentId')
-  const termId = req.nextUrl.searchParams.get('termId')
-  const schoolId = req.nextUrl.searchParams.get('schoolId')
-
-  const { error: authError } = await requireSchoolAccess(req, schoolId)
-  if (authError) return authError
-
-  if (!studentId || !termId) {
-    return NextResponse.json(
-      { error: 'Both studentId and termId are required' },
-      { status: 400 }
-    )
-  }
-
   try {
+    const studentId = req.nextUrl.searchParams.get('studentId')
+    const termId = req.nextUrl.searchParams.get('termId')
+    const schoolId = req.nextUrl.searchParams.get('schoolId')
+
+    const { error: authError } = await requireSchoolAccess(req, schoolId)
+    if (authError) return authError
+
+    if (!studentId || !termId) {
+      return NextResponse.json(
+        { error: 'Both studentId and termId are required' },
+        { status: 400 }
+      )
+    }
+
     const prisma = await getPrisma()
 
     // 1. Fetch the student to know their class and grade

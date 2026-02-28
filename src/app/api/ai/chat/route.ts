@@ -256,8 +256,12 @@ async function streamOpenAI(
 
 // GET: return available providers so the UI can show the toggle
 export async function GET(req: NextRequest) {
-  const { error: authError } = await requireAuth(req)
-  if (authError) return authError
+  try {
+    const { error: authError } = await requireAuth(req)
+    if (authError) return authError
+  } catch {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json' } })
+  }
 
   const providers: string[] = []
   if (process.env.ANTHROPIC_API_KEY) providers.push('claude')
@@ -269,10 +273,23 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const { message, schoolId, history, provider: requestedProvider } = await req.json()
+  let message: string, schoolId: string, history: unknown, requestedProvider: string | undefined
+  try {
+    const body = await req.json()
+    message = body.message
+    schoolId = body.schoolId
+    history = body.history
+    requestedProvider = body.provider
+  } catch {
+    return new Response(JSON.stringify({ error: 'Invalid request body' }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+  }
 
-  const { error: authError } = await requireSchoolAccess(req, schoolId)
-  if (authError) return authError
+  try {
+    const { error: authError } = await requireSchoolAccess(req, schoolId)
+    if (authError) return authError
+  } catch {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json' } })
+  }
 
   // Check if AI features are enabled
   try {

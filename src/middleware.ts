@@ -5,7 +5,7 @@ import { jwtVerify } from 'jose'
 
 const intlMiddleware = createIntlMiddleware(routing)
 
-const PUBLIC_PAGES = ['/auth/login', '/auth/signup', '/auth/callback', '/auth/forgot-password', '/auth/reset-password']
+const PUBLIC_PAGES = ['/auth/login', '/auth/signup', '/auth/forgot-password', '/auth/reset-password']
 const PUBLIC_API = ['/api/auth/', '/api/webhooks/', '/api/plans', '/api/settings/public', '/api/school/lookup', '/api/schools/search']
 
 function isPublicPage(pathname: string): boolean {

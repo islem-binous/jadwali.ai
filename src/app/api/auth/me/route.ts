@@ -10,11 +10,13 @@ export async function GET(request: Request) {
     const token = match?.[1]
 
     if (!token) {
+      console.error('[/api/auth/me] No session cookie found')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const result = await validateSession(token)
     if (!result) {
+      console.error('[/api/auth/me] validateSession returned null (token present but invalid/expired)')
       return NextResponse.json({ error: 'Session expired' }, { status: 401 })
     }
 
@@ -41,7 +43,8 @@ export async function GET(request: Request) {
       },
     })
   } catch (err) {
-    console.error('[/api/auth/me] Error:', err)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error('[/api/auth/me] Unhandled error:', err)
+    const detail = err instanceof Error ? err.message : String(err)
+    return NextResponse.json({ error: 'Internal server error', detail }, { status: 500 })
   }
 }

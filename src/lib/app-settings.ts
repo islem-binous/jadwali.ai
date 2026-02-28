@@ -9,7 +9,6 @@ export interface AppSettings {
   platformName: string
   maintenanceMode: boolean
   registrationEnabled: boolean
-  googleOAuthEnabled: boolean
   defaultLanguage: string
   passwordMinLength: number
   sessionDurationHours: number
@@ -36,7 +35,6 @@ export async function getAppSettings(): Promise<AppSettings> {
     platformName: row.platformName,
     maintenanceMode: row.maintenanceMode,
     registrationEnabled: row.registrationEnabled,
-    googleOAuthEnabled: row.googleOAuthEnabled,
     defaultLanguage: row.defaultLanguage,
     passwordMinLength: row.passwordMinLength,
     sessionDurationHours: row.sessionDurationHours,

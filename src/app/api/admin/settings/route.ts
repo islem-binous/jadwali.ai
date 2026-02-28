@@ -30,7 +30,7 @@ export async function PUT(request: Request) {
 
     const allowed = [
       'platformName', 'maintenanceMode', 'registrationEnabled',
-      'googleOAuthEnabled', 'defaultLanguage', 'passwordMinLength',
+      'defaultLanguage', 'passwordMinLength',
       'sessionDurationHours', 'aiEnabled', 'trialPeriodDays', 'maxSchools',
     ]
     const data: Record<string, unknown> = {}

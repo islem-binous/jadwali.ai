@@ -36,10 +36,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  const { error: authError, user } = await requireAuth(req)
-  if (authError) return authError
-
   try {
+    const { error: authError, user } = await requireAuth(req)
+    if (authError) return authError
     const prisma = await getPrisma()
     const body = await req.json()
     const { id, dayOfWeek, periodId, subjectId, teacherId, roomId, classId } = body
@@ -137,10 +136,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const { error: authError, user } = await requireAuth(req)
-  if (authError) return authError
-
   try {
+    const { error: authError, user } = await requireAuth(req)
+    if (authError) return authError
     const prisma = await getPrisma()
     const id = req.nextUrl.searchParams.get('id')
     if (!id) {

@@ -3,16 +3,15 @@ import { getPrisma } from '@/lib/prisma'
 import { requireAuth, requireSchoolAccess } from '@/lib/auth/require-auth'
 
 export async function GET(req: NextRequest) {
-  const schoolId = req.nextUrl.searchParams.get('schoolId')
-  if (!schoolId) return NextResponse.json({ error: 'Missing schoolId' }, { status: 400 })
-
-  const { error: authError } = await requireSchoolAccess(req, schoolId)
-  if (authError) return authError
-
-  const status = req.nextUrl.searchParams.get('status')
-  const teacherId = req.nextUrl.searchParams.get('teacherId')
-
   try {
+    const schoolId = req.nextUrl.searchParams.get('schoolId')
+    if (!schoolId) return NextResponse.json({ error: 'Missing schoolId' }, { status: 400 })
+
+    const { error: authError } = await requireSchoolAccess(req, schoolId)
+    if (authError) return authError
+
+    const status = req.nextUrl.searchParams.get('status')
+    const teacherId = req.nextUrl.searchParams.get('teacherId')
     const prisma = await getPrisma()
     const where: Record<string, unknown> = { schoolId }
     if (status) where.status = status
@@ -125,13 +124,12 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const { error: authError, user } = await requireAuth(req)
-  if (authError) return authError
-
-  const id = req.nextUrl.searchParams.get('id')
-  if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
-
   try {
+    const { error: authError, user } = await requireAuth(req)
+    if (authError) return authError
+
+    const id = req.nextUrl.searchParams.get('id')
+    if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
     const prisma = await getPrisma()
 
     // Verify ownership

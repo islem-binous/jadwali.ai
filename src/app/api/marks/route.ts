@@ -5,27 +5,27 @@ import { requireSchoolAccess, requireAuth } from '@/lib/auth/require-auth'
 // GET /api/marks?examId=xxx          — grade sheet for one exam
 // GET /api/marks?studentId=xxx&termId=xxx — all marks for a student in a term
 export async function GET(req: NextRequest) {
-  const examId = req.nextUrl.searchParams.get('examId')
-  const studentId = req.nextUrl.searchParams.get('studentId')
-  const termId = req.nextUrl.searchParams.get('termId')
-  const schoolId = req.nextUrl.searchParams.get('schoolId')
-
-  const { error: authError, user } = await requireSchoolAccess(req, schoolId)
-  if (authError) return authError
-
-  if (!examId && !(studentId && termId)) {
-    return NextResponse.json(
-      { error: 'Provide examId, or both studentId and termId' },
-      { status: 400 }
-    )
-  }
-
-  // Role-based: students can only see their own marks
-  const effectiveStudentId = user!.role === 'STUDENT' && user!.studentId
-    ? user!.studentId
-    : studentId
-
   try {
+    const examId = req.nextUrl.searchParams.get('examId')
+    const studentId = req.nextUrl.searchParams.get('studentId')
+    const termId = req.nextUrl.searchParams.get('termId')
+    const schoolId = req.nextUrl.searchParams.get('schoolId')
+
+    const { error: authError, user } = await requireSchoolAccess(req, schoolId)
+    if (authError) return authError
+
+    if (!examId && !(studentId && termId)) {
+      return NextResponse.json(
+        { error: 'Provide examId, or both studentId and termId' },
+        { status: 400 }
+      )
+    }
+
+    // Role-based: students can only see their own marks
+    const effectiveStudentId = user!.role === 'STUDENT' && user!.studentId
+      ? user!.studentId
+      : studentId
+
     const prisma = await getPrisma()
 
     if (examId) {
@@ -154,10 +154,9 @@ export async function POST(req: NextRequest) {
 
 // PUT /api/marks — single mark edit
 export async function PUT(req: NextRequest) {
-  const { error: authError, user } = await requireAuth(req)
-  if (authError) return authError
-
   try {
+    const { error: authError, user } = await requireAuth(req)
+    if (authError) return authError
     const prisma = await getPrisma()
     const body = await req.json()
     const { id, score, absent, note } = body as {

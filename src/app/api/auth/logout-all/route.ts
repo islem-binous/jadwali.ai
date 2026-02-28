@@ -3,10 +3,9 @@ import { requireAuth } from '@/lib/auth/require-auth'
 import { invalidateAllSessions, clearSessionCookie } from '@/lib/auth/session'
 
 export async function POST(request: Request) {
-  const { user, error } = await requireAuth(request)
-  if (error) return error
-
   try {
+    const { user, error } = await requireAuth(request)
+    if (error) return error
     await invalidateAllSessions(user.id)
     const response = NextResponse.json({ ok: true })
     return clearSessionCookie(response)
