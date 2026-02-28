@@ -137,12 +137,6 @@ function SignupForm() {
       return
     }
 
-    // Class is only required for STUDENT when school already exists (has classes)
-    if (role === 'STUDENT' && !schoolLookup?.needsCreation && !selectedClassId) {
-      setError(t('auth.select_class'))
-      return
-    }
-
     setLoading(true)
 
     try {
@@ -419,15 +413,14 @@ function SignupForm() {
               </div>
             )}
 
-            {/* Student: Class picker (only when school already exists with classes) */}
+            {/* Student: Class picker (optional, shown when school has classes) */}
             {role === 'STUDENT' && schoolLookup && !schoolLookup.needsCreation && schoolLookup.classes.length > 0 && (
               <div>
                 <label htmlFor="classId" className="mb-1.5 block text-sm font-medium text-text-secondary">
-                  {t('auth.select_class')}
+                  {t('auth.select_class')} <span className="text-text-muted font-normal">({t('app.optional')})</span>
                 </label>
                 <select
                   id="classId"
-                  required
                   value={selectedClassId}
                   onChange={(e) => setSelectedClassId(e.target.value)}
                   className={inputClass}
