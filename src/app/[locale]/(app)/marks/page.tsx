@@ -14,18 +14,19 @@ import { useToast } from '@/components/ui/Toast'
 /*  Constants                                                          */
 /* ------------------------------------------------------------------ */
 
-const TERMS = [
-  { id: 'term1', name: 'Trimester 1' },
-  { id: 'term2', name: 'Trimester 2' },
-  { id: 'term3', name: 'Trimester 3' },
-]
-
 const EXAM_TYPES = ['DC1', 'DC2', 'DC3', 'DS'] as const
 type ExamType = (typeof EXAM_TYPES)[number]
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
+
+interface Term {
+  id: string
+  name: string
+  nameAr?: string | null
+  nameFr?: string | null
+}
 
 interface Subject {
   id: string
@@ -578,7 +579,8 @@ interface TeacherViewProps {
 
 function TeacherView({ user, t }: TeacherViewProps) {
   const toast = useToast()
-  const [selectedTerm, setSelectedTerm] = useState(TERMS[0].id)
+  const [terms, setTerms] = useState<Term[]>([])
+  const [selectedTerm, setSelectedTerm] = useState('')
   const [exams, setExams] = useState<Exam[]>([])
   const [loading, setLoading] = useState(true)
   const [subjects, setSubjects] = useState<Subject[]>([])
@@ -590,9 +592,50 @@ function TeacherView({ user, t }: TeacherViewProps) {
   const [view, setView] = useState<'list' | 'marks'>('list')
   const [selectedExam, setSelectedExam] = useState<Exam | null>(null)
 
-  // Fetch exams for teacher
+  // Fetch terms + teacher subjects + teacher classes
+  useEffect(() => {
+    if (!user.schoolId) return
+    async function fetchMeta() {
+      try {
+        const fetches: Promise<Response>[] = [
+          fetch(`/api/terms?schoolId=${user.schoolId}`),
+          fetch(`/api/teachers?schoolId=${user.schoolId}`),
+        ]
+        if (user.teacherId) {
+          fetches.push(fetch(`/api/classes?schoolId=${user.schoolId}&teacherId=${user.teacherId}`))
+        }
+        const [termsRes, teachersRes, classesRes] = await Promise.all(fetches)
+
+        if (termsRes.ok) {
+          const termsData: Term[] = await termsRes.json()
+          setTerms(termsData)
+          if (termsData.length > 0) setSelectedTerm(termsData[0].id)
+        }
+
+        if (teachersRes.ok) {
+          const teachersData = await teachersRes.json()
+          // TEACHER role returns only their own record
+          if (teachersData.length > 0) {
+            const teacherSubjects = teachersData[0].subjects?.map(
+              (ts: { subject: Subject }) => ts.subject
+            ) ?? []
+            setSubjects(teacherSubjects)
+          }
+        }
+
+        if (classesRes?.ok) {
+          setClasses(await classesRes.json())
+        }
+      } catch {
+        // silently fail
+      }
+    }
+    fetchMeta()
+  }, [user.schoolId, user.teacherId])
+
+  // Fetch exams for teacher (depends on selectedTerm)
   const fetchExams = useCallback(async () => {
-    if (!user.schoolId || !user.teacherId) return
+    if (!user.schoolId || !user.teacherId || !selectedTerm) return
     setLoading(true)
     try {
       const res = await fetch(
@@ -612,24 +655,6 @@ function TeacherView({ user, t }: TeacherViewProps) {
   useEffect(() => {
     fetchExams()
   }, [fetchExams])
-
-  // Fetch subjects + classes for the create modal
-  useEffect(() => {
-    if (!user.schoolId) return
-    async function fetchMeta() {
-      try {
-        const [sRes, cRes] = await Promise.all([
-          fetch(`/api/subjects?schoolId=${user.schoolId}`),
-          fetch(`/api/classes?schoolId=${user.schoolId}`),
-        ])
-        if (sRes.ok) setSubjects(await sRes.json())
-        if (cRes.ok) setClasses(await cRes.json())
-      } catch {
-        // silently fail
-      }
-    }
-    fetchMeta()
-  }, [user.schoolId])
 
   async function handleCreateExam(data: {
     subjectId: string
@@ -700,7 +725,7 @@ function TeacherView({ user, t }: TeacherViewProps) {
     <>
       {/* Term selector */}
       <div className="flex gap-2">
-        {TERMS.map((term) => (
+        {terms.map((term) => (
           <button
             key={term.id}
             onClick={() => setSelectedTerm(term.id)}
@@ -855,12 +880,31 @@ interface StudentViewProps {
 }
 
 function StudentView({ user, t }: StudentViewProps) {
-  const [selectedTerm, setSelectedTerm] = useState(TERMS[0].id)
+  const [terms, setTerms] = useState<Term[]>([])
+  const [selectedTerm, setSelectedTerm] = useState('')
   const [report, setReport] = useState<ReportCard | null>(null)
   const [loading, setLoading] = useState(true)
 
+  // Fetch terms
+  useEffect(() => {
+    if (!user.schoolId) return
+    async function fetchTerms() {
+      try {
+        const res = await fetch(`/api/terms?schoolId=${user.schoolId}`)
+        if (res.ok) {
+          const data: Term[] = await res.json()
+          setTerms(data)
+          if (data.length > 0) setSelectedTerm(data[0].id)
+        }
+      } catch {
+        // silently fail
+      }
+    }
+    fetchTerms()
+  }, [user.schoolId])
+
   const fetchReport = useCallback(async () => {
-    if (!user.studentId) return
+    if (!user.studentId || !selectedTerm) return
     setLoading(true)
     try {
       const res = await fetch(
@@ -885,7 +929,7 @@ function StudentView({ user, t }: StudentViewProps) {
     <>
       {/* Term selector */}
       <div className="flex gap-2">
-        {TERMS.map((term) => (
+        {terms.map((term) => (
           <button
             key={term.id}
             onClick={() => setSelectedTerm(term.id)}
@@ -1032,7 +1076,8 @@ interface AdminViewProps {
 }
 
 function AdminView({ user, t }: AdminViewProps) {
-  const [selectedTerm, setSelectedTerm] = useState(TERMS[0].id)
+  const [terms, setTerms] = useState<Term[]>([])
+  const [selectedTerm, setSelectedTerm] = useState('')
   const [exams, setExams] = useState<Exam[]>([])
   const [loading, setLoading] = useState(true)
   const [classes, setClasses] = useState<Class[]>([])
@@ -1045,15 +1090,21 @@ function AdminView({ user, t }: AdminViewProps) {
   const [viewMarks, setViewMarks] = useState<Mark[]>([])
   const [loadingMarks, setLoadingMarks] = useState(false)
 
-  // Fetch classes + subjects for filters
+  // Fetch terms + classes + subjects
   useEffect(() => {
     if (!user.schoolId) return
     async function fetchMeta() {
       try {
-        const [cRes, sRes] = await Promise.all([
+        const [tRes, cRes, sRes] = await Promise.all([
+          fetch(`/api/terms?schoolId=${user.schoolId}`),
           fetch(`/api/classes?schoolId=${user.schoolId}`),
           fetch(`/api/subjects?schoolId=${user.schoolId}`),
         ])
+        if (tRes.ok) {
+          const termsData: Term[] = await tRes.json()
+          setTerms(termsData)
+          if (termsData.length > 0) setSelectedTerm(termsData[0].id)
+        }
         if (cRes.ok) setClasses(await cRes.json())
         if (sRes.ok) setSubjects(await sRes.json())
       } catch {
@@ -1065,7 +1116,7 @@ function AdminView({ user, t }: AdminViewProps) {
 
   // Fetch exams
   const fetchExams = useCallback(async () => {
-    if (!user.schoolId) return
+    if (!user.schoolId || !selectedTerm) return
     setLoading(true)
     try {
       let url = `/api/exams?schoolId=${user.schoolId}&termId=${selectedTerm}`
@@ -1142,7 +1193,7 @@ function AdminView({ user, t }: AdminViewProps) {
     <>
       {/* Term selector */}
       <div className="flex gap-2">
-        {TERMS.map((term) => (
+        {terms.map((term) => (
           <button
             key={term.id}
             onClick={() => setSelectedTerm(term.id)}

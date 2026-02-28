@@ -13,8 +13,30 @@ export async function GET(req: NextRequest) {
     const { error: authError } = await requireSchoolAccess(req, schoolId)
     if (authError) return authError
 
+    const where: Record<string, unknown> = { schoolId }
+
+    // Optional: filter classes by teacher (via active timetable lessons)
+    const teacherId = req.nextUrl.searchParams.get('teacherId')
+    if (teacherId) {
+      const activeTimetable = await prisma.timetable.findFirst({
+        where: { schoolId, isActive: true },
+        select: { id: true },
+      })
+      if (activeTimetable) {
+        const lessons = await prisma.lesson.findMany({
+          where: { teacherId, timetableId: activeTimetable.id },
+          select: { classId: true },
+          distinct: ['classId'],
+        })
+        where.id = { in: lessons.map((l: { classId: string }) => l.classId) }
+      } else {
+        // No active timetable — return empty
+        where.id = '__none__'
+      }
+    }
+
     const classes = await prisma.class.findMany({
-      where: { schoolId },
+      where,
       include: { grade: true },
       orderBy: { name: 'asc' },
     })
