@@ -45,6 +45,9 @@ export async function PUT(
     return NextResponse.json({ error: 'User not found' }, { status: 404 })
   }
 
+  const newSchoolId = body.schoolId !== undefined ? body.schoolId : user.schoolId
+  const schoolChanged = newSchoolId !== user.schoolId
+
   const updated = await prisma.user.update({
     where: { id },
     data: {
@@ -52,13 +55,35 @@ export async function PUT(
       email: body.email ?? user.email,
       role: body.role ?? user.role,
       isActive: body.isActive ?? user.isActive,
-      schoolId: body.schoolId !== undefined ? body.schoolId : user.schoolId,
+      schoolId: newSchoolId,
       language: body.language ?? user.language,
       phone: body.phone !== undefined ? (body.phone || null) : user.phone,
       cin: body.cin !== undefined ? (body.cin || null) : user.cin,
     },
     include: { school: { select: { name: true } } },
   })
+
+  // Cascade schoolId change to linked Student/Teacher/Staff records
+  if (schoolChanged) {
+    if (user.studentId) {
+      await prisma.student.update({
+        where: { id: user.studentId },
+        data: { schoolId: newSchoolId, classId: null },
+      })
+    }
+    if (user.teacherId) {
+      await prisma.teacher.update({
+        where: { id: user.teacherId },
+        data: { schoolId: newSchoolId },
+      })
+    }
+    if (user.staffId) {
+      await prisma.staff.update({
+        where: { id: user.staffId },
+        data: { schoolId: newSchoolId },
+      })
+    }
+  }
 
   return NextResponse.json({ user: updated })
 }
