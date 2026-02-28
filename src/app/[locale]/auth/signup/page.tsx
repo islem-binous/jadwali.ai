@@ -29,6 +29,7 @@ function SignupForm() {
   const [role, setRole] = useState<SignupRole>(initialRole)
   const [name, setName] = useState('')
   const [cin, setCin] = useState('')
+  const [phone, setPhone] = useState('')
   const [matricule, setMatricule] = useState('')
   const [schoolCode, setSchoolCode] = useState('')
   const [email, setEmail] = useState('')
@@ -126,7 +127,7 @@ function SignupForm() {
       return
     }
 
-    if ((role === 'STAFF' || role === 'TEACHER') && !cin.trim()) {
+    if ((role === 'DIRECTOR' || role === 'STAFF' || role === 'TEACHER') && !cin.trim()) {
       setError(t('auth.cin') + ' is required')
       return
     }
@@ -157,6 +158,7 @@ function SignupForm() {
         classId: role === 'STUDENT' && selectedClassId ? selectedClassId : undefined,
         cin: cin || undefined,
         matricule: matricule || undefined,
+        phone: phone || undefined,
       })
 
       if ('pendingActivation' in result) {
@@ -366,8 +368,8 @@ function SignupForm() {
                 )}
             </div>
 
-            {/* Staff/Teacher: CIN */}
-            {(role === 'STAFF' || role === 'TEACHER') && (
+            {/* Director/Staff/Teacher: CIN */}
+            {(role === 'DIRECTOR' || role === 'STAFF' || role === 'TEACHER') && (
               <div>
                 <label className="mb-1 block text-sm font-medium text-text-secondary">
                   {t('auth.cin')}
@@ -379,6 +381,22 @@ function SignupForm() {
                   className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none"
                   placeholder={t('auth.cin_placeholder')}
                   required
+                />
+              </div>
+            )}
+
+            {/* Director: Phone (optional) */}
+            {role === 'DIRECTOR' && (
+              <div>
+                <label className="mb-1 block text-sm font-medium text-text-secondary">
+                  {t('auth.phone')}
+                </label>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none"
+                  placeholder="+216 XX XXX XXX"
                 />
               </div>
             )}

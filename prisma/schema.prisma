@@ -54,6 +54,7 @@ model User {
   language     String   @default("FR")
   avatarUrl    String?
   phone        String?
+  cin          String?
   isActive     Boolean  @default(true)
   schoolId     String?
   school       School?  @relation(fields: [schoolId], references: [id])

@@ -358,7 +358,7 @@ export async function POST(request: Request) {
     }
 
     // ── DIRECTOR SIGNUP (creates school) ──────────────────────
-    const { schoolName, tunisianSchoolId } = body
+    const { schoolName, tunisianSchoolId, cin: directorCin, phone: directorPhone } = body
     if (!schoolName) {
       return NextResponse.json(
         { error: 'School name is required' },
@@ -399,6 +399,8 @@ export async function POST(request: Request) {
             passwordHash,
             role: 'DIRECTOR',
             isActive: false,
+            cin: directorCin || null,
+            phone: directorPhone || null,
             language: language || existingSchool.language || 'FR',
             schoolId: existingSchool.id,
           },
@@ -427,6 +429,8 @@ export async function POST(request: Request) {
             passwordHash,
             role: 'DIRECTOR',
             isActive: false,
+            cin: directorCin || null,
+            phone: directorPhone || null,
             language: language || 'FR',
           },
         },

@@ -763,6 +763,8 @@
     "remember_me": "Remember me",
     "pending_activation_title": "Account Pending Activation",
     "pending_activation_message": "Your director account has been created successfully. A platform administrator will review and activate your account shortly. You'll be able to sign in once your account is activated.",
+    "pending_activation_id_instruction": "To speed up the activation process, please send a photocopy of your identity card (CIN) to the following email address:",
+    "phone": "Phone Number",
     "back_to_login": "Back to Sign In",
     "no_account": "Don't have an account?",
     "have_account": "Already have an account?",

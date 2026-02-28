@@ -45,6 +45,7 @@ export function useAuth() {
       tunisianSchoolId?: string
       cin?: string
       matricule?: string
+      phone?: string
     }): Promise<{ user: AuthUser } | { pendingActivation: true }> => {
       const res = await fetch('/api/auth/signup', {
         method: 'POST',
