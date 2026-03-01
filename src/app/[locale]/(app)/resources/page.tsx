@@ -129,7 +129,8 @@ export default function ResourcesPage() {
   const locale = useLocale()
   interface TunisianSubjectRef {
     id: string; code: string; nameAr: string; nameFr: string | null; nameEn: string | null
-    sessionTypeCode: number; sessionType: { code: number; nameAr: string; nameFr: string | null; nameEn: string | null }
+    sessionTypeCode: number; pedagogicDay: number
+    sessionType: { code: number; nameAr: string; nameFr: string | null; nameEn: string | null }
   }
   const [showTunisianSubjectsModal, setShowTunisianSubjectsModal] = useState(false)
   const [tunisianSubjects, setTunisianSubjects] = useState<TunisianSubjectRef[]>([])
@@ -333,7 +334,7 @@ export default function ResourcesPage() {
     try {
       const items = tunisianSubjects
         .filter(s => selectedTunisianSubjects.has(s.code))
-        .map(s => ({ code: s.code, nameAr: s.nameAr, nameFr: s.nameFr, nameEn: s.nameEn, sessionTypeCode: s.sessionTypeCode }))
+        .map(s => ({ code: s.code, nameAr: s.nameAr, nameFr: s.nameFr, nameEn: s.nameEn, sessionTypeCode: s.sessionTypeCode, pedagogicDay: s.pedagogicDay }))
       const res = await fetch('/api/reference/tunisian/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -24,7 +24,7 @@ const STEP_ICONS = [
   Rocket,         // welcome
   CalendarDays,   // school_days
   Clock,          // periods
-  BookOpen,       // subjects
+  BookOpen,       // grades (auto-imports subjects + curriculum)
   Users,          // teachers
   GraduationCap,  // classes
   DoorOpen,       // rooms

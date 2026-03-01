@@ -633,8 +633,16 @@ export default function SettingsPage() {
         body: JSON.stringify({ type: 'grades', schoolId: school.id, items }),
       })
       if (res.ok) {
-        const { created, skipped } = await res.json()
-        toast.success(t('settings.grades_loaded', { created, skipped }))
+        const data = await res.json()
+        const parts: string[] = []
+        if (data.created) parts.push(`${data.created} grades`)
+        if (data.subjectsCreated) parts.push(`${data.subjectsCreated} subjects`)
+        if (data.curriculumCreated) parts.push(`${data.curriculumCreated} curriculum entries`)
+        if (data.sessionsCreated) parts.push(`${data.sessionsCreated} sessions`)
+        const msg = parts.length > 0
+          ? `Imported: ${parts.join(', ')}` + (data.skipped ? ` (${data.skipped} grades already existed)` : '')
+          : `No new data (${data.skipped} grades already existed)`
+        toast.success(msg)
         setShowTunisianGradesModal(false)
         fetchGrades()
       } else {

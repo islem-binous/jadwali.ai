@@ -14,6 +14,7 @@ const REF_TYPES = [
   { key: 'tunisian-subjects', label: 'Subjects' },
   { key: 'session-types', label: 'Session Types' },
   { key: 'teacher-grades', label: 'Teacher Professional Grades' },
+  { key: 'curriculum-entries', label: 'Curriculum Distribution (per grade)' },
 ]
 
 // Fields shown in table & editable per type
@@ -55,6 +56,16 @@ const TYPE_FIELDS: Record<string, { key: string; label: string; editable?: boole
     { key: 'nameAr', label: 'Name (AR)', editable: true },
     { key: 'nameFr', label: 'Name (FR)', editable: true },
     { key: 'nameEn', label: 'Name (EN)', editable: true },
+  ],
+  'curriculum-entries': [
+    { key: 'gradeLevelCode', label: 'Grade Code', editable: true },
+    { key: 'subjectCode', label: 'Subject Code', editable: true },
+    { key: 'sequence', label: 'Seq', editable: true },
+    { key: 'volumeHoraire', label: 'Hours', editable: true },
+    { key: 'parGroupe', label: 'Group', editable: true },
+    { key: 'parQuinzaine', label: 'Biweekly', editable: true },
+    { key: 'codeTypeCours', label: 'Session Type', editable: true },
+    { key: 'codeAss', label: 'Pairing', editable: true },
   ],
 }
 
@@ -199,6 +210,7 @@ export default function AdminReferencePage() {
             : rt.key === 'tunisian-subjects' ? 'tunisianSubjects'
             : rt.key === 'session-types' ? 'sessionTypes'
             : rt.key === 'teacher-grades' ? 'teacherGrades'
+            : rt.key === 'curriculum-entries' ? 'curriculumEntries'
             : rt.key
           const count = counts[countKey] ?? 0
 

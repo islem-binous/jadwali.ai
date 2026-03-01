@@ -5,7 +5,7 @@ export const ONBOARDING_STEPS = [
   { key: 'welcome', href: '/dashboard' },
   { key: 'school_days', href: '/settings' },
   { key: 'periods', href: '/settings' },
-  { key: 'subjects', href: '/resources' },
+  { key: 'grades', href: '/settings' },
   { key: 'teachers', href: '/teachers' },
   { key: 'classes', href: '/resources' },
   { key: 'rooms', href: '/resources' },

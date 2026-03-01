@@ -252,11 +252,15 @@ model Lesson {
   room         Room?       @relation(fields: [roomId], references: [id])
   periodId     String
   period       Period      @relation(fields: [periodId], references: [id])
-  dayOfWeek    Int
-  isConflict   Boolean     @default(false)
-  conflictNote String?
-  substituteId String?
-  substitute   Substitute? @relation(fields: [substituteId], references: [id])
+  dayOfWeek       Int
+  isConflict      Boolean     @default(false)
+  conflictNote    String?
+  sessionTypeCode Int?
+  groupLabel      String?
+  blockId         String?
+  weekType        String?
+  substituteId    String?
+  substitute      Substitute? @relation(fields: [substituteId], references: [id])
 }
 
 // ─── ABSENCES & SUBSTITUTES (TEACHER) ─────────────────────────
@@ -460,15 +464,30 @@ model Grade {
 }
 
 model GradeCurriculum {
-  id           String  @id @default(cuid())
+  id           String              @id @default(cuid())
   gradeId      String
-  grade        Grade   @relation(fields: [gradeId], references: [id])
+  grade        Grade               @relation(fields: [gradeId], references: [id])
   subjectId    String
-  subject      Subject @relation(fields: [subjectId], references: [id])
-  hoursPerWeek Int     @default(2)
-  coefficient  Float   @default(1)
+  subject      Subject             @relation(fields: [subjectId], references: [id])
+  hoursPerWeek Int                 @default(2)
+  coefficient  Float               @default(1)
+  sessions     CurriculumSession[]
 
   @@unique([gradeId, subjectId])
+}
+
+model CurriculumSession {
+  id              String          @id @default(cuid())
+  curriculumId    String
+  curriculum      GradeCurriculum @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
+  sequence        Int
+  duration        Int             @default(1)
+  sessionTypeCode Int             @default(1)
+  isGroup         Boolean         @default(false)
+  isBiweekly      Boolean         @default(false)
+  pairingCode     Int             @default(0)
+
+  @@unique([curriculumId, sequence])
 }
 
 model TeacherGrade {
@@ -521,6 +540,7 @@ model TunisianSubject {
   sessionTypeCode Int
   pedagogicDay    Int                 @default(0)
   sessionType     TunisianSessionType @relation(fields: [sessionTypeCode], references: [code])
+  curriculumEntries TunisianCurriculumEntry[]
 }
 
 model TunisianGradeLevel {
@@ -529,6 +549,24 @@ model TunisianGradeLevel {
   nameAr String
   nameFr String?
   nameEn String?
+  curriculumEntries TunisianCurriculumEntry[]
+}
+
+model TunisianCurriculumEntry {
+  id              String             @id @default(cuid())
+  gradeLevelCode  String
+  subjectCode     String
+  sequence        Int
+  volumeHoraire   Int
+  parGroupe       Boolean            @default(false)
+  parQuinzaine    Boolean            @default(false)
+  codeTypeCours   Int                @default(1)
+  codeAss         Int                @default(0)
+
+  gradeLevel      TunisianGradeLevel @relation(fields: [gradeLevelCode], references: [code])
+  subject         TunisianSubject    @relation(fields: [subjectCode], references: [code])
+
+  @@unique([gradeLevelCode, subjectCode, sequence])
 }
 
 model TunisianTeacherGrade {

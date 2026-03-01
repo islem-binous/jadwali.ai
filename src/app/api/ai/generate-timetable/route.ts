@@ -5,6 +5,7 @@ import type { ScheduleConstraints } from '@/lib/schedule-engine'
 import { detectConflicts } from '@/lib/conflict-detector'
 import { requireSchoolAccess } from '@/lib/auth/require-auth'
 import { getAppSettings } from '@/lib/app-settings'
+import { getEffectiveMaxWeekly, getEffectiveMaxDaily } from '@/lib/teacher-seniority'
 
 interface ReadinessIssue {
   type: string
@@ -20,11 +21,21 @@ interface SubjectEstimate {
   deficit: number
 }
 
+interface RoomTypeRequirement {
+  sessionType: number
+  sessionTypeName: string
+  requiredRoomTypes: string[]
+  sessionsNeeded: number
+  roomsAvailable: number
+  deficit: number
+}
+
 interface ReadinessReport {
   ready: boolean
   critical: ReadinessIssue[]
   warnings: ReadinessIssue[]
   estimates: SubjectEstimate[]
+  roomRequirements?: RoomTypeRequirement[]
   summary: {
     totalClasses: number
     totalTeachers: number
@@ -33,7 +44,33 @@ interface ReadinessReport {
     totalRooms: number
     classroomsNeeded: number
     teacherCapacity: string
+    sessionAware: boolean
+    groupSessionCount?: number
+    biweeklySessionCount?: number
+    multiHourSessionCount?: number
   }
+}
+
+// Session type → required room types (must match schedule-solver.ts)
+const SESSION_TYPE_ROOM_REQUIREMENTS: Record<number, { name: string; roomTypes: string[] }> = {
+  1: { name: 'Regular', roomTypes: ['CLASSROOM'] },
+  2: { name: 'Lab SVT', roomTypes: ['LAB_SCIENCE', 'LAB_BIOLOGY', 'LAB'] },
+  3: { name: 'Lab Physics', roomTypes: ['LAB_SCIENCE', 'LAB_PHYSICS', 'LAB_CHEMISTRY', 'LAB'] },
+  4: { name: 'Lab Tech', roomTypes: ['LAB_ENGINEERING', 'LAB'] },
+  5: { name: 'PE', roomTypes: ['GYM', 'GYMNASIUM'] },
+  6: { name: 'Computer Lab', roomTypes: ['LAB_COMPUTER'] },
+  7: { name: 'Mech Engineering', roomTypes: ['LAB_ENGINEERING'] },
+  8: { name: 'Elec Engineering', roomTypes: ['LAB_ENGINEERING'] },
+}
+
+interface SessionInfo {
+  subjectId: string
+  sequence: number
+  duration: number
+  sessionTypeCode: number
+  isGroup: boolean
+  isBiweekly: boolean
+  pairingCode: number
 }
 
 function validateReadiness(
@@ -43,9 +80,11 @@ function validateReadiness(
   rooms: any[],
   gradeCurriculum: Record<string, { subjectId: string; hoursPerWeek: number }[]>,
   gradeNameMap: Map<string, string>,
+  gradeSessions?: Record<string, SessionInfo[]>,
 ): ReadinessReport {
   const critical: ReadinessIssue[] = []
   const warnings: ReadinessIssue[] = []
+  const hasSessionData = gradeSessions && Object.keys(gradeSessions).length > 0
 
   // 1. Subject-Teacher Coverage
   const teacherSubjectMap = new Map<string, Set<string>>()
@@ -87,7 +126,6 @@ function validateReadiness(
     }
   } else {
     // No grade curriculum: solver assigns ALL subjects to ALL classes (fallback mode)
-    // Every subject must have at least one teacher
     const uncoveredSubjects: string[] = []
     for (const sub of subjects) {
       const teachersForSubject = teacherSubjectMap.get(sub.id)
@@ -105,19 +143,29 @@ function validateReadiness(
     }
   }
 
-  // 1b. Per-subject teacher estimation
-  // For each subject, calculate hours needed and teachers required
-  const DEFAULT_MAX_PER_WEEK = 18
+  // 1b. Per-subject teacher estimation (session-aware when data available)
   const estimates: SubjectEstimate[] = []
 
   for (const sub of subjects) {
     const subjectTeacherIds = teacherSubjectMap.get(sub.id)
     const teachersAvailable = subjectTeacherIds ? subjectTeacherIds.size : 0
 
-    // How many hours does this subject need across all classes?
     let hoursNeeded = 0
 
-    if (hasCurriculum) {
+    if (hasSessionData) {
+      // Session-aware: count actual session hours per class
+      for (const [gradeId, sessions] of Object.entries(gradeSessions!)) {
+        const subjectSessions = sessions.filter(s => s.subjectId === sub.id)
+        if (subjectSessions.length === 0) continue
+        const numClasses = classes.filter((c: any) => c.gradeId === gradeId).length
+        // Group sessions need 2 teachers (one per group), biweekly count as half
+        for (const sess of subjectSessions) {
+          const teacherMultiplier = sess.isGroup ? 2 : 1
+          const weekMultiplier = sess.isBiweekly ? 0.5 : 1
+          hoursNeeded += sess.duration * numClasses * teacherMultiplier * weekMultiplier
+        }
+      }
+    } else if (hasCurriculum) {
       for (const [gradeId, curriculum] of Object.entries(gradeCurriculum)) {
         const entry = curriculum.find(gc => gc.subjectId === sub.id)
         if (entry) {
@@ -126,29 +174,32 @@ function validateReadiness(
         }
       }
     } else {
-      // Fallback: all classes need all subjects (~2h each)
       hoursNeeded = classes.length * 2
     }
 
     if (hoursNeeded === 0) continue
 
-    // Teachers needed = ceil(hoursNeeded / maxPeriodsPerWeek)
-    const teachersNeeded = Math.ceil(hoursNeeded / DEFAULT_MAX_PER_WEEK)
+    // Use seniority-aware capacity: average actual teacher capacity for this subject
+    let avgCapacity = 18
+    if (subjectTeacherIds && subjectTeacherIds.size > 0) {
+      const subjectTeachers = teachers.filter((t: any) => subjectTeacherIds.has(t.id))
+      avgCapacity = subjectTeachers.reduce((sum: number, t: any) => sum + getEffectiveMaxWeekly(t), 0) / subjectTeachers.length
+    }
+
+    const teachersNeeded = Math.ceil(hoursNeeded / avgCapacity)
     const deficit = Math.max(0, teachersNeeded - teachersAvailable)
 
     estimates.push({
       subject: sub.name,
-      hoursNeeded,
+      hoursNeeded: Math.round(hoursNeeded * 10) / 10, // round for biweekly fractions
       teachersNeeded,
       teachersAvailable,
       deficit,
     })
   }
 
-  // Sort: subjects with biggest deficit first
   estimates.sort((a, b) => b.deficit - a.deficit)
 
-  // Flag subjects with capacity issues
   const subjectCapacityIssues = estimates
     .filter(e => e.deficit > 0)
     .map(e => `${e.subject}: needs ${e.teachersNeeded} teacher(s) (${e.hoursNeeded}h/week), has ${e.teachersAvailable} — need ${e.deficit} more`)
@@ -161,46 +212,123 @@ function validateReadiness(
     })
   }
 
-  // 2. Room / Classroom estimation
-  const roomTypes = new Set(rooms.map((r: any) => r.type))
-  const missingRoomTypes: string[] = []
-
-  const hasScience = subjects.some((s: any) => s.category === 'SCIENCE')
-  if (hasScience && !roomTypes.has('LAB_SCIENCE') && !roomTypes.has('LAB') && !roomTypes.has('LAB_PHYSICS') && !roomTypes.has('LAB_BIOLOGY') && !roomTypes.has('LAB_CHEMISTRY')) {
-    missingRoomTypes.push('Science Lab (needed for science subjects)')
-  }
-  const hasPE = subjects.some((s: any) => s.category === 'PE')
-  if (hasPE && !roomTypes.has('GYM') && !roomTypes.has('GYMNASIUM')) {
-    missingRoomTypes.push('Gymnasium / Sports facility (needed for PE)')
-  }
-  const hasTech = subjects.some((s: any) => s.category === 'TECH')
-  if (hasTech && !roomTypes.has('LAB_COMPUTER')) {
-    missingRoomTypes.push('Computer Lab (needed for technology/computer subjects)')
+  // 2. Room / Classroom estimation — session-type-aware when data available
+  const roomsByType = new Map<string, number>()
+  for (const r of rooms) {
+    const t = (r as any).type || 'CLASSROOM'
+    roomsByType.set(t, (roomsByType.get(t) || 0) + 1)
   }
 
-  if (missingRoomTypes.length > 0) {
-    warnings.push({
-      type: 'MISSING_ROOMS',
-      message: 'Some specialized room types are missing',
-      details: missingRoomTypes,
-    })
+  const roomRequirements: RoomTypeRequirement[] = []
+
+  if (hasSessionData) {
+    // Count max concurrent sessions per session type across all classes
+    // Simplified: count total sessions per type across all grades × classes
+    const sessionTypeCount = new Map<number, number>()
+
+    for (const [gradeId, sessions] of Object.entries(gradeSessions!)) {
+      const numClasses = classes.filter((c: any) => c.gradeId === gradeId).length
+      for (const sess of sessions) {
+        const stc = sess.sessionTypeCode
+        if (stc >= 2) { // Only specialized rooms (skip regular classrooms)
+          const count = sess.isGroup ? numClasses * 2 : numClasses // group needs 2 rooms
+          sessionTypeCount.set(stc, (sessionTypeCount.get(stc) || 0) + count)
+        }
+      }
+    }
+
+    for (const [stc, totalSessions] of sessionTypeCount) {
+      const typeInfo = SESSION_TYPE_ROOM_REQUIREMENTS[stc]
+      if (!typeInfo) continue
+
+      const availableRooms = typeInfo.roomTypes.reduce((sum, rt) => sum + (roomsByType.get(rt) || 0), 0)
+      const deficit = availableRooms === 0 ? totalSessions : 0 // critical if NO rooms of this type
+
+      roomRequirements.push({
+        sessionType: stc,
+        sessionTypeName: typeInfo.name,
+        requiredRoomTypes: typeInfo.roomTypes,
+        sessionsNeeded: totalSessions,
+        roomsAvailable: availableRooms,
+        deficit,
+      })
+    }
+
+    const missingRoomTypes = roomRequirements.filter(r => r.roomsAvailable === 0)
+    if (missingRoomTypes.length > 0) {
+      critical.push({
+        type: 'MISSING_SPECIALIZED_ROOMS',
+        message: 'Required specialized rooms are missing for session types in the curriculum',
+        details: missingRoomTypes.map(r =>
+          `${r.sessionTypeName} (type ${r.sessionType}): ${r.sessionsNeeded} session(s) need ${r.requiredRoomTypes.join(' or ')} — 0 available`
+        ),
+      })
+    }
+
+    // Warn if low room capacity for a type (rooms exist but may be insufficient)
+    const lowCapacityRooms = roomRequirements.filter(r => r.roomsAvailable > 0 && r.sessionsNeeded > r.roomsAvailable * 6)
+    if (lowCapacityRooms.length > 0) {
+      warnings.push({
+        type: 'LOW_ROOM_CAPACITY',
+        message: 'Some room types may be overbooked',
+        details: lowCapacityRooms.map(r =>
+          `${r.sessionTypeName}: ${r.sessionsNeeded} sessions/week, only ${r.roomsAvailable} room(s) available`
+        ),
+      })
+    }
+  } else {
+    // Fallback: category-based room checks
+    const roomTypes = new Set(rooms.map((r: any) => r.type))
+
+    const missingRoomTypes: string[] = []
+    const hasScience = subjects.some((s: any) => s.category === 'SCIENCE')
+    if (hasScience && !roomTypes.has('LAB_SCIENCE') && !roomTypes.has('LAB') && !roomTypes.has('LAB_PHYSICS') && !roomTypes.has('LAB_BIOLOGY') && !roomTypes.has('LAB_CHEMISTRY')) {
+      missingRoomTypes.push('Science Lab (needed for science subjects)')
+    }
+    const hasPE = subjects.some((s: any) => s.category === 'PE')
+    if (hasPE && !roomTypes.has('GYM') && !roomTypes.has('GYMNASIUM')) {
+      missingRoomTypes.push('Gymnasium / Sports facility (needed for PE)')
+    }
+    const hasTech = subjects.some((s: any) => s.category === 'TECH')
+    if (hasTech && !roomTypes.has('LAB_COMPUTER')) {
+      missingRoomTypes.push('Computer Lab (needed for technology/computer subjects)')
+    }
+
+    if (missingRoomTypes.length > 0) {
+      warnings.push({
+        type: 'MISSING_ROOMS',
+        message: 'Some specialized room types are missing',
+        details: missingRoomTypes,
+      })
+    }
   }
 
   // Classrooms needed: at any given period, each class needs a room
-  // Minimum classrooms = number of classes (since all classes run in parallel)
-  const classroomsNeeded = classes.length
+  // Group sessions need 2 rooms in the same slot
+  let classroomsNeeded = classes.length
+  if (hasSessionData) {
+    // Count max group sessions in any single grade to estimate peak room need
+    let maxGroupBoost = 0
+    for (const [gradeId, sessions] of Object.entries(gradeSessions!)) {
+      const groupCount = sessions.filter(s => s.isGroup).length
+      const numClasses = classes.filter((c: any) => c.gradeId === gradeId).length
+      maxGroupBoost = Math.max(maxGroupBoost, groupCount * numClasses)
+    }
+    classroomsNeeded += Math.ceil(maxGroupBoost / 6) // spread across ~6 periods/day
+  }
+
   const classroomsAvailable = rooms.length
   if (classroomsAvailable < classroomsNeeded) {
     warnings.push({
       type: 'INSUFFICIENT_ROOMS',
-      message: `Not enough rooms: ${classroomsAvailable} available, ${classroomsNeeded} needed (1 per class)`,
-      details: [`Need ${classroomsNeeded - classroomsAvailable} more room(s) to avoid scheduling gaps`],
+      message: `Not enough rooms: ${classroomsAvailable} available, ~${classroomsNeeded} needed (accounting for group sessions)`,
+      details: [`Need ~${classroomsNeeded - classroomsAvailable} more room(s) to avoid scheduling gaps`],
     })
   }
 
-  // 3. Teacher Workload Feasibility (overall)
-  const totalCapacity = teachers.reduce((sum: number, t: any) => sum + (t.maxPeriodsPerWeek || 18), 0)
-  let totalDemand = estimates.reduce((sum, e) => sum + e.hoursNeeded, 0)
+  // 3. Teacher Workload Feasibility (seniority-aware)
+  const totalCapacity = teachers.reduce((sum: number, t: any) => sum + getEffectiveMaxWeekly(t), 0)
+  const totalDemand = estimates.reduce((sum, e) => sum + e.hoursNeeded, 0)
   const totalTeachersNeeded = estimates.reduce((sum, e) => sum + e.teachersNeeded, 0)
 
   if (totalDemand > 0 && totalCapacity < totalDemand) {
@@ -221,11 +349,27 @@ function validateReadiness(
     })
   }
 
+  // 5. Session-specific stats
+  let groupSessionCount = 0
+  let biweeklySessionCount = 0
+  let multiHourSessionCount = 0
+
+  if (hasSessionData) {
+    for (const sessions of Object.values(gradeSessions!)) {
+      for (const s of sessions) {
+        if (s.isGroup) groupSessionCount++
+        if (s.isBiweekly) biweeklySessionCount++
+        if (s.duration > 1) multiHourSessionCount++
+      }
+    }
+  }
+
   return {
     ready: critical.length === 0,
     critical,
     warnings,
     estimates,
+    roomRequirements: roomRequirements.length > 0 ? roomRequirements : undefined,
     summary: {
       totalClasses: classes.length,
       totalTeachers: teachers.length,
@@ -234,8 +378,12 @@ function validateReadiness(
       totalRooms: rooms.length,
       classroomsNeeded,
       teacherCapacity: totalDemand > 0
-        ? `${totalCapacity}h available / ${totalDemand}h needed`
+        ? `${totalCapacity}h available / ${Math.round(totalDemand)}h needed`
         : `${totalCapacity}h available`,
+      sessionAware: !!hasSessionData,
+      groupSessionCount: hasSessionData ? groupSessionCount : undefined,
+      biweeklySessionCount: hasSessionData ? biweeklySessionCount : undefined,
+      multiHourSessionCount: hasSessionData ? multiHourSessionCount : undefined,
     },
   }
 }
@@ -263,7 +411,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Fetch school data (including grade curriculum and teacher-grade assignments)
-    const [school, classes, teachers, subjects, rooms, periods, gradeCurriculumRows, teacherGradeRows, grades] = await Promise.all([
+    const [school, classes, teachers, subjects, rooms, periods, gradeCurriculumRows, teacherGradeRows, grades, curriculumSessionRows] = await Promise.all([
       prisma.school.findUnique({ where: { id: schoolId } }),
       prisma.class.findMany({ where: { schoolId }, orderBy: { name: 'asc' } }),
       prisma.teacher.findMany({
@@ -280,6 +428,10 @@ export async function POST(req: NextRequest) {
         where: { grade: { schoolId } },
       }),
       prisma.grade.findMany({ where: { schoolId }, select: { id: true, name: true } }),
+      prisma.curriculumSession.findMany({
+        where: { curriculum: { grade: { schoolId } } },
+        include: { curriculum: { select: { gradeId: true, subjectId: true } } },
+      }).catch(() => [] as any[]),
     ])
 
     if (!school) {
@@ -316,9 +468,27 @@ export async function POST(req: NextRequest) {
       teacherGrades.get(tg.teacherId)!.push(tg.gradeId)
     }
 
+    // Build per-grade session requirements: gradeId → SessionRequirement[]
+    const gradeSessions: Record<string, { subjectId: string; sequence: number; duration: number; sessionTypeCode: number; isGroup: boolean; isBiweekly: boolean; pairingCode: number }[]> = {}
+    for (const cs of curriculumSessionRows) {
+      const gradeId = cs.curriculum?.gradeId
+      const subjectId = cs.curriculum?.subjectId
+      if (!gradeId || !subjectId) continue
+      if (!gradeSessions[gradeId]) gradeSessions[gradeId] = []
+      gradeSessions[gradeId].push({
+        subjectId,
+        sequence: cs.sequence,
+        duration: cs.duration,
+        sessionTypeCode: cs.sessionTypeCode,
+        isGroup: cs.isGroup,
+        isBiweekly: cs.isBiweekly,
+        pairingCode: cs.pairingCode,
+      })
+    }
+
     // ---- Pre-validation: readiness report ----
-    const gradeNameMap = new Map(grades.map((g: any) => [g.id, g.name]))
-    const readinessReport = validateReadiness(classes, teachers, subjects, rooms, gradeCurriculum, gradeNameMap)
+    const gradeNameMap = new Map<string, string>(grades.map((g: any) => [g.id, g.name]))
+    const readinessReport = validateReadiness(classes, teachers, subjects, rooms, gradeCurriculum, gradeNameMap, gradeSessions)
 
     if (!readinessReport.ready) {
       return Response.json({
@@ -333,8 +503,8 @@ export async function POST(req: NextRequest) {
       teachers: teachers.map((t: any) => ({
         id: t.id,
         name: t.name,
-        maxPeriodsPerDay: t.maxPeriodsPerDay,
-        maxPeriodsPerWeek: t.maxPeriodsPerWeek,
+        maxPeriodsPerDay: getEffectiveMaxDaily(t),
+        maxPeriodsPerWeek: getEffectiveMaxWeekly(t),
         subjects: t.subjects.map((ts: any) => ts.subjectId),
         grades: teacherGrades.get(t.id) ?? [],
       })),
@@ -348,6 +518,7 @@ export async function POST(req: NextRequest) {
       }),
       days: schoolDays,
       gradeCurriculum: Object.keys(gradeCurriculum).length > 0 ? gradeCurriculum : undefined,
+      gradeSessions: Object.keys(gradeSessions).length > 0 ? gradeSessions : undefined,
     }
 
     console.log(`[Generate] Solving timetable — ${classes.length} classes, ${teachers.length} teachers, ${subjects.length} subjects`)
@@ -409,6 +580,10 @@ export async function POST(req: NextRequest) {
           dayOfWeek: lesson.dayOfWeek,
           isConflict: hasConflict,
           conflictNote: conflictInfo?.description ?? null,
+          sessionTypeCode: lesson.sessionTypeCode ?? null,
+          groupLabel: lesson.groupLabel ?? null,
+          blockId: lesson.blockId ?? null,
+          weekType: lesson.weekType ?? null,
         },
       })
       created++

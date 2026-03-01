@@ -112,12 +112,16 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    await prisma.$transaction([
-      prisma.lesson.deleteMany({ where: { subjectId: id } }),
-      prisma.teacherSubject.deleteMany({ where: { subjectId: id } }),
-      prisma.gradeCurriculum.deleteMany({ where: { subjectId: id } }),
-      prisma.subject.delete({ where: { id } }),
-    ])
+    // Delete related records sequentially (D1 doesn't support batch transactions reliably)
+    // CurriculumSession cascades from GradeCurriculum, but delete explicitly to be safe
+    const curricula = await prisma.gradeCurriculum.findMany({ where: { subjectId: id }, select: { id: true } })
+    if (curricula.length > 0) {
+      await prisma.curriculumSession.deleteMany({ where: { curriculumId: { in: curricula.map(c => c.id) } } })
+    }
+    await prisma.lesson.deleteMany({ where: { subjectId: id } })
+    await prisma.teacherSubject.deleteMany({ where: { subjectId: id } })
+    await prisma.gradeCurriculum.deleteMany({ where: { subjectId: id } })
+    await prisma.subject.delete({ where: { id } })
     return NextResponse.json({ success: true })
   } catch (err) {
     console.error('[Subjects DELETE]', err)

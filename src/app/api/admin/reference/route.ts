@@ -59,8 +59,16 @@ export async function GET(request: NextRequest) {
       const data = await prisma.tunisianTeacherGrade.findMany({ orderBy: { code: 'asc' } })
       return NextResponse.json({ data })
     }
+    case 'curriculum-entries': {
+      const data = await prisma.tunisianCurriculumEntry.findMany({
+        orderBy: [{ gradeLevelCode: 'asc' }, { subjectCode: 'asc' }, { sequence: 'asc' }],
+      })
+      return NextResponse.json({ data })
+    }
     default: {
       // Return counts for overview
+      let curriculumEntries = 0
+      try { curriculumEntries = await prisma.tunisianCurriculumEntry.count() } catch { /* table may not exist */ }
       const [governorates, tunisianSchools, gradeLevels, tunisianSubjects, sessionTypes, teacherGrades] = await Promise.all([
         prisma.governorate.count(),
         prisma.tunisianSchool.count(),
@@ -70,7 +78,7 @@ export async function GET(request: NextRequest) {
         prisma.tunisianTeacherGrade.count(),
       ])
       return NextResponse.json({
-        counts: { governorates, tunisianSchools, gradeLevels, tunisianSubjects, sessionTypes, teacherGrades },
+        counts: { governorates, tunisianSchools, gradeLevels, tunisianSubjects, sessionTypes, teacherGrades, curriculumEntries },
       })
     }
   }
@@ -140,6 +148,19 @@ export async function PUT(request: NextRequest) {
         if ('code' in data) data.code = Number(data.code)
         const updated = await prisma.tunisianTeacherGrade.update({ where: { id }, data })
         return NextResponse.json(updated)
+      }
+      case 'curriculum-entries': {
+        for (const k of ['gradeLevelCode', 'subjectCode', 'sequence', 'volumeHoraire', 'parGroupe', 'parQuinzaine', 'codeTypeCours', 'codeAss']) {
+          if (k in fields) data[k] = fields[k]
+        }
+        if ('sequence' in data) data.sequence = Number(data.sequence)
+        if ('volumeHoraire' in data) data.volumeHoraire = Number(data.volumeHoraire)
+        if ('codeTypeCours' in data) data.codeTypeCours = Number(data.codeTypeCours)
+        if ('codeAss' in data) data.codeAss = Number(data.codeAss)
+        if ('parGroupe' in data) data.parGroupe = data.parGroupe === 'true' || data.parGroupe === true
+        if ('parQuinzaine' in data) data.parQuinzaine = data.parQuinzaine === 'true' || data.parQuinzaine === true
+        const updatedCurr = await prisma.tunisianCurriculumEntry.update({ where: { id }, data })
+        return NextResponse.json(updatedCurr)
       }
       default:
         return NextResponse.json({ error: 'Unknown type' }, { status: 400 })

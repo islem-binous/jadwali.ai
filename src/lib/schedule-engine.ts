@@ -51,6 +51,20 @@ export interface GeneratedLesson {
   roomId: string | null
   periodId: string
   dayOfWeek: number
+  sessionTypeCode?: number
+  groupLabel?: string | null
+  blockId?: string | null
+  weekType?: string | null
+}
+
+export interface SessionRequirement {
+  subjectId: string
+  sequence: number
+  duration: number        // 1-4 hours
+  sessionTypeCode: number // 1-8
+  isGroup: boolean
+  isBiweekly: boolean
+  pairingCode: number
 }
 
 export interface ScheduleConstraints {
@@ -69,6 +83,8 @@ export interface ScheduleConstraints {
   days: number[]
   /** Per-grade curriculum: gradeId → [{ subjectId, hoursPerWeek }] */
   gradeCurriculum?: Record<string, { subjectId: string; hoursPerWeek: number }[]>
+  /** Per-grade session requirements (detailed Tunisian curriculum) */
+  gradeSessions?: Record<string, SessionRequirement[]>
 }
 
 export function buildConstraintPrompt(constraints: ScheduleConstraints): string {
