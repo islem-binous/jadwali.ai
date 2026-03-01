@@ -74,6 +74,36 @@ const fadeUp = {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Server message translation map                                      */
+/* ------------------------------------------------------------------ */
+
+const SERVER_MSG_MAP: Record<string, string> = {
+  'Some curriculum subjects have no assigned teachers': 'report_msg_no_teachers',
+  'Some subjects need more teachers': 'report_msg_need_more_teachers',
+  'Required specialized rooms are missing for session types in the curriculum': 'report_msg_missing_rooms',
+  'Some room types may be overbooked': 'report_msg_rooms_overbooked',
+  'Some specialized room types are missing': 'report_msg_room_types_missing',
+  'Overall teacher capacity insufficient': 'report_msg_teacher_capacity',
+}
+
+/** Translate server-generated readiness messages using known patterns */
+function translateServerMsg(msg: string, t: (key: string, params?: Record<string, string>) => string): string {
+  // Direct match
+  const key = SERVER_MSG_MAP[msg]
+  if (key) return t(`ai.${key}`)
+  // Pattern: "X subject(s) have no assigned teachers"
+  const subMatch = msg.match(/^(\d+) subject/)
+  if (subMatch) return t('ai.report_msg_subjects_no_teachers', { count: subMatch[1] })
+  // Pattern: "Not enough rooms: X available, ~Y needed"
+  const roomMatch = msg.match(/Not enough rooms: (\d+) available.*?(\d+) needed/)
+  if (roomMatch) return t('ai.report_msg_not_enough_rooms', { available: roomMatch[1], needed: roomMatch[2] })
+  // Pattern: "X class(es) have no grade curriculum defined"
+  const currMatch = msg.match(/^(\d+) class/)
+  if (currMatch) return t('ai.report_msg_no_curriculum', { count: currMatch[1] })
+  return msg // Fallback: return as-is
+}
+
+/* ------------------------------------------------------------------ */
 /*  Typing indicator                                                   */
 /* ------------------------------------------------------------------ */
 
@@ -224,9 +254,9 @@ export default function AiPage() {
 
         // Append warnings from readiness report if present
         if (data.readinessReport?.warnings?.length > 0) {
-          summary += '\n\n**Warnings:**\n'
+          summary += `\n\n**${t('ai.report_warnings')}:**\n`
           for (const w of data.readinessReport.warnings) {
-            summary += `\n**${w.message}**\n`
+            summary += `\n**${translateServerMsg(w.message, t)}**\n`
             for (const d of w.details) {
               summary += `- ${d}\n`
             }
@@ -237,28 +267,30 @@ export default function AiPage() {
           prev.map((m) => (m.id === assistantId ? { ...m, content: summary } : m))
         )
       } else if (data.readinessReport) {
-        // Display structured readiness report
+        // Display structured readiness report (translated)
         const report = data.readinessReport
-        let reportText = '**Timetable Readiness Report**\n\n'
+        const cap = report.summary.teacherCapacity || ''
+        const capParts = cap.match(/(\d+)h.*?(\d+)h/) || []
+        let reportText = `**${t('ai.report_title')}**\n\n`
 
-        reportText += `**Resources:** ${report.summary.totalClasses} classes, ${report.summary.totalTeachers}/${report.summary.totalTeachersNeeded} teachers (have/need), ${report.summary.totalRooms}/${report.summary.classroomsNeeded} rooms (have/need)\n`
-        reportText += `**Teacher capacity:** ${report.summary.teacherCapacity}\n`
+        reportText += `**${t('ai.report_resources')}:** ${report.summary.totalClasses} ${t('resources.classes')}, ${t('ai.report_teachers_ratio', { have: String(report.summary.totalTeachers), need: String(report.summary.totalTeachersNeeded) })}, ${t('ai.report_rooms_ratio', { have: String(report.summary.totalRooms), need: String(report.summary.classroomsNeeded) })}\n`
+        reportText += `**${t('ai.report_teacher_capacity', { available: capParts[1] || '0', needed: capParts[2] || '0' })}**\n`
 
         // Teacher estimates per subject
         if (report.estimates?.length > 0) {
-          reportText += '\n**Teacher needs per subject:**\n'
+          reportText += `\n**${t('ai.report_teacher_needs')}:**\n`
           for (const est of report.estimates) {
             const status = est.deficit > 0
-              ? `need ${est.deficit} more`
-              : 'OK'
-            reportText += `- ${est.subject}: ${est.hoursNeeded}h/week — needs ${est.teachersNeeded} teacher(s), has ${est.teachersAvailable} — ${status}\n`
+              ? t('ai.report_need_more', { count: String(est.deficit) })
+              : t('ai.report_status_ok')
+            reportText += `- ${t('ai.report_subject_line', { subject: est.subject, hours: String(est.hoursNeeded), needed: String(est.teachersNeeded), available: String(est.teachersAvailable), status })}\n`
           }
         }
 
         if (report.critical?.length > 0) {
-          reportText += '\n**Critical Issues (must fix before generating):**\n'
+          reportText += `\n**${t('ai.report_critical')}:**\n`
           for (const issue of report.critical) {
-            reportText += `\n**${issue.message}**\n`
+            reportText += `\n**${translateServerMsg(issue.message, t)}**\n`
             for (const detail of issue.details) {
               reportText += `- ${detail}\n`
             }
@@ -266,9 +298,9 @@ export default function AiPage() {
         }
 
         if (report.warnings?.length > 0) {
-          reportText += '\n**Warnings:**\n'
+          reportText += `\n**${t('ai.report_warnings')}:**\n`
           for (const w of report.warnings) {
-            reportText += `\n**${w.message}**\n`
+            reportText += `\n**${translateServerMsg(w.message, t)}**\n`
             for (const d of w.details) {
               reportText += `- ${d}\n`
             }
