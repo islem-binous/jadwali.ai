@@ -171,7 +171,7 @@ ${TUNISIAN_RULES_CONTEXT}
 - If you notice missing teacher assignments or room types, proactively mention them.
 - If asked about something outside your scope, politely redirect to relevant features.
 - Use markdown formatting for readability.
-- Respond in the same language the user writes in.`
+- IMPORTANT: You MUST respond in {language}. All your output — headings, analysis, suggestions, labels — must be in {language}. Never switch languages unless quoting a proper name.`
 
 // Streaming mock response for when no API key is set
 function createMockStream(message: string) {
@@ -376,13 +376,14 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  let message: string, schoolId: string, history: unknown, requestedProvider: string | undefined
+  let message: string, schoolId: string, history: unknown, requestedProvider: string | undefined, locale: string | undefined
   try {
     const body = await req.json()
     message = body.message
     schoolId = body.schoolId
     history = body.history
     requestedProvider = body.provider
+    locale = body.locale
   } catch {
     return new Response(JSON.stringify({ error: 'Invalid request body' }), { status: 400, headers: { 'Content-Type': 'application/json' } })
   }
@@ -447,7 +448,9 @@ export async function POST(req: NextRequest) {
   // Real AI call
   try {
     const context = await buildSchoolContext(schoolId)
-    const systemPrompt = SYSTEM_PROMPT_TEMPLATE.replace('{context}', context)
+    const LOCALE_LANGUAGES: Record<string, string> = { ar: 'Arabic (العربية)', fr: 'French (Français)', en: 'English' }
+    const language = LOCALE_LANGUAGES[locale || 'en'] || 'English'
+    const systemPrompt = SYSTEM_PROMPT_TEMPLATE.replace('{context}', context).replace('{language}', language)
 
     const messages: Array<{ role: string; content: string }> = []
     if (history && Array.isArray(history)) {

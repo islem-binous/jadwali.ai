@@ -330,6 +330,7 @@
     "greeting": "Bonjour ! Je suis votre assistant IA Jadwali. Je peux générer des emplois du temps, résoudre les conflits, trouver des remplaçants et optimiser votre planning. Que souhaitez-vous faire ?",
     "typing": "L'IA Jadwali réfléchit...",
     "mock_mode": "Mode démo",
+    "clear_chat": "Effacer la conversation",
     "gen_in_progress": "Génération en cours... Cela peut prendre jusqu'à 30 secondes.",
     "gen_step_fetching": "Analyse de vos données scolaires et génération d'un emploi du temps optimisé...",
     "gen_success": "Emploi du temps **{name}** créé avec succès : **{lessons}** leçons. {conflicts} conflits détectés.",

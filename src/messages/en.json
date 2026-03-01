@@ -330,6 +330,7 @@
     "greeting": "Hello! I'm your Jadwali AI assistant. I can generate timetables, resolve conflicts, find substitutes, and optimize your school schedule. What would you like to do?",
     "typing": "Jadwali AI is thinking...",
     "mock_mode": "Demo Mode",
+    "clear_chat": "Clear conversation",
     "gen_in_progress": "Generating timetable... This may take up to 30 seconds.",
     "gen_step_fetching": "Analyzing your school data and generating an optimized timetable...",
     "gen_success": "Timetable **{name}** created successfully with **{lessons}** lessons across all classes. {conflicts} conflicts detected.",

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback, KeyboardEvent } from 'react'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import { useRouter } from '@/i18n/navigation'
 import { useUserStore } from '@/store/userStore'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -15,6 +15,7 @@ import {
   Download,
   ChevronDown,
   ExternalLink,
+  Trash2,
 } from 'lucide-react'
 
 /* ------------------------------------------------------------------ */
@@ -100,13 +101,26 @@ function TypingIndicator() {
 /*  Main component                                                     */
 /* ------------------------------------------------------------------ */
 
+const CHAT_STORAGE_KEY = 'jadwali-ai-chat'
+
 export default function AiPage() {
   const t = useTranslations()
+  const locale = useLocale()
   const router = useRouter()
   const user = useUserStore((s) => s.user)
 
   /* ---- State ---- */
-  const [messages, setMessages] = useState<Message[]>([])
+  const [messages, setMessages] = useState<Message[]>(() => {
+    if (typeof window === 'undefined') return []
+    try {
+      const stored = localStorage.getItem(CHAT_STORAGE_KEY)
+      if (stored) {
+        const parsed = JSON.parse(stored) as Array<{ id: string; role: 'user' | 'assistant'; content: string; timestamp: string }>
+        return parsed.map(m => ({ ...m, timestamp: new Date(m.timestamp) }))
+      }
+    } catch { /* ignore */ }
+    return []
+  })
   const [inputValue, setInputValue] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
@@ -114,6 +128,17 @@ export default function AiPage() {
   const [availableProviders, setAvailableProviders] = useState<string[]>([])
   const [selectedProvider, setSelectedProvider] = useState<string>('')
   const [providerMenuOpen, setProviderMenuOpen] = useState(false)
+
+  /* ---- Persist messages to localStorage ---- */
+  useEffect(() => {
+    if (messages.length === 0) {
+      localStorage.removeItem(CHAT_STORAGE_KEY)
+    } else {
+      try {
+        localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages))
+      } catch { /* quota exceeded — ignore */ }
+    }
+  }, [messages])
 
   /* ---- Fetch available AI providers ---- */
   useEffect(() => {
@@ -310,6 +335,11 @@ export default function AiPage() {
             message: trimmed,
             schoolId: user?.schoolId ?? '',
             provider: selectedProvider || undefined,
+            locale,
+            history: messages
+              .filter(m => m.content)
+              .slice(-10)
+              .map(m => ({ role: m.role, content: m.content })),
           }),
         })
 
@@ -349,7 +379,7 @@ export default function AiPage() {
         setIsLoading(false)
       }
     },
-    [isLoading, user?.schoolId, selectedProvider]
+    [isLoading, user?.schoolId, selectedProvider, locale, messages]
   )
 
   /* ---- Keyboard handler ---- */
@@ -388,6 +418,18 @@ export default function AiPage() {
             <p className="text-xs text-text-secondary">{t('ai.subtitle')}</p>
           </div>
         </div>
+
+        <div className="flex items-center gap-2">
+        {/* Clear chat button */}
+        {messages.length > 0 && (
+          <button
+            onClick={() => setMessages([])}
+            className="flex items-center gap-1.5 rounded-lg border border-border-default bg-bg-surface px-3 py-1.5 text-sm text-text-muted transition hover:border-red-500/30 hover:text-red-400"
+            title={t('ai.clear_chat')}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        )}
 
         {/* AI Provider Selector */}
         {availableProviders.length > 0 && (
@@ -435,6 +477,7 @@ export default function AiPage() {
             )}
           </div>
         )}
+        </div>
       </div>
 
       {/* ---- Messages area ---- */}
