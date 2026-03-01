@@ -46,7 +46,56 @@ export async function GET(req: NextRequest) {
       include: { teacher: { include: { subjects: { include: { subject: true } } } } },
       orderBy: { date: 'asc' },
     })
-    return NextResponse.json(absences)
+
+    // ── Merge approved leave requests as virtual absences ──
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let leaveWhere: Record<string, any> = { schoolId, status: 'APPROVED' }
+    if (where.teacherId) leaveWhere.teacherId = where.teacherId
+    if (filter === 'today') {
+      leaveWhere.startDate = { lte: todayEnd }
+      leaveWhere.endDate = { gte: todayStart }
+    } else if (filter === 'upcoming') {
+      leaveWhere.OR = [
+        { startDate: { gt: todayEnd } },
+        { endDate: { gt: todayEnd } },
+      ]
+    }
+
+    const approvedLeaves = await prisma.leaveRequest.findMany({
+      where: leaveWhere,
+      include: {
+        teacher: { include: { subjects: { include: { subject: true } } } },
+        leaveType: true,
+      },
+      orderBy: { startDate: 'asc' },
+    })
+
+    // Convert leaves to absence-like objects so the UI can render them uniformly
+    const leaveAbsences = approvedLeaves
+      .filter(lr => !absences.some(a => a.teacherId === lr.teacherId && new Date(a.date).toDateString() === new Date(lr.startDate).toDateString()))
+      .map(lr => ({
+        id: `leave-${lr.id}`,
+        schoolId: lr.schoolId,
+        teacherId: lr.teacherId,
+        teacher: lr.teacher,
+        date: lr.startDate,
+        endDate: lr.endDate,
+        type: 'LEAVE',
+        leaveTypeName: lr.leaveType?.name || 'Leave',
+        leaveTypeColor: lr.leaveType?.colorHex || '#F59E0B',
+        periods: '[]',
+        note: lr.reason,
+        substituteId: null,
+        status: 'PENDING',
+        createdAt: lr.createdAt,
+        isLeave: true,
+        leaveId: lr.id,
+      }))
+
+    const merged = [...absences.map(a => ({ ...a, isLeave: false })), ...leaveAbsences]
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+
+    return NextResponse.json(merged)
   } catch (err) {
     console.error('[API Error]', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

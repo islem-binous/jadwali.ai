@@ -15,17 +15,37 @@ export async function GET(req: NextRequest) {
     const { error: authError } = await requireSchoolAccess(req, schoolId)
     if (authError) return authError
 
-    const absence = await prisma.absence.findUnique({
-      where: { id: absenceId },
-      include: { teacher: true },
-    })
-    if (!absence) {
-      return NextResponse.json({ error: 'Absence not found' }, { status: 404 })
+    // Support leave-sourced absences (id starts with "leave-")
+    let teacherId: string
+    let absenceDate: Date
+    if (absenceId.startsWith('leave-')) {
+      const leaveId = absenceId.replace('leave-', '')
+      const leave = await prisma.leaveRequest.findUnique({
+        where: { id: leaveId },
+        include: { teacher: true },
+      })
+      if (!leave) {
+        return NextResponse.json({ error: 'Leave not found' }, { status: 404 })
+      }
+      teacherId = leave.teacherId
+      // Use today's date if within leave range, otherwise startDate
+      const now = new Date()
+      absenceDate = now >= new Date(leave.startDate) && now <= new Date(leave.endDate) ? now : new Date(leave.startDate)
+    } else {
+      const absence = await prisma.absence.findUnique({
+        where: { id: absenceId },
+        include: { teacher: true },
+      })
+      if (!absence) {
+        return NextResponse.json({ error: 'Absence not found' }, { status: 404 })
+      }
+      teacherId = absence.teacherId
+      absenceDate = new Date(absence.date)
     }
 
     // Get affected lessons for the absent teacher on that day
     // Convert JS getDay() (0=Sun) to our convention (0=Mon)
-    const dayOfWeek = (new Date(absence.date).getDay() + 6) % 7
+    const dayOfWeek = (absenceDate.getDay() + 6) % 7
     const timetable = await prisma.timetable.findFirst({
       where: { schoolId, isActive: true },
     })
@@ -35,7 +55,7 @@ export async function GET(req: NextRequest) {
     const affectedLessons = await prisma.lesson.findMany({
       where: {
         timetableId: timetable.id,
-        teacherId: absence.teacherId,
+        teacherId,
         dayOfWeek,
       },
       include: { subject: true, period: true },
@@ -59,7 +79,7 @@ export async function GET(req: NextRequest) {
       select: { teacherId: true, dayOfWeek: true, periodId: true },
     })
 
-    const matches = findSubstitutes(absence.teacherId, affectedSlots, candidates, existingLessons)
+    const matches = findSubstitutes(teacherId, affectedSlots, candidates, existingLessons)
 
     return NextResponse.json(matches)
   } catch (err) {

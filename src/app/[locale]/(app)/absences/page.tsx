@@ -37,6 +37,10 @@ interface Absence {
   substituteId: string | null
   status: string
   createdAt: string
+  isLeave?: boolean
+  leaveTypeName?: string
+  leaveTypeColor?: string
+  leaveId?: string
 }
 
 interface TeacherOption {
@@ -381,9 +385,18 @@ export default function AbsencesPage() {
                         <span>
                           {formatAbsenceDates(absence.date, absence.endDate)}
                         </span>
-                        <Badge variant="default" size="sm">
-                          {t(`absences.${typeKey}`)}
-                        </Badge>
+                        {absence.isLeave ? (
+                          <span
+                            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium text-white"
+                            style={{ backgroundColor: absence.leaveTypeColor || '#F59E0B' }}
+                          >
+                            {absence.leaveTypeName || 'Leave'}
+                          </span>
+                        ) : (
+                          <Badge variant="default" size="sm">
+                            {t(`absences.${typeKey}`)}
+                          </Badge>
+                        )}
                       </div>
                     </div>
 
@@ -396,8 +409,8 @@ export default function AbsencesPage() {
                           : 'Pending'}
                     </Badge>
 
-                    {/* Edit / Delete buttons (admin only) */}
-                    {adminUser && (
+                    {/* Edit / Delete buttons (admin only, not for leave-sourced) */}
+                    {adminUser && !absence.isLeave && (
                       <div className="flex items-center gap-1">
                         <button
                           onClick={() => openEdit(absence)}
