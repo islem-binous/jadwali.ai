@@ -15,6 +15,36 @@ const SPORTS_CODES = new Set(['ت.بدنية', 'إخ.رياضي'])
 const ARTS_CODES = new Set(['ت.مسرحية', 'ت.تشكيلية', 'ت.موسيقية'])
 const ENGINEERING_CODES = new Set(['ه.آلية', 'ه.كهربائية'])
 
+// ── Default weekly hours by category (Tunisian curriculum averages) ──
+const DEFAULT_HOURS_BY_CATEGORY: Record<string, number> = {
+  CORE: 4,      // Arabic, Math, History-Geo
+  LANGUAGE: 3,  // French, English, etc.
+  SCIENCE: 3,   // Physics, Biology, Computer Science
+  SPORTS: 2,    // PE
+  ARTS: 1,      // Music, Theatre, Visual Arts
+  OTHER: 2,     // Engineering, etc.
+}
+
+// ── Specific subject hours (overrides category defaults) ──
+const SUBJECT_HOURS_BY_CODE: Record<string, number> = {
+  'عربية': 5,        // Arabic
+  'رياضيات': 5,      // Mathematics
+  'فرنسية': 4,       // French
+  'انقليزية': 3,     // English
+  'ع.فيزيائية': 3,   // Physics
+  'ع.الح.و.الأرض': 3, // Life Sciences
+  'التا و الجغ': 2,  // History & Geography
+  'ت.إسلامية': 1,    // Islamic Education
+  'ت.مدنية': 1,      // Civic Education
+  'ت.تكنولوجية': 3,  // Technology
+  'إعلامية': 2,      // Computer Science
+  'ت.بدنية': 2,      // PE
+  'ت.مسرحية': 1,     // Theatre
+  'ت.تشكيلية': 1,    // Visual Arts
+  'ت.موسيقية': 1,    // Music
+  'الفلسفة': 2,      // Philosophy
+}
+
 function mapCategory(code: string): string {
   if (LANGUAGE_CODES.has(code)) return 'LANGUAGE'
   if (SCIENCE_CODES.has(code)) return 'SCIENCE'
@@ -136,7 +166,40 @@ export async function POST(req: NextRequest) {
         created++
       }
 
-      return NextResponse.json({ created, skipped })
+      // Auto-populate GradeCurriculum: link imported subjects to existing grades
+      const schoolGrades = await prisma.grade.findMany({
+        where: { schoolId },
+        select: { id: true },
+      })
+      const allSubjects = await prisma.subject.findMany({
+        where: { schoolId },
+        select: { id: true, nameAr: true, category: true },
+      })
+
+      let curriculumCreated = 0
+      if (schoolGrades.length > 0 && allSubjects.length > 0) {
+        for (const grade of schoolGrades) {
+          for (const sub of allSubjects) {
+            const code = sub.nameAr || ''
+            const hoursPerWeek = SUBJECT_HOURS_BY_CODE[code]
+              ?? DEFAULT_HOURS_BY_CATEGORY[sub.category || 'CORE']
+              ?? 2
+
+            // Upsert: skip if already exists
+            const existing = await prisma.gradeCurriculum.findFirst({
+              where: { gradeId: grade.id, subjectId: sub.id },
+            })
+            if (!existing) {
+              await prisma.gradeCurriculum.create({
+                data: { gradeId: grade.id, subjectId: sub.id, hoursPerWeek },
+              })
+              curriculumCreated++
+            }
+          }
+        }
+      }
+
+      return NextResponse.json({ created, skipped, curriculumCreated })
     }
 
     return NextResponse.json({ error: 'Invalid type' }, { status: 400 })

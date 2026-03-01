@@ -216,8 +216,19 @@ export default function AiPage() {
         const report = data.readinessReport
         let reportText = '**Timetable Readiness Report**\n\n'
 
-        reportText += `**Summary:** ${report.summary.totalClasses} classes, ${report.summary.totalTeachers} teachers, ${report.summary.totalSubjects} subjects, ${report.summary.totalRooms} rooms\n`
+        reportText += `**Resources:** ${report.summary.totalClasses} classes, ${report.summary.totalTeachers}/${report.summary.totalTeachersNeeded} teachers (have/need), ${report.summary.totalRooms}/${report.summary.classroomsNeeded} rooms (have/need)\n`
         reportText += `**Teacher capacity:** ${report.summary.teacherCapacity}\n`
+
+        // Teacher estimates per subject
+        if (report.estimates?.length > 0) {
+          reportText += '\n**Teacher needs per subject:**\n'
+          for (const est of report.estimates) {
+            const status = est.deficit > 0
+              ? `need ${est.deficit} more`
+              : 'OK'
+            reportText += `- ${est.subject}: ${est.hoursNeeded}h/week — needs ${est.teachersNeeded} teacher(s), has ${est.teachersAvailable} — ${status}\n`
+          }
+        }
 
         if (report.critical?.length > 0) {
           reportText += '\n**Critical Issues (must fix before generating):**\n'

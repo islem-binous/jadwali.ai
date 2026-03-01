@@ -12,15 +12,26 @@ interface ReadinessIssue {
   details: string[]
 }
 
+interface SubjectEstimate {
+  subject: string
+  hoursNeeded: number
+  teachersNeeded: number
+  teachersAvailable: number
+  deficit: number
+}
+
 interface ReadinessReport {
   ready: boolean
   critical: ReadinessIssue[]
   warnings: ReadinessIssue[]
+  estimates: SubjectEstimate[]
   summary: {
     totalClasses: number
     totalTeachers: number
+    totalTeachersNeeded: number
     totalSubjects: number
     totalRooms: number
+    classroomsNeeded: number
     teacherCapacity: string
   }
 }
@@ -46,33 +57,111 @@ function validateReadiness(
   }
 
   const subjectNameMap = new Map(subjects.map((s: any) => [s.id, s.name]))
-  const uncoveredByGrade = new Map<string, Set<string>>()
+  const hasCurriculum = Object.keys(gradeCurriculum).length > 0
 
-  for (const [gradeId, curriculum] of Object.entries(gradeCurriculum)) {
-    for (const gc of curriculum) {
-      const teachersForSubject = teacherSubjectMap.get(gc.subjectId)
-      if (!teachersForSubject || teachersForSubject.size === 0) {
-        const gradeName = gradeNameMap.get(gradeId) || gradeId
-        const subjectName = subjectNameMap.get(gc.subjectId) || gc.subjectId
-        if (!uncoveredByGrade.has(gradeName)) uncoveredByGrade.set(gradeName, new Set())
-        uncoveredByGrade.get(gradeName)!.add(subjectName)
+  if (hasCurriculum) {
+    // Check curriculum-based coverage: each grade's subjects need a teacher
+    const uncoveredByGrade = new Map<string, Set<string>>()
+    for (const [gradeId, curriculum] of Object.entries(gradeCurriculum)) {
+      for (const gc of curriculum) {
+        const teachersForSubject = teacherSubjectMap.get(gc.subjectId)
+        if (!teachersForSubject || teachersForSubject.size === 0) {
+          const gradeName = gradeNameMap.get(gradeId) || gradeId
+          const subjectName = subjectNameMap.get(gc.subjectId) || gc.subjectId
+          if (!uncoveredByGrade.has(gradeName)) uncoveredByGrade.set(gradeName, new Set())
+          uncoveredByGrade.get(gradeName)!.add(subjectName)
+        }
       }
+    }
+
+    if (uncoveredByGrade.size > 0) {
+      const details: string[] = []
+      for (const [gradeName, subjectNames] of uncoveredByGrade) {
+        details.push(`${gradeName}: ${[...subjectNames].join(', ')}`)
+      }
+      critical.push({
+        type: 'MISSING_TEACHERS',
+        message: 'Some curriculum subjects have no assigned teachers',
+        details,
+      })
+    }
+  } else {
+    // No grade curriculum: solver assigns ALL subjects to ALL classes (fallback mode)
+    // Every subject must have at least one teacher
+    const uncoveredSubjects: string[] = []
+    for (const sub of subjects) {
+      const teachersForSubject = teacherSubjectMap.get(sub.id)
+      if (!teachersForSubject || teachersForSubject.size === 0) {
+        uncoveredSubjects.push(sub.name)
+      }
+    }
+
+    if (uncoveredSubjects.length > 0) {
+      critical.push({
+        type: 'MISSING_TEACHERS',
+        message: `${uncoveredSubjects.length} subject(s) have no assigned teachers`,
+        details: uncoveredSubjects.map(name => `${name}: no teacher assigned`),
+      })
     }
   }
 
-  if (uncoveredByGrade.size > 0) {
-    const details: string[] = []
-    for (const [gradeName, subjectNames] of uncoveredByGrade) {
-      details.push(`${gradeName}: ${[...subjectNames].join(', ')}`)
+  // 1b. Per-subject teacher estimation
+  // For each subject, calculate hours needed and teachers required
+  const DEFAULT_MAX_PER_WEEK = 18
+  const estimates: SubjectEstimate[] = []
+
+  for (const sub of subjects) {
+    const subjectTeacherIds = teacherSubjectMap.get(sub.id)
+    const teachersAvailable = subjectTeacherIds ? subjectTeacherIds.size : 0
+
+    // How many hours does this subject need across all classes?
+    let hoursNeeded = 0
+
+    if (hasCurriculum) {
+      for (const [gradeId, curriculum] of Object.entries(gradeCurriculum)) {
+        const entry = curriculum.find(gc => gc.subjectId === sub.id)
+        if (entry) {
+          const numClasses = classes.filter((c: any) => c.gradeId === gradeId).length
+          hoursNeeded += entry.hoursPerWeek * numClasses
+        }
+      }
+    } else {
+      // Fallback: all classes need all subjects (~2h each)
+      hoursNeeded = classes.length * 2
     }
-    critical.push({
-      type: 'MISSING_TEACHERS',
-      message: 'Some curriculum subjects have no assigned teachers',
-      details,
+
+    if (hoursNeeded === 0) continue
+
+    // Teachers needed = ceil(hoursNeeded / maxPeriodsPerWeek)
+    const teachersNeeded = Math.ceil(hoursNeeded / DEFAULT_MAX_PER_WEEK)
+    const deficit = Math.max(0, teachersNeeded - teachersAvailable)
+
+    estimates.push({
+      subject: sub.name,
+      hoursNeeded,
+      teachersNeeded,
+      teachersAvailable,
+      deficit,
     })
   }
 
-  // 2. Room Type Availability
+  // Sort: subjects with biggest deficit first
+  estimates.sort((a, b) => b.deficit - a.deficit)
+
+  // Flag subjects with capacity issues
+  const subjectCapacityIssues = estimates
+    .filter(e => e.deficit > 0)
+    .map(e => `${e.subject}: needs ${e.teachersNeeded} teacher(s) (${e.hoursNeeded}h/week), has ${e.teachersAvailable} — need ${e.deficit} more`)
+
+  if (subjectCapacityIssues.length > 0) {
+    warnings.push({
+      type: 'SUBJECT_CAPACITY',
+      message: 'Some subjects need more teachers',
+      details: subjectCapacityIssues,
+    })
+  }
+
+  // 2. Room / Classroom estimation
   const roomTypes = new Set(rooms.map((r: any) => r.type))
   const missingRoomTypes: string[] = []
 
@@ -97,25 +186,27 @@ function validateReadiness(
     })
   }
 
-  // 3. Teacher Workload Feasibility
+  // Classrooms needed: at any given period, each class needs a room
+  // Minimum classrooms = number of classes (since all classes run in parallel)
+  const classroomsNeeded = classes.length
+  const classroomsAvailable = rooms.length
+  if (classroomsAvailable < classroomsNeeded) {
+    warnings.push({
+      type: 'INSUFFICIENT_ROOMS',
+      message: `Not enough rooms: ${classroomsAvailable} available, ${classroomsNeeded} needed (1 per class)`,
+      details: [`Need ${classroomsNeeded - classroomsAvailable} more room(s) to avoid scheduling gaps`],
+    })
+  }
+
+  // 3. Teacher Workload Feasibility (overall)
   const totalCapacity = teachers.reduce((sum: number, t: any) => sum + (t.maxPeriodsPerWeek || 18), 0)
-  let totalDemand = 0
-  const classesPerGrade = new Map<string, number>()
-  for (const cls of classes) {
-    if (cls.gradeId) {
-      classesPerGrade.set(cls.gradeId, (classesPerGrade.get(cls.gradeId) || 0) + 1)
-    }
-  }
-  for (const [gradeId, curriculum] of Object.entries(gradeCurriculum)) {
-    const numClasses = classesPerGrade.get(gradeId) || 0
-    const gradeHours = curriculum.reduce((s, gc) => s + gc.hoursPerWeek, 0)
-    totalDemand += gradeHours * numClasses
-  }
+  let totalDemand = estimates.reduce((sum, e) => sum + e.hoursNeeded, 0)
+  const totalTeachersNeeded = estimates.reduce((sum, e) => sum + e.teachersNeeded, 0)
 
   if (totalDemand > 0 && totalCapacity < totalDemand) {
     warnings.push({
       type: 'CAPACITY_SHORTAGE',
-      message: `Teacher capacity may be insufficient`,
+      message: `Overall teacher capacity insufficient`,
       details: [`Available: ${totalCapacity}h/week — Required: ${totalDemand}h/week (deficit: ${totalDemand - totalCapacity}h)`],
     })
   }
@@ -134,11 +225,14 @@ function validateReadiness(
     ready: critical.length === 0,
     critical,
     warnings,
+    estimates,
     summary: {
       totalClasses: classes.length,
       totalTeachers: teachers.length,
+      totalTeachersNeeded,
       totalSubjects: subjects.length,
       totalRooms: rooms.length,
+      classroomsNeeded,
       teacherCapacity: totalDemand > 0
         ? `${totalCapacity}h available / ${totalDemand}h needed`
         : `${totalCapacity}h available`,
