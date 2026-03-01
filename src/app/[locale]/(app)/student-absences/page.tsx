@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Plus, Search, ClipboardCheck, Check, X } from 'lucide-react'
+import { Plus, Search, ClipboardCheck, Check, X, Pencil, Trash2 } from 'lucide-react'
 import { useUserStore } from '@/store/userStore'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -79,9 +79,15 @@ function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString(undefined, opts)
 }
 
-function parsePeriodIds(json: string): string[] {
+function parsePeriodIds(json: string | null | undefined): string[] {
+  if (!json) return []
   try {
-    return JSON.parse(json)
+    let parsed = JSON.parse(json)
+    // Handle double-encoded JSON (string that parses to a string)
+    if (typeof parsed === 'string') {
+      parsed = JSON.parse(parsed)
+    }
+    return Array.isArray(parsed) ? parsed : []
   } catch {
     return []
   }
@@ -89,7 +95,7 @@ function parsePeriodIds(json: string): string[] {
 
 function canManage(role: string | undefined): boolean {
   if (!role) return false
-  return ['DIRECTOR', 'ADMIN', 'STAFF'].includes(role)
+  return ['DIRECTOR', 'ADMIN', 'STAFF', 'TEACHER'].includes(role)
 }
 
 function canAdd(role: string | undefined): boolean {
@@ -182,6 +188,17 @@ export default function StudentAbsencesPage() {
   const [justifySaving, setJustifySaving] = useState(false)
 
   /* ---------------------------------------------------------------- */
+  /*  Edit Modal State                                                 */
+  /* ---------------------------------------------------------------- */
+
+  const [editTarget, setEditTarget] = useState<StudentAbsence | null>(null)
+  const [editDate, setEditDate] = useState('')
+  const [editPeriodIds, setEditPeriodIds] = useState<Set<string>>(new Set())
+  const [editType, setEditType] = useState<'UNJUSTIFIED' | 'LATE'>('UNJUSTIFIED')
+  const [editReason, setEditReason] = useState('')
+  const [editSaving, setEditSaving] = useState(false)
+
+  /* ---------------------------------------------------------------- */
   /*  Delete State                                                     */
   /* ---------------------------------------------------------------- */
 
@@ -215,7 +232,11 @@ export default function StudentAbsencesPage() {
   const fetchClasses = useCallback(async () => {
     if (!schoolId) return
     try {
-      const res = await fetch(`/api/classes?schoolId=${schoolId}`)
+      let url = `/api/classes?schoolId=${schoolId}`
+      if (user?.role === 'TEACHER' && user?.teacherId) {
+        url += `&teacherId=${user.teacherId}`
+      }
+      const res = await fetch(url)
       if (res.ok) {
         const data = await res.json()
         setClasses(data)
@@ -223,7 +244,7 @@ export default function StudentAbsencesPage() {
     } catch {
       // silent
     }
-  }, [schoolId])
+  }, [schoolId, user?.role, user?.teacherId])
 
   const fetchPeriods = useCallback(async () => {
     if (!schoolId) return
@@ -371,7 +392,7 @@ export default function StudentAbsencesPage() {
             schoolId,
             studentId,
             date: addDate,
-            periodIds: JSON.stringify(periodIdsArray),
+            periodIds: periodIdsArray,
             type: addType,
             reason: addReason.trim() || null,
             reportedBy: user?.id ?? null,
@@ -452,6 +473,69 @@ export default function StudentAbsencesPage() {
     setJustifyTarget(absence)
     setJustifyReason(absence.reason ?? '')
     setJustifyNote(absence.note ?? '')
+  }
+
+  const openEdit = (absence: StudentAbsence) => {
+    setEditTarget(absence)
+    setEditDate(absence.date.split('T')[0])
+    setEditPeriodIds(new Set(parsePeriodIds(absence.periodIds)))
+    setEditType(absence.type === 'LATE' ? 'LATE' : 'UNJUSTIFIED')
+    setEditReason(absence.reason ?? '')
+  }
+
+  const closeEdit = () => {
+    setEditTarget(null)
+    setEditDate('')
+    setEditPeriodIds(new Set())
+    setEditType('UNJUSTIFIED')
+    setEditReason('')
+  }
+
+  const toggleEditPeriod = (id: string) => {
+    setEditPeriodIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }
+
+  const handleEdit = async () => {
+    if (!editTarget) return
+    if (editPeriodIds.size === 0) {
+      toast.error(t('studentAbsences.periods'))
+      return
+    }
+
+    setEditSaving(true)
+    try {
+      const res = await fetch('/api/student-absences', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editTarget.id,
+          date: editDate,
+          periodIds: Array.from(editPeriodIds),
+          type: editType,
+          reason: editReason.trim() || null,
+        }),
+      })
+
+      if (res.ok) {
+        toast.success(t('app.edit'))
+        closeEdit()
+        await fetchAbsences()
+      } else {
+        toast.error(t('app.error'))
+      }
+    } catch {
+      toast.error(t('app.error'))
+    } finally {
+      setEditSaving(false)
+    }
   }
 
   /* ---------------------------------------------------------------- */
@@ -652,11 +736,18 @@ export default function StudentAbsencesPage() {
                       </Button>
                     )}
                     <button
+                      onClick={() => openEdit(absence)}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:bg-bg-surface hover:text-text-primary transition"
+                      aria-label={t('app.edit')}
+                    >
+                      <Pencil size={14} />
+                    </button>
+                    <button
                       onClick={() => setDeleteTarget(absence)}
                       className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:bg-danger-dim hover:text-danger transition"
                       aria-label={t('app.delete')}
                     >
-                      <X size={14} />
+                      <Trash2 size={14} />
                     </button>
                   </div>
                 )}
@@ -700,11 +791,20 @@ export default function StudentAbsencesPage() {
                   )}
                   {canManage(user?.role) && (
                     <button
+                      onClick={() => openEdit(absence)}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:bg-bg-surface hover:text-text-primary transition"
+                      aria-label={t('app.edit')}
+                    >
+                      <Pencil size={14} />
+                    </button>
+                  )}
+                  {canManage(user?.role) && (
+                    <button
                       onClick={() => setDeleteTarget(absence)}
                       className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:bg-danger-dim hover:text-danger transition"
                       aria-label={t('app.delete')}
                     >
-                      <X size={14} />
+                      <Trash2 size={14} />
                     </button>
                   )}
                 </div>
@@ -977,6 +1077,120 @@ export default function StudentAbsencesPage() {
             >
               <Check size={16} />
               {t('studentAbsences.justify')}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ============================================================ */}
+      {/*  Edit Absence Modal                                           */}
+      {/* ============================================================ */}
+      <Modal
+        open={!!editTarget}
+        onClose={closeEdit}
+        title={t('app.edit')}
+        size="sm"
+      >
+        <div className="space-y-4">
+          {/* Student info (read-only) */}
+          {editTarget && (
+            <div className="rounded-lg border border-border-subtle bg-bg-surface px-3 py-2">
+              <p className="text-sm font-semibold text-text-primary">
+                {editTarget.student.name}
+              </p>
+              <p className="text-xs text-text-muted">
+                {editTarget.student.class.name}
+              </p>
+            </div>
+          )}
+
+          {/* Date */}
+          <div>
+            <label className="mb-1 block text-sm font-medium text-text-secondary">
+              {t('studentAbsences.date')} *
+            </label>
+            <input
+              type="date"
+              value={editDate}
+              onChange={(e) => setEditDate(e.target.value)}
+              className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
+            />
+          </div>
+
+          {/* Period checkboxes */}
+          <div>
+            <label className="mb-1 block text-sm font-medium text-text-secondary">
+              {t('studentAbsences.periods')} *
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {periods.map((period) => (
+                <button
+                  key={period.id}
+                  type="button"
+                  onClick={() => toggleEditPeriod(period.id)}
+                  className={`inline-flex items-center rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+                    editPeriodIds.has(period.id)
+                      ? 'border-accent bg-accent-dim text-accent'
+                      : 'border-border-subtle bg-transparent text-text-secondary hover:border-border-default hover:text-text-primary'
+                  }`}
+                >
+                  {period.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Type selector */}
+          <div>
+            <label className="mb-1 block text-sm font-medium text-text-secondary">
+              {t('studentAbsences.type')}
+            </label>
+            <div className="flex gap-2">
+              <FilterPill
+                label={t('studentAbsences.unjustified')}
+                active={editType === 'UNJUSTIFIED'}
+                onClick={() => setEditType('UNJUSTIFIED')}
+              />
+              <FilterPill
+                label={t('studentAbsences.late')}
+                active={editType === 'LATE'}
+                onClick={() => setEditType('LATE')}
+              />
+            </div>
+          </div>
+
+          {/* Reason */}
+          <div>
+            <label className="mb-1 block text-sm font-medium text-text-secondary">
+              {t('studentAbsences.reason')}
+            </label>
+            <textarea
+              value={editReason}
+              onChange={(e) => setEditReason(e.target.value)}
+              rows={2}
+              className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none resize-none"
+              placeholder={t('studentAbsences.reason')}
+            />
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-3 pt-2">
+            <Button
+              variant="secondary"
+              size="md"
+              className="flex-1"
+              onClick={closeEdit}
+            >
+              {t('app.cancel')}
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
+              className="flex-1"
+              loading={editSaving}
+              onClick={handleEdit}
+            >
+              {t('app.save')}
             </Button>
           </div>
         </div>

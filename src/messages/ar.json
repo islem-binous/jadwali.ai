@@ -698,7 +698,8 @@
     "view_marks": "عرض الأعداد",
     "teacher": "الأستاذ",
     "exams_count": "الامتحانات",
-    "marks_count": "الأعداد"
+    "marks_count": "الأعداد",
+    "student_name": "اسم التلميذ"
   },
   "studentNotes": {
     "title": "ملاحظات التلاميذ",

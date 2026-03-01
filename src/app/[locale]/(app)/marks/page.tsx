@@ -388,29 +388,48 @@ function MarkEntryView({ exam, onBack, t, schoolId }: MarkEntryViewProps) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
-  // Fetch existing marks for this exam
+  // Fetch existing marks for this exam (or blank entries from class students)
   const fetchMarks = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/marks?examId=${exam.id}`)
+      const res = await fetch(`/api/marks?examId=${exam.id}&schoolId=${schoolId}`)
       if (res.ok) {
         const data: Mark[] = await res.json()
-        setMarks(
-          data.map((m) => ({
-            studentId: m.studentId,
-            studentName: m.student.name,
-            score: m.score !== null ? String(m.score) : '',
-            absent: m.absent,
-            note: m.note ?? '',
-          })),
-        )
+        if (data.length > 0) {
+          setMarks(
+            data.map((m) => ({
+              studentId: m.studentId,
+              studentName: m.student.name,
+              score: m.score !== null ? String(m.score) : '',
+              absent: m.absent,
+              note: m.note ?? '',
+            })),
+          )
+        } else {
+          // No marks yet — load class students and create blank entries
+          const studentsRes = await fetch(
+            `/api/students?schoolId=${schoolId}&classId=${exam.classId}`,
+          )
+          if (studentsRes.ok) {
+            const students = await studentsRes.json()
+            setMarks(
+              students.map((s: { id: string; name: string }) => ({
+                studentId: s.id,
+                studentName: s.name,
+                score: '',
+                absent: false,
+                note: '',
+              })),
+            )
+          }
+        }
       }
     } catch {
       toast.error(t('app.error'))
     } finally {
       setLoading(false)
     }
-  }, [exam.id, t, toast])
+  }, [exam.id, exam.classId, schoolId, t, toast])
 
   useEffect(() => {
     fetchMarks()
@@ -433,6 +452,7 @@ function MarkEntryView({ exam, onBack, t, schoolId }: MarkEntryViewProps) {
     try {
       const payload = {
         examId: exam.id,
+        schoolId,
         marks: marks.map((m) => ({
           studentId: m.studentId,
           score: m.absent ? null : m.score !== '' ? Number(m.score) : null,
@@ -635,7 +655,10 @@ function TeacherView({ user, t }: TeacherViewProps) {
 
   // Fetch exams for teacher (depends on selectedTerm)
   const fetchExams = useCallback(async () => {
-    if (!user.schoolId || !user.teacherId || !selectedTerm) return
+    if (!user.schoolId || !user.teacherId || !selectedTerm) {
+      setLoading(false)
+      return
+    }
     setLoading(true)
     try {
       const res = await fetch(
@@ -904,7 +927,10 @@ function StudentView({ user, t }: StudentViewProps) {
   }, [user.schoolId])
 
   const fetchReport = useCallback(async () => {
-    if (!user.studentId || !selectedTerm) return
+    if (!user.studentId || !selectedTerm) {
+      setLoading(false)
+      return
+    }
     setLoading(true)
     try {
       const res = await fetch(
@@ -1116,7 +1142,10 @@ function AdminView({ user, t }: AdminViewProps) {
 
   // Fetch exams
   const fetchExams = useCallback(async () => {
-    if (!user.schoolId || !selectedTerm) return
+    if (!user.schoolId || !selectedTerm) {
+      setLoading(false)
+      return
+    }
     setLoading(true)
     try {
       let url = `/api/exams?schoolId=${user.schoolId}&termId=${selectedTerm}`
@@ -1169,7 +1198,7 @@ function AdminView({ user, t }: AdminViewProps) {
     setViewingExam(exam)
     setLoadingMarks(true)
     try {
-      const res = await fetch(`/api/marks?examId=${exam.id}`)
+      const res = await fetch(`/api/marks?examId=${exam.id}&schoolId=${user.schoolId}`)
       if (res.ok) {
         const data = await res.json()
         setViewMarks(data)

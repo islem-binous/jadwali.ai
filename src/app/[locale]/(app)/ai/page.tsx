@@ -193,11 +193,56 @@ export default function AiPage() {
 
       if (data.success) {
         setGeneratedTimetableId(data.timetableId)
-        const summary = data.conflictsFound > 0
+        let summary = data.conflictsFound > 0
           ? t('ai.gen_success', { name: data.timetableName, lessons: String(data.lessonsCreated), conflicts: String(data.conflictsFound) })
           : t('ai.gen_success_no_conflicts', { name: data.timetableName, lessons: String(data.lessonsCreated) })
+
+        // Append warnings from readiness report if present
+        if (data.readinessReport?.warnings?.length > 0) {
+          summary += '\n\n**Warnings:**\n'
+          for (const w of data.readinessReport.warnings) {
+            summary += `\n**${w.message}**\n`
+            for (const d of w.details) {
+              summary += `- ${d}\n`
+            }
+          }
+        }
+
         setMessages((prev) =>
           prev.map((m) => (m.id === assistantId ? { ...m, content: summary } : m))
+        )
+      } else if (data.readinessReport) {
+        // Display structured readiness report
+        const report = data.readinessReport
+        let reportText = '**Timetable Readiness Report**\n\n'
+
+        reportText += `**Summary:** ${report.summary.totalClasses} classes, ${report.summary.totalTeachers} teachers, ${report.summary.totalSubjects} subjects, ${report.summary.totalRooms} rooms\n`
+        reportText += `**Teacher capacity:** ${report.summary.teacherCapacity}\n`
+
+        if (report.critical?.length > 0) {
+          reportText += '\n**Critical Issues (must fix before generating):**\n'
+          for (const issue of report.critical) {
+            reportText += `\n**${issue.message}**\n`
+            for (const detail of issue.details) {
+              reportText += `- ${detail}\n`
+            }
+          }
+        }
+
+        if (report.warnings?.length > 0) {
+          reportText += '\n**Warnings:**\n'
+          for (const w of report.warnings) {
+            reportText += `\n**${w.message}**\n`
+            for (const d of w.details) {
+              reportText += `- ${d}\n`
+            }
+          }
+        }
+
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId ? { ...m, content: reportText } : m
+          )
         )
       } else {
         setMessages((prev) =>

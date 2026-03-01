@@ -11,6 +11,8 @@ import {
   CheckCircle,
   XCircle,
   CalendarOff,
+  Pencil,
+  Trash2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -147,6 +149,8 @@ export default function LeavePage() {
   const [modalOpen, setModalOpen] = useState(false)
 
   // Form state
+  const [editingRequest, setEditingRequest] = useState<LeaveRequest | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<LeaveRequest | null>(null)
   const [formTeacherId, setFormTeacherId] = useState('')
   const [formLeaveTypeId, setFormLeaveTypeId] = useState('')
   const [formStartDate, setFormStartDate] = useState(
@@ -284,17 +288,19 @@ export default function LeavePage() {
     }
   }
 
-  // Handle submit leave request
+  // Handle submit leave request (create or update)
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!formTeacherId || !formStartDate || !formEndDate) return
 
     setSaving(true)
     try {
+      const isEdit = !!editingRequest
       const res = await fetch('/api/leave', {
-        method: 'POST',
+        method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          ...(isEdit ? { id: editingRequest.id } : {}),
           schoolId: user!.schoolId,
           teacherId: formTeacherId,
           leaveTypeId: formLeaveTypeId,
@@ -305,7 +311,7 @@ export default function LeavePage() {
         }),
       })
       if (res.ok) {
-        toast.success(t('request_submitted'))
+        toast.success(isEdit ? tApp('save') : t('request_submitted'))
         closeModal()
         fetchLeaveRequests()
       } else {
@@ -318,7 +324,27 @@ export default function LeavePage() {
     }
   }
 
+  // Handle delete leave request
+  async function handleDelete() {
+    if (!deleteTarget) return
+    try {
+      const res = await fetch(`/api/leave?id=${deleteTarget.id}`, {
+        method: 'DELETE',
+      })
+      if (res.ok) {
+        toast.success(tApp('delete'))
+        setDeleteTarget(null)
+        fetchLeaveRequests()
+      } else {
+        toast.error(tApp('error'))
+      }
+    } catch {
+      toast.error(tApp('error'))
+    }
+  }
+
   function openCreate() {
+    setEditingRequest(null)
     setFormTeacherId(isTeacherRole && user?.teacherId ? user.teacherId : '')
     setFormLeaveTypeId(leaveTypes[0]?.id ?? '')
     setFormStartDate(new Date().toISOString().split('T')[0])
@@ -327,8 +353,19 @@ export default function LeavePage() {
     setModalOpen(true)
   }
 
+  function openEdit(leave: LeaveRequest) {
+    setEditingRequest(leave)
+    setFormTeacherId(leave.teacherId)
+    setFormLeaveTypeId(leave.leaveTypeId)
+    setFormStartDate(leave.startDate.slice(0, 10))
+    setFormEndDate(leave.endDate.slice(0, 10))
+    setFormReason(leave.reason ?? '')
+    setModalOpen(true)
+  }
+
   function closeModal() {
     setModalOpen(false)
+    setEditingRequest(null)
   }
 
   return (
@@ -492,6 +529,26 @@ export default function LeavePage() {
                     </button>
                   </div>
                 )}
+
+                {/* Edit/Delete for teacher's own PENDING requests */}
+                {isTeacherRole && leave.status === 'PENDING' && leave.teacherId === user?.teacherId && (
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => openEdit(leave)}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:bg-accent-dim hover:text-accent transition"
+                      aria-label={tApp('edit')}
+                    >
+                      <Pencil size={14} />
+                    </button>
+                    <button
+                      onClick={() => setDeleteTarget(leave)}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:bg-danger-dim hover:text-danger transition"
+                      aria-label={tApp('delete')}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -502,7 +559,7 @@ export default function LeavePage() {
       <Modal
         open={modalOpen}
         onClose={closeModal}
-        title={t('request_leave')}
+        title={editingRequest ? tApp('edit') : t('request_leave')}
         size="md"
       >
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -617,6 +674,43 @@ export default function LeavePage() {
           </div>
         </form>
       </Modal>
+
+      {/* Delete Confirmation Modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setDeleteTarget(null)}
+          />
+          <div className="relative w-full max-w-sm rounded-xl border border-border-subtle bg-bg-card p-6 shadow-modal">
+            <h3 className="font-display text-lg font-semibold text-text-primary">
+              {tApp('delete')}
+            </h3>
+            <p className="mt-2 text-sm text-text-secondary">
+              {deleteTarget.teacher.name} &mdash;{' '}
+              {formatLeaveDates(deleteTarget.startDate, deleteTarget.endDate)}
+            </p>
+            <div className="mt-5 flex gap-3">
+              <Button
+                variant="secondary"
+                size="md"
+                className="flex-1"
+                onClick={() => setDeleteTarget(null)}
+              >
+                {tApp('cancel')}
+              </Button>
+              <Button
+                variant="danger"
+                size="md"
+                className="flex-1"
+                onClick={handleDelete}
+              >
+                {tApp('delete')}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

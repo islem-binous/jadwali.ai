@@ -6,9 +6,15 @@ export async function GET(req: NextRequest) {
   try {
     const prisma = await getPrisma()
     const timetableId = req.nextUrl.searchParams.get('timetableId')
-    const schoolId = req.nextUrl.searchParams.get('schoolId')
+    let schoolId = req.nextUrl.searchParams.get('schoolId')
     if (!timetableId) {
       return NextResponse.json({ error: 'Missing timetableId' }, { status: 400 })
+    }
+
+    // Derive schoolId from timetable if not provided
+    if (!schoolId) {
+      const tt = await prisma.timetable.findUnique({ where: { id: timetableId }, select: { schoolId: true } })
+      if (tt) schoolId = tt.schoolId
     }
 
     const { error: authError } = await requireSchoolAccess(req, schoolId)

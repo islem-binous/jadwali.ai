@@ -25,17 +25,54 @@ export async function GET(req: NextRequest) {
       where.studentId = user!.studentId // Students see only their own absences
     } else if (user!.role === 'TEACHER' && user!.teacherId) {
       // Teachers see absences for students in their classes
-      const teacherLessons = await prisma.lesson.findMany({
-        where: { teacherId: user!.teacherId },
-        select: { classId: true },
-        distinct: ['classId'],
+      let teacherClassFilter: unknown = null
+
+      // 1) Try timetable lessons (active first, then most recent)
+      let timetable = await prisma.timetable.findFirst({
+        where: { schoolId, isActive: true },
+        select: { id: true },
       })
-      const teacherClassIds = teacherLessons.map((l) => l.classId)
-      if (teacherClassIds.length > 0) {
-        where.student = { classId: { in: teacherClassIds } }
-      } else {
-        where.student = { classId: '__none__' }
+      if (!timetable) {
+        timetable = await prisma.timetable.findFirst({
+          where: { schoolId },
+          orderBy: { createdAt: 'desc' },
+          select: { id: true },
+        })
       }
+      if (timetable) {
+        const teacherLessons = await prisma.lesson.findMany({
+          where: { teacherId: user!.teacherId, timetableId: timetable.id },
+          select: { classId: true },
+          distinct: ['classId'],
+        })
+        const teacherClassIds = teacherLessons.map((l) => l.classId)
+        if (teacherClassIds.length > 0) {
+          teacherClassFilter = { in: teacherClassIds }
+        }
+      }
+
+      // 2) Fallback: use TeacherGrade → Grade → Class
+      if (!teacherClassFilter) {
+        const teacherGrades = await prisma.teacherGrade.findMany({
+          where: { teacherId: user!.teacherId },
+          select: { gradeId: true },
+        })
+        if (teacherGrades.length > 0) {
+          const gradeIds = teacherGrades.map((tg: { gradeId: string }) => tg.gradeId)
+          const gradeClasses = await prisma.class.findMany({
+            where: { schoolId, gradeId: { in: gradeIds } },
+            select: { id: true },
+          })
+          if (gradeClasses.length > 0) {
+            teacherClassFilter = { in: gradeClasses.map((c: { id: string }) => c.id) }
+          }
+        }
+      }
+
+      if (teacherClassFilter) {
+        where.student = { classId: teacherClassFilter }
+      }
+      // If no grades assigned either, teacher sees all school absences
     }
 
     if (classId) {
@@ -96,7 +133,7 @@ export async function POST(req: NextRequest) {
         schoolId,
         studentId,
         date: new Date(date),
-        periodIds: JSON.stringify(periodIds || []),
+        periodIds: Array.isArray(periodIds) ? JSON.stringify(periodIds) : (periodIds || '[]'),
         type: type || 'UNJUSTIFIED',
         reason: reason || null,
         reportedBy: reportedBy || null,
@@ -126,7 +163,7 @@ export async function PUT(req: NextRequest) {
 
     const prisma = await getPrisma()
     const body = await req.json()
-    const { id, type, reason, justifiedBy, note } = body
+    const { id, type, reason, justifiedBy, note, date, periodIds } = body
 
     if (!id) {
       return NextResponse.json({ error: 'Missing absence id' }, { status: 400 })
@@ -143,6 +180,10 @@ export async function PUT(req: NextRequest) {
     if (type !== undefined) data.type = type
     if (reason !== undefined) data.reason = reason
     if (note !== undefined) data.note = note
+    if (date !== undefined) data.date = new Date(date)
+    if (periodIds !== undefined) {
+      data.periodIds = Array.isArray(periodIds) ? JSON.stringify(periodIds) : (periodIds || '[]')
+    }
     if (justifiedBy !== undefined) {
       data.justifiedBy = justifiedBy
       data.justifiedAt = new Date()

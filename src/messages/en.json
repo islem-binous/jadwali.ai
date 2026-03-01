@@ -698,7 +698,8 @@
     "view_marks": "View Marks",
     "teacher": "Teacher",
     "exams_count": "Exams",
-    "marks_count": "Marks"
+    "marks_count": "Marks",
+    "student_name": "Student Name"
   },
   "studentNotes": {
     "title": "Student Notes",

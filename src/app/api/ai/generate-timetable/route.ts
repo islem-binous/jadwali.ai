@@ -6,6 +6,146 @@ import { detectConflicts } from '@/lib/conflict-detector'
 import { requireSchoolAccess } from '@/lib/auth/require-auth'
 import { getAppSettings } from '@/lib/app-settings'
 
+interface ReadinessIssue {
+  type: string
+  message: string
+  details: string[]
+}
+
+interface ReadinessReport {
+  ready: boolean
+  critical: ReadinessIssue[]
+  warnings: ReadinessIssue[]
+  summary: {
+    totalClasses: number
+    totalTeachers: number
+    totalSubjects: number
+    totalRooms: number
+    teacherCapacity: string
+  }
+}
+
+function validateReadiness(
+  classes: any[],
+  teachers: any[],
+  subjects: any[],
+  rooms: any[],
+  gradeCurriculum: Record<string, { subjectId: string; hoursPerWeek: number }[]>,
+  gradeNameMap: Map<string, string>,
+): ReadinessReport {
+  const critical: ReadinessIssue[] = []
+  const warnings: ReadinessIssue[] = []
+
+  // 1. Subject-Teacher Coverage
+  const teacherSubjectMap = new Map<string, Set<string>>()
+  for (const t of teachers) {
+    for (const ts of t.subjects) {
+      if (!teacherSubjectMap.has(ts.subjectId)) teacherSubjectMap.set(ts.subjectId, new Set())
+      teacherSubjectMap.get(ts.subjectId)!.add(t.id)
+    }
+  }
+
+  const subjectNameMap = new Map(subjects.map((s: any) => [s.id, s.name]))
+  const uncoveredByGrade = new Map<string, Set<string>>()
+
+  for (const [gradeId, curriculum] of Object.entries(gradeCurriculum)) {
+    for (const gc of curriculum) {
+      const teachersForSubject = teacherSubjectMap.get(gc.subjectId)
+      if (!teachersForSubject || teachersForSubject.size === 0) {
+        const gradeName = gradeNameMap.get(gradeId) || gradeId
+        const subjectName = subjectNameMap.get(gc.subjectId) || gc.subjectId
+        if (!uncoveredByGrade.has(gradeName)) uncoveredByGrade.set(gradeName, new Set())
+        uncoveredByGrade.get(gradeName)!.add(subjectName)
+      }
+    }
+  }
+
+  if (uncoveredByGrade.size > 0) {
+    const details: string[] = []
+    for (const [gradeName, subjectNames] of uncoveredByGrade) {
+      details.push(`${gradeName}: ${[...subjectNames].join(', ')}`)
+    }
+    critical.push({
+      type: 'MISSING_TEACHERS',
+      message: 'Some curriculum subjects have no assigned teachers',
+      details,
+    })
+  }
+
+  // 2. Room Type Availability
+  const roomTypes = new Set(rooms.map((r: any) => r.type))
+  const missingRoomTypes: string[] = []
+
+  const hasScience = subjects.some((s: any) => s.category === 'SCIENCE')
+  if (hasScience && !roomTypes.has('LAB_SCIENCE') && !roomTypes.has('LAB') && !roomTypes.has('LAB_PHYSICS') && !roomTypes.has('LAB_BIOLOGY') && !roomTypes.has('LAB_CHEMISTRY')) {
+    missingRoomTypes.push('Science Lab (needed for science subjects)')
+  }
+  const hasPE = subjects.some((s: any) => s.category === 'PE')
+  if (hasPE && !roomTypes.has('GYM') && !roomTypes.has('GYMNASIUM')) {
+    missingRoomTypes.push('Gymnasium / Sports facility (needed for PE)')
+  }
+  const hasTech = subjects.some((s: any) => s.category === 'TECH')
+  if (hasTech && !roomTypes.has('LAB_COMPUTER')) {
+    missingRoomTypes.push('Computer Lab (needed for technology/computer subjects)')
+  }
+
+  if (missingRoomTypes.length > 0) {
+    warnings.push({
+      type: 'MISSING_ROOMS',
+      message: 'Some specialized room types are missing',
+      details: missingRoomTypes,
+    })
+  }
+
+  // 3. Teacher Workload Feasibility
+  const totalCapacity = teachers.reduce((sum: number, t: any) => sum + (t.maxPeriodsPerWeek || 18), 0)
+  let totalDemand = 0
+  const classesPerGrade = new Map<string, number>()
+  for (const cls of classes) {
+    if (cls.gradeId) {
+      classesPerGrade.set(cls.gradeId, (classesPerGrade.get(cls.gradeId) || 0) + 1)
+    }
+  }
+  for (const [gradeId, curriculum] of Object.entries(gradeCurriculum)) {
+    const numClasses = classesPerGrade.get(gradeId) || 0
+    const gradeHours = curriculum.reduce((s, gc) => s + gc.hoursPerWeek, 0)
+    totalDemand += gradeHours * numClasses
+  }
+
+  if (totalDemand > 0 && totalCapacity < totalDemand) {
+    warnings.push({
+      type: 'CAPACITY_SHORTAGE',
+      message: `Teacher capacity may be insufficient`,
+      details: [`Available: ${totalCapacity}h/week — Required: ${totalDemand}h/week (deficit: ${totalDemand - totalCapacity}h)`],
+    })
+  }
+
+  // 4. Classes without grade curriculum
+  const classesWithoutCurriculum = classes.filter((c: any) => !c.gradeId || !gradeCurriculum[c.gradeId])
+  if (classesWithoutCurriculum.length > 0) {
+    warnings.push({
+      type: 'NO_CURRICULUM',
+      message: `${classesWithoutCurriculum.length} class(es) have no grade curriculum defined`,
+      details: classesWithoutCurriculum.map((c: any) => `${c.name}: will use fallback subject hours`),
+    })
+  }
+
+  return {
+    ready: critical.length === 0,
+    critical,
+    warnings,
+    summary: {
+      totalClasses: classes.length,
+      totalTeachers: teachers.length,
+      totalSubjects: subjects.length,
+      totalRooms: rooms.length,
+      teacherCapacity: totalDemand > 0
+        ? `${totalCapacity}h available / ${totalDemand}h needed`
+        : `${totalCapacity}h available`,
+    },
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const prisma = await getPrisma()
@@ -29,7 +169,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Fetch school data (including grade curriculum and teacher-grade assignments)
-    const [school, classes, teachers, subjects, rooms, periods, gradeCurriculumRows, teacherGradeRows] = await Promise.all([
+    const [school, classes, teachers, subjects, rooms, periods, gradeCurriculumRows, teacherGradeRows, grades] = await Promise.all([
       prisma.school.findUnique({ where: { id: schoolId } }),
       prisma.class.findMany({ where: { schoolId }, orderBy: { name: 'asc' } }),
       prisma.teacher.findMany({
@@ -45,6 +185,7 @@ export async function POST(req: NextRequest) {
       prisma.teacherGrade.findMany({
         where: { grade: { schoolId } },
       }),
+      prisma.grade.findMany({ where: { schoolId }, select: { id: true, name: true } }),
     ])
 
     if (!school) {
@@ -79,6 +220,17 @@ export async function POST(req: NextRequest) {
     for (const tg of teacherGradeRows) {
       if (!teacherGrades.has(tg.teacherId)) teacherGrades.set(tg.teacherId, [])
       teacherGrades.get(tg.teacherId)!.push(tg.gradeId)
+    }
+
+    // ---- Pre-validation: readiness report ----
+    const gradeNameMap = new Map(grades.map((g: any) => [g.id, g.name]))
+    const readinessReport = validateReadiness(classes, teachers, subjects, rooms, gradeCurriculum, gradeNameMap)
+
+    if (!readinessReport.ready) {
+      return Response.json({
+        success: false,
+        readinessReport,
+      })
     }
 
     // Build constraints
@@ -176,6 +328,7 @@ export async function POST(req: NextRequest) {
       conflictsFound: conflicts.length,
       solveTimeMs: solveMs,
       stats: result.stats,
+      readinessReport: readinessReport.warnings.length > 0 ? readinessReport : undefined,
     })
   } catch (err) {
     console.error('[Generate Timetable] Error:', err)

@@ -101,7 +101,9 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const updateData: Record<string, unknown> = { ...rest }
+    const updateData: Record<string, unknown> = {}
+
+    // Status change (admin approve/reject)
     if (status) {
       updateData.status = status
       if (status === 'APPROVED') {
@@ -110,6 +112,24 @@ export async function PUT(req: NextRequest) {
       }
     }
     if (reason !== undefined) updateData.reason = reason
+
+    // Teacher edit fields
+    if (rest.leaveTypeId) updateData.leaveTypeId = rest.leaveTypeId
+    if (rest.startDate) updateData.startDate = new Date(rest.startDate)
+    if (rest.endDate) updateData.endDate = new Date(rest.endDate)
+    if (rest.startDate && rest.endDate) {
+      // Recalculate business days
+      const s = new Date(rest.startDate)
+      const e = new Date(rest.endDate)
+      let days = 0
+      const cur = new Date(s)
+      while (cur <= e) {
+        const day = cur.getDay()
+        if (day !== 0 && day !== 6) days++
+        cur.setDate(cur.getDate() + 1)
+      }
+      updateData.daysCount = Math.max(days, 1)
+    }
 
     const request = await prisma.leaveRequest.update({
       where: { id },

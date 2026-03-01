@@ -15,23 +15,44 @@ export async function GET(req: NextRequest) {
 
     const where: Record<string, unknown> = { schoolId }
 
-    // Optional: filter classes by teacher (via active timetable lessons)
+    // Optional: filter classes by teacher
     const teacherId = req.nextUrl.searchParams.get('teacherId')
     if (teacherId) {
-      const activeTimetable = await prisma.timetable.findFirst({
+      let classIds: string[] = []
+
+      // 1) Try timetable lessons (active first, then most recent)
+      let timetable = await prisma.timetable.findFirst({
         where: { schoolId, isActive: true },
         select: { id: true },
       })
-      if (activeTimetable) {
+      if (!timetable) {
+        timetable = await prisma.timetable.findFirst({
+          where: { schoolId },
+          orderBy: { createdAt: 'desc' },
+          select: { id: true },
+        })
+      }
+      if (timetable) {
         const lessons = await prisma.lesson.findMany({
-          where: { teacherId, timetableId: activeTimetable.id },
+          where: { teacherId, timetableId: timetable.id },
           select: { classId: true },
           distinct: ['classId'],
         })
-        where.id = { in: lessons.map((l: { classId: string }) => l.classId) }
+        classIds = lessons.map((l: { classId: string }) => l.classId)
+      }
+
+      // 2) Fallback: use TeacherGrade → Grade → Class
+      if (classIds.length === 0) {
+        const teacherGrades = await prisma.teacherGrade.findMany({
+          where: { teacherId },
+          select: { gradeId: true },
+        })
+        if (teacherGrades.length > 0) {
+          const gradeIds = teacherGrades.map((tg: { gradeId: string }) => tg.gradeId)
+          where.gradeId = { in: gradeIds }
+        }
       } else {
-        // No active timetable — return empty
-        where.id = '__none__'
+        where.id = { in: classIds }
       }
     }
 

@@ -135,13 +135,14 @@ export default function TimetablePage() {
   /* ---------- Fetch lessons ---------- */
   const fetchLessons = useCallback(async (timetableId: string) => {
     try {
-      const res = await fetch(`/api/timetable/lessons?timetableId=${timetableId}`)
+      const res = await fetch(`/api/timetable/lessons?timetableId=${timetableId}&schoolId=${schoolId}`)
+      if (!res.ok) { setLessons([]); return }
       const data: Lesson[] = await res.json()
       setLessons(data)
     } catch {
       setLessons([])
     }
-  }, [])
+  }, [schoolId])
 
   /* ---------- Fetch periods / classes / teachers / rooms / subjects / school days ---------- */
   const fetchMeta = useCallback(async () => {

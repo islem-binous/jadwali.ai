@@ -7,21 +7,67 @@ import { getAppSettings } from '@/lib/app-settings'
 async function buildSchoolContext(schoolId: string) {
   try {
     const prisma = await getPrisma()
-    const [school, teachers, classes, rooms, subjects, periods, absences, lessons] = await Promise.all([
+    const [school, teachers, classes, rooms, subjects, periods, absences, lessons, gradeCurriculumRows, grades] = await Promise.all([
       prisma.school.findUnique({ where: { id: schoolId } }),
       prisma.teacher.findMany({
         where: { schoolId },
         include: { subjects: { include: { subject: true } }, lessons: true, absences: { where: { date: { gte: new Date(new Date().setHours(0, 0, 0, 0)) } } } },
       }),
-      prisma.class.findMany({ where: { schoolId } }),
+      prisma.class.findMany({ where: { schoolId }, include: { grade: true } }),
       prisma.room.findMany({ where: { schoolId } }),
       prisma.subject.findMany({ where: { schoolId } }),
       prisma.period.findMany({ where: { schoolId }, orderBy: { order: 'asc' } }),
       prisma.absence.findMany({ where: { schoolId, date: { gte: new Date(new Date().setHours(0, 0, 0, 0)) } }, include: { teacher: true } }),
       prisma.lesson.findMany({ where: { timetable: { schoolId } }, include: { class: true, subject: true, teacher: true, room: true, period: true } }),
+      prisma.gradeCurriculum.findMany({
+        where: { grade: { schoolId } },
+        include: { subject: true },
+      }),
+      prisma.grade.findMany({ where: { schoolId }, select: { id: true, name: true } }),
     ])
 
     const activePeriods = periods.filter((p: any) => !p.isBreak)
+
+    // Build curriculum coverage analysis
+    const teacherSubjectIds = new Set<string>()
+    for (const t of teachers) {
+      for (const ts of (t as any).subjects) {
+        teacherSubjectIds.add(ts.subjectId)
+      }
+    }
+
+    const gradeNameMap = new Map(grades.map((g: any) => [g.id, g.name]))
+    const coverageByGrade = new Map<string, { subject: string; hours: number; covered: boolean }[]>()
+    for (const gc of gradeCurriculumRows) {
+      const gradeName = gradeNameMap.get((gc as any).gradeId) || (gc as any).gradeId
+      if (!coverageByGrade.has(gradeName)) coverageByGrade.set(gradeName, [])
+      coverageByGrade.get(gradeName)!.push({
+        subject: (gc as any).subject?.name || (gc as any).subjectId,
+        hours: (gc as any).hoursPerWeek,
+        covered: teacherSubjectIds.has((gc as any).subjectId),
+      })
+    }
+
+    let curriculumSection = ''
+    if (coverageByGrade.size > 0) {
+      curriculumSection = '\n## Curriculum Coverage\n'
+      for (const [gradeName, subjects] of coverageByGrade) {
+        const covered = subjects.filter(s => s.covered).length
+        const total = subjects.length
+        const missing = subjects.filter(s => !s.covered).map(s => s.subject)
+        curriculumSection += `- ${gradeName}: ${covered}/${total} subjects have teachers`
+        if (missing.length > 0) curriculumSection += ` — MISSING: ${missing.join(', ')}`
+        curriculumSection += '\n'
+      }
+    }
+
+    // Room inventory by type
+    const roomsByType = new Map<string, number>()
+    for (const r of rooms) {
+      const type = (r as any).type || 'CLASSROOM'
+      roomsByType.set(type, (roomsByType.get(type) || 0) + 1)
+    }
+    const roomInventory = `\n## Room Inventory\n${[...roomsByType.entries()].map(([type, count]) => `- ${type}: ${count}`).join('\n')}`
 
     return `## Current School Context
 School: ${school?.name || 'Unknown'}
@@ -30,10 +76,11 @@ Timezone: ${school?.timezone || 'UTC'}
 
 ## Resources
 - ${teachers.length} teachers: ${teachers.map((t: any) => `${t.name} (${t.subjects.map((s: any) => s.subject.name).join(', ')})`).join('; ')}
-- ${classes.length} classes: ${classes.map((c: any) => c.name).join(', ')}
+- ${classes.length} classes: ${classes.map((c: any) => `${c.name}${c.grade ? ` [${c.grade.name}]` : ''}`).join(', ')}
 - ${rooms.length} rooms: ${rooms.map((r: any) => `${r.name} (${r.type})`).join(', ')}
-- ${subjects.length} subjects: ${subjects.map((s: any) => s.name).join(', ')}
+- ${subjects.length} subjects: ${subjects.map((s: any) => `${s.name}${s.pedagogicDay ? ` (ped.day=${s.pedagogicDay})` : ''}`).join(', ')}
 - ${activePeriods.length} periods per day: ${activePeriods.map((p: any) => `${p.name} ${p.startTime}-${p.endTime}`).join(', ')}
+${curriculumSection}${roomInventory}
 
 ## Today's Status
 - Absences today: ${absences.length > 0 ? absences.map((a: any) => `${a.teacher.name} (${a.type})`).join(', ') : 'None'}
@@ -48,24 +95,80 @@ ${teachers.map((t: any) => `- ${t.name}: ${t.lessons.length}/${t.maxPeriodsPerWe
   }
 }
 
-const SYSTEM_PROMPT_TEMPLATE = `You are Jadwali AI Agent, an expert school scheduling consultant and assistant.
+const TUNISIAN_RULES_CONTEXT = `
+## Tunisian Education Scheduling Rules
+
+### Hard Constraints (must never be violated)
+- H1: Multi-hour sessions (2h, 3h, 4h) MUST be in consecutive periods with NO break between them
+- H2: Group sessions (ParGroupe) split the class into 2 groups — both must be scheduled; paired group subjects swap groups simultaneously
+- H3: Group sessions need specialized rooms (Science Lab for physics/biology, Tech Lab, Computer Lab, Gym)
+- H4: Biweekly sessions (ParQuinzaine) alternate weeks (Week A / Week B) — two biweekly subjects can share the same time slot
+- H5: PE needs gym/outdoor facilities, NEVER first period, multiple PE sessions must be on different days
+- H6: Same teacher must teach ALL sessions of a subject for a given class
+- H7: Teacher max 18h/week (15h/week for teachers with 25+ years seniority from recruitmentDate)
+- H8: Teacher max 4h/day for ALL teachers regardless of seniority
+- H9: Pedagogic day — each subject has a blocked day reserved for teacher training (absolute constraint)
+
+### Pedagogic Day Assignments (subject cannot be taught on this day)
+- Monday: History & Geography, Theatre
+- Tuesday: Islamic Education, Music, Physical Sciences
+- Wednesday: Technology, Mathematics
+- Thursday: Visual Arts, Arabic
+- Friday: Civic Education, French
+- Saturday: Computer Science, English, PE, Life Sciences
+
+### Soft Constraints (optimize in priority order)
+- S1: Heavy subjects (Math ≥5h, Physics, Arabic) should be in morning periods (periods 1-4)
+- S2: Spread sessions of the same subject across different days of the week
+- S3: No back-to-back same subject (unless it's a planned multi-hour block)
+- S4: Lab/practical sessions before lecture sessions in the week
+- S5: Arts and PE should be in afternoon periods when possible
+- S6: Balance daily load — mix heavy subjects (Math, Sciences) with light ones (Arts, PE, Civic Ed)
+
+### Room Rules
+- Specialized rooms (science labs, computer labs, tech labs) are RESERVED for matching session types only
+- Library ONLY for supervised study/reading — NEVER for teaching
+- Gymnasium ONLY for Physical Education — NEVER for other subjects (no exceptions)
+- Regular classrooms for standard lecture sessions
+- Last resort: empty specialized room for a regular session only if ALL classrooms are full
+
+### Teacher Workload Calculation
+- Default: 18h/week, 4h/day
+- Senior teachers (≥25 years seniority): 15h/week, 4h/day
+- Seniority = current school year start (September) - recruitment year
+- If teacher has a manually set lower limit, use the stricter (lower) value
+
+### Grade Levels
+- Middle School: 7th, 8th, 9th year (7أ, 8أ, 9أ)
+- 1st Year Secondary: Common trunk (1ث)
+- 2nd Year: Sciences (2ع), Technology (2تك), Letters (2آ), Economics (2إق), Sports (2ريا)
+- 3rd Year: Mathematics (3ر), Experimental Sciences (3ع), Letters (3آ), Economics (3إق), Technical Sciences (3تق), Sports (3ريا), Computer Science (3ع إ)
+- 4th Year (Baccalauréat): Same specializations as 3rd year (4ر, 4ع, 4آ, 4إق, 4تق, 4ريا, 4ع إ)
+`
+
+const SYSTEM_PROMPT_TEMPLATE = `You are Jadwali AI Agent, an expert school scheduling consultant specialized in the Tunisian education system.
 You are embedded inside the jadwali.ai platform and have full knowledge of the current school's configuration.
 
 ## Your Capabilities
 You can:
 1. Answer questions about the current school schedule, teachers, classes, and configuration
-2. Suggest optimal scheduling strategies
-3. Identify and help resolve scheduling conflicts
-4. Provide insights about teacher workloads and resource usage
-5. Help with leave management and substitute planning
-6. Give advice on best practices for school scheduling
+2. Analyze school readiness for timetable generation (check teacher-subject coverage, room availability, workload feasibility)
+3. Suggest optimal scheduling strategies following Tunisian education rules
+4. Identify and help resolve scheduling conflicts
+5. Provide insights about teacher workloads, curriculum coverage, and resource usage
+6. Help with leave management and substitute planning
+7. Explain Tunisian scheduling rules (pedagogic days, group sessions, biweekly sessions, etc.)
 
 {context}
+
+${TUNISIAN_RULES_CONTEXT}
 
 ## Behaviour Rules
 - Be concise and direct. Educators are busy professionals.
 - Always reference real data from the context above — never fabricate information.
+- When asked about readiness to generate a timetable, analyze curriculum coverage, teacher assignments, and room availability, then give a clear assessment.
 - When suggesting changes, explain the reasoning and impact.
+- If you notice missing teacher assignments or room types, proactively mention them.
 - If asked about something outside your scope, politely redirect to relevant features.
 - Use markdown formatting for readability.
 - Respond in the same language the user writes in.`
