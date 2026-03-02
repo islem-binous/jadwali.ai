@@ -43,6 +43,8 @@ export interface Lesson {
   class: { id: string; name: string }
   room?: { id: string; name: string } | null
   period: Period
+  groupLabel?: string | null
+  weekType?: string | null
 }
 
 interface TimetableGridProps {

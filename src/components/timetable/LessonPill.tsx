@@ -14,6 +14,8 @@ export interface LessonPillData {
   room?: { name: string } | null
   class: { name: string }
   isConflict: boolean
+  groupLabel?: string | null
+  weekType?: string | null
 }
 
 interface LessonPillProps {
@@ -92,6 +94,25 @@ export function LessonPill({ lesson, isAbsent = false, onClick }: LessonPillProp
         <p className="text-xs text-text-muted truncate mt-0.5">
           {lesson.room.name}
         </p>
+      )}
+
+      {/* Group / Week badges */}
+      {(lesson.groupLabel || lesson.weekType) && (
+        <div className="flex gap-1 mt-0.5">
+          {lesson.groupLabel && (
+            <span
+              className="px-1 py-0 text-[9px] font-semibold rounded"
+              style={{ backgroundColor: `${lesson.subject.colorHex}30`, color: lesson.subject.colorHex }}
+            >
+              Gr.{lesson.groupLabel}
+            </span>
+          )}
+          {lesson.weekType && (
+            <span className="px-1 py-0 text-[9px] font-semibold rounded bg-accent/15 text-accent">
+              S{lesson.weekType === 'A' ? '1' : '2'}
+            </span>
+          )}
+        </div>
       )}
 
       {/* Absent badge */}
