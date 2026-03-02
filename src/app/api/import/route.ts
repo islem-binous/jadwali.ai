@@ -557,7 +557,7 @@ async function handleClasses(
 // Rooms
 // ---------------------------------------------------------------------------
 
-const VALID_ROOM_TYPES = ['CLASSROOM', 'LAB_SCIENCE', 'LAB_COMPUTER', 'GYM', 'AUDITORIUM', 'ART_STUDIO', 'OTHER']
+const VALID_ROOM_TYPES = ['CLASSROOM', 'LAB_SCIENCE', 'LAB_PHYSICS', 'LAB_BIOLOGY', 'LAB_CHEMISTRY', 'LAB_COMPUTER', 'LAB_ENGINEERING', 'LAB', 'GYM', 'AUDITORIUM', 'ART_STUDIO', 'OTHER']
 
 async function handleRooms(
   schoolId: string,

@@ -8,6 +8,8 @@ Room 106,Main,30,CLASSROOM
 Room 201,Main,30,CLASSROOM
 Room 202,Main,30,CLASSROOM
 Science Lab,Main,30,LAB_SCIENCE
+Physics Lab,Main,30,LAB_PHYSICS
 Computer Lab,Main,30,LAB_COMPUTER
+Tech Lab,Main,30,LAB_ENGINEERING
 Gymnasium,,60,GYM
 Library,,40,OTHER
