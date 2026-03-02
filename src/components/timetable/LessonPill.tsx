@@ -2,7 +2,6 @@
 
 import React from 'react'
 import { useDraggable } from '@dnd-kit/core'
-import { CSS } from '@dnd-kit/utilities'
 import { AlertTriangle } from 'lucide-react'
 import { useTranslations, useLocale } from 'next-intl'
 import { getLocalizedName } from '@/lib/locale-name'
@@ -33,7 +32,6 @@ export function LessonPill({ lesson, isAbsent = false, onClick }: LessonPillProp
     attributes,
     listeners,
     setNodeRef,
-    transform,
     isDragging,
   } = useDraggable({
     id: lesson.id,
@@ -43,7 +41,6 @@ export function LessonPill({ lesson, isAbsent = false, onClick }: LessonPillProp
   const style: React.CSSProperties = {
     backgroundColor: `${lesson.subject.colorHex}20`,
     borderLeftColor: lesson.isConflict ? undefined : lesson.subject.colorHex,
-    transform: CSS.Translate.toString(transform),
   }
 
   return (
@@ -57,7 +54,7 @@ export function LessonPill({ lesson, isAbsent = false, onClick }: LessonPillProp
         relative w-full min-h-[56px] rounded-lg
         border-l-[3px] px-2.5 py-2
         cursor-grab active:cursor-grabbing
-        transition-all duration-150 ease-in-out
+        transition-[opacity,filter] duration-150 ease-in-out
         hover:brightness-110
         ${lesson.isConflict ? 'border-l-danger border border-danger/40' : 'border border-transparent'}
         ${isDragging ? 'opacity-60 scale-95 shadow-lg z-50' : ''}
