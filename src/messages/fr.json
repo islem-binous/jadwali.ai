@@ -258,7 +258,11 @@
     "template_view": "Modèle",
     "week_number": "Semaine {number}",
     "today_btn": "Aujourd'hui",
-    "holiday_label": "Jour férié"
+    "holiday_label": "Jour férié",
+    "print": "Imprimer",
+    "print_title": "Emploi du Temps",
+    "print_director": "Directeur",
+    "academic_year": "Année Scolaire"
   },
   "teachers": {
     "title": "Enseignants",

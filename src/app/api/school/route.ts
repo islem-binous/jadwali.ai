@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
       include: {
         periods: { orderBy: { order: 'asc' } },
         tunisianSchool: { include: { governorate: true } },
+        users: { where: { role: 'DIRECTOR' }, select: { name: true }, take: 1 },
       },
     })
 

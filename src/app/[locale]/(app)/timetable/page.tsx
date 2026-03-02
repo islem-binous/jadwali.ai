@@ -14,6 +14,7 @@ import {
   Loader2,
   ChevronLeft,
   ChevronRight,
+  Printer,
 } from 'lucide-react'
 import { useUserStore } from '@/store/userStore'
 import { isAdmin as checkIsAdmin } from '@/lib/permissions'
@@ -32,6 +33,7 @@ import {
 import { ImportModal } from '@/components/ui/ImportModal'
 import { triggerExport } from '@/lib/export-helpers'
 import { HelpTooltip } from '@/components/ui/HelpTooltip'
+import { openPrintTimetable } from '@/lib/print-timetable'
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -152,6 +154,8 @@ export default function TimetablePage() {
   const [creating, setCreating] = useState(false)
   const [showImportModal, setShowImportModal] = useState(false)
   const [days, setDays] = useState<number[]>([0, 1, 2, 3, 4])
+  const [schoolName, setSchoolName] = useState('')
+  const [directorName, setDirectorName] = useState('')
 
   /* ---------- Week navigation state ---------- */
   const [weekMode, setWeekMode] = useState<'template' | 'week'>('template')
@@ -225,14 +229,22 @@ export default function TimetablePage() {
     // Parse school days + year dates from school settings
     if (schoolRes.ok) {
       const schoolData = await schoolRes.json()
+      setSchoolName(schoolData.name || '')
+      setDirectorName(schoolData.users?.[0]?.name || '')
       try {
         const parsed = JSON.parse(schoolData.schoolDays || '[0,1,2,3,4,5]')
         if (Array.isArray(parsed) && parsed.length > 0) {
           setDays(parsed.sort((a: number, b: number) => a - b))
         }
       } catch { /* keep default */ }
-      if (schoolData.yearStartDate) setYearStartDate(new Date(schoolData.yearStartDate))
-      if (schoolData.yearEndDate) setYearEndDate(new Date(schoolData.yearEndDate))
+      if (schoolData.yearStartDate) {
+        const d = new Date(schoolData.yearStartDate)
+        if (!isNaN(d.getTime())) setYearStartDate(d)
+      }
+      if (schoolData.yearEndDate) {
+        const d = new Date(schoolData.yearEndDate)
+        if (!isNaN(d.getTime())) setYearEndDate(d)
+      }
     }
   }, [schoolId])
 
@@ -270,8 +282,10 @@ export default function TimetablePage() {
   /* ---------- Week navigation computed values ---------- */
   const weekParity = getWeekParity(currentWeekStart, yearStartDate)
   const weekNumber = getWeekNumber(currentWeekStart, yearStartDate)
-  const canGoPrev = currentWeekStart > yearStartDate
-  const canGoNext = addDays(currentWeekStart, 7) <= yearEndDate
+  const safeYearStart = isNaN(yearStartDate.getTime()) ? getDefaultYearStart() : yearStartDate
+  const safeYearEnd = isNaN(yearEndDate.getTime()) ? getDefaultYearEnd() : yearEndDate
+  const canGoPrev = currentWeekStart.getTime() > safeYearStart.getTime()
+  const canGoNext = addDays(currentWeekStart, 7).getTime() <= safeYearEnd.getTime()
 
   const handlePrevWeek = () => {
     setCurrentWeekStart(prev => addDays(prev, -7))
@@ -286,6 +300,47 @@ export default function TimetablePage() {
   const dateLocale = locale === 'ar' ? 'ar-TN' : locale === 'fr' ? 'fr-FR' : 'en-US'
   const weekEndDate = addDays(currentWeekStart, days.length > 0 ? days[days.length - 1] : 5)
   const weekRangeLabel = `${currentWeekStart.toLocaleDateString(dateLocale, { month: 'short', day: 'numeric' })} – ${weekEndDate.toLocaleDateString(dateLocale, { month: 'short', day: 'numeric' })}`
+
+  /* ---------- Print handler ---------- */
+  const handlePrint = () => {
+    // Determine the filter label
+    let filterLabel = ''
+    if (selectedFilter) {
+      if (viewMode === 'class') {
+        const cls = classes.find(c => c.id === selectedFilter)
+        filterLabel = cls ? getLocaleName(cls) : ''
+      } else if (viewMode === 'teacher') {
+        const tch = teachers.find(tc => tc.id === selectedFilter)
+        filterLabel = tch?.name || ''
+      } else if (viewMode === 'room') {
+        const rm = rooms.find(r => r.id === selectedFilter)
+        filterLabel = rm?.name || ''
+      }
+    }
+
+    // Academic year label
+    const startYear = safeYearStart.getFullYear()
+    const endYear = safeYearEnd.getFullYear()
+    const yearLabel = startYear === endYear ? `${startYear}` : `${startYear}-${endYear}`
+
+    openPrintTimetable({
+      schoolName,
+      directorName,
+      filterLabel,
+      yearLabel,
+      lessons: displayLessons,
+      periods,
+      days,
+      dayNames: days.map(d => t(DAY_KEYS[d])),
+      locale,
+      isRtl: locale === 'ar',
+      translations: {
+        printTitle: t('print_title'),
+        director: t('print_director'),
+        academicYear: t('academic_year'),
+      },
+    })
+  }
 
   /* ---------- Filter lessons by viewMode + selectedFilter ---------- */
   const filteredLessons = selectedFilter
@@ -655,31 +710,40 @@ export default function TimetablePage() {
           </Badge>
         </div>
 
-        {/* Right: actions (admin only) */}
-        {adminUser && (
-          <div className="flex items-center gap-2">
-            <Button variant="secondary" size="sm" onClick={handlePublish}>
-              <Upload size={14} />
-              {t('publish')}
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => {
-              if (activeTimetable && schoolId) {
-                triggerExport({ type: 'timetable', schoolId, timetableId: activeTimetable.id })
-              }
-            }}>
-              <Download size={14} />
-              {tApp('export')}
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => setShowImportModal(true)}>
-              <Upload size={14} />
-              {tApp('import')}
-            </Button>
-            <Button variant="danger" size="sm" onClick={handleReset}>
-              <Trash2 size={14} />
-              {t('reset')}
-            </Button>
-          </div>
-        )}
+        {/* Right: actions */}
+        <div className="flex items-center gap-2">
+          {/* Print — available to all users */}
+          <Button variant="ghost" size="sm" onClick={handlePrint}>
+            <Printer size={14} />
+            {t('print')}
+          </Button>
+
+          {/* Admin-only actions */}
+          {adminUser && (
+            <>
+              <Button variant="secondary" size="sm" onClick={handlePublish}>
+                <Upload size={14} />
+                {t('publish')}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => {
+                if (activeTimetable && schoolId) {
+                  triggerExport({ type: 'timetable', schoolId, timetableId: activeTimetable.id })
+                }
+              }}>
+                <Download size={14} />
+                {tApp('export')}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setShowImportModal(true)}>
+                <Upload size={14} />
+                {tApp('import')}
+              </Button>
+              <Button variant="danger" size="sm" onClick={handleReset}>
+                <Trash2 size={14} />
+                {t('reset')}
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* ====== VIEW SWITCHER (admin only) ====== */}
@@ -760,7 +824,7 @@ export default function TimetablePage() {
               type="button"
               onClick={handlePrevWeek}
               disabled={!canGoPrev}
-              className="rounded-lg border border-border-subtle p-1.5 text-text-secondary hover:bg-bg-surface2 hover:text-text-primary transition disabled:opacity-30 disabled:cursor-not-allowed"
+              className="rounded-lg border border-border-subtle p-1.5 text-text-secondary hover:bg-bg-surface2 hover:text-text-primary transition cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
             >
               <ChevronLeft size={16} />
             </button>
@@ -778,14 +842,14 @@ export default function TimetablePage() {
               type="button"
               onClick={handleNextWeek}
               disabled={!canGoNext}
-              className="rounded-lg border border-border-subtle p-1.5 text-text-secondary hover:bg-bg-surface2 hover:text-text-primary transition disabled:opacity-30 disabled:cursor-not-allowed"
+              className="rounded-lg border border-border-subtle p-1.5 text-text-secondary hover:bg-bg-surface2 hover:text-text-primary transition cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
             >
               <ChevronRight size={16} />
             </button>
             <button
               type="button"
               onClick={handleToday}
-              className="rounded-lg border border-border-subtle px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-surface2 hover:text-text-primary transition"
+              className="rounded-lg border border-border-subtle px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-surface2 hover:text-text-primary transition cursor-pointer"
             >
               {t('today_btn')}
             </button>

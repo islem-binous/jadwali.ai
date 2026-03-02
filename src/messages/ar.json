@@ -258,7 +258,11 @@
     "template_view": "نموذج",
     "week_number": "الأسبوع {number}",
     "today_btn": "اليوم",
-    "holiday_label": "عطلة رسمية"
+    "holiday_label": "عطلة رسمية",
+    "print": "طباعة",
+    "print_title": "جدول الحصص",
+    "print_director": "المدير",
+    "academic_year": "السنة الدراسية"
   },
   "teachers": {
     "title": "المعلمون",

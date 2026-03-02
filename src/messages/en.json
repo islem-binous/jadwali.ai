@@ -258,7 +258,11 @@
     "template_view": "Template",
     "week_number": "Week {number}",
     "today_btn": "Today",
-    "holiday_label": "Holiday"
+    "holiday_label": "Holiday",
+    "print": "Print",
+    "print_title": "Timetable",
+    "print_director": "Director",
+    "academic_year": "Academic Year"
   },
   "teachers": {
     "title": "Teachers",
