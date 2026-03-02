@@ -101,7 +101,7 @@ export function openPrintTimetable(params: PrintTimetableParams): void {
       continue
     }
 
-    tableRows += '<tr>'
+    tableRows += '<tr class="lesson-row">'
     // Period label cell
     tableRows += `<td class="period-cell"><strong>${escapeHtml(period.name)}</strong><br><span class="time">${escapeHtml(period.startTime)} - ${escapeHtml(period.endTime)}</span></td>`
 
@@ -207,6 +207,11 @@ export function openPrintTimetable(params: PrintTimetableParams): void {
     padding: 3px 4px;
     vertical-align: top;
     font-size: 10px;
+    overflow: hidden;
+  }
+  .lesson-row td {
+    height: 48px;
+    vertical-align: middle;
   }
   .period-cell {
     background: #f8f8fc;
@@ -218,11 +223,11 @@ export function openPrintTimetable(params: PrintTimetableParams): void {
   .period-cell strong { font-size: 11px; color: #222; }
   .time { font-size: 8px; color: #888; }
 
-  .lesson-cell { padding: 3px 5px; }
-  .subject { font-weight: 600; font-size: 10px; line-height: 1.3; }
-  .teacher { font-size: 9px; color: #555; }
-  .room { font-size: 8px; color: #888; }
-  .badges { margin-top: 1px; }
+  .lesson-cell { padding: 2px 5px; }
+  .subject { font-weight: 600; font-size: 9px; line-height: 1.2; }
+  .teacher { font-size: 8px; color: #555; line-height: 1.2; }
+  .room { font-size: 7px; color: #888; line-height: 1.2; }
+  .badges { margin-top: 0; }
   .badge {
     display: inline-block;
     font-size: 7px;
@@ -241,15 +246,15 @@ export function openPrintTimetable(params: PrintTimetableParams): void {
   /* Multi-lesson cells: compact stack */
   .multi-cell { padding: 1px 2px; }
   .multi-lesson {
-    padding: 2px 4px;
+    padding: 1px 3px;
     margin-bottom: 1px;
     border-radius: 2px;
-    font-size: 9px;
-    line-height: 1.3;
+    font-size: 8px;
+    line-height: 1.2;
   }
   .multi-lesson:last-child { margin-bottom: 0; }
-  .subject-sm { font-weight: 600; font-size: 9px; }
-  .teacher-sm { font-size: 8px; color: #666; }
+  .subject-sm { font-weight: 600; font-size: 8px; }
+  .teacher-sm { font-size: 7px; color: #666; }
 
   /* Break rows */
   .break-row td { border: 1px solid #ddd; }
