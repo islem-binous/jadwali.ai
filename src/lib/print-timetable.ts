@@ -21,6 +21,7 @@ interface PrintPeriod {
   endTime: string
   isBreak: boolean
   breakLabel?: string | null
+  applicableDays?: string
 }
 
 export interface PrintTimetableParams {
@@ -58,6 +59,17 @@ function getSubjectName(
   return subject.name
 }
 
+function isPeriodActiveOnDay(applicableDays: string | undefined | null, day: number): boolean {
+  if (!applicableDays) return true
+  try {
+    const days: number[] = JSON.parse(applicableDays)
+    if (!Array.isArray(days) || days.length === 0) return true
+    return days.includes(day)
+  } catch {
+    return true
+  }
+}
+
 export function openPrintTimetable(params: PrintTimetableParams): void {
   const {
     schoolName, directorName, filterLabel, yearLabel,
@@ -73,9 +85,7 @@ export function openPrintTimetable(params: PrintTimetableParams): void {
     lessonMap.set(key, arr)
   }
 
-  // Build table rows
-  const teachingPeriods = periods.filter(p => !p.isBreak)
-  const breakPeriods = new Set(periods.filter(p => p.isBreak).map(p => p.id))
+  const borderSide = isRtl ? 'right' : 'left'
 
   let tableRows = ''
   for (const period of periods) {
@@ -90,6 +100,12 @@ export function openPrintTimetable(params: PrintTimetableParams): void {
 
     // Day cells
     for (const day of days) {
+      // Check if this period is active on this day
+      if (!isPeriodActiveOnDay(period.applicableDays, day)) {
+        tableRows += '<td class="blocked-cell"></td>'
+        continue
+      }
+
       const cellLessons = lessonMap.get(`${day}-${period.id}`) || []
 
       if (cellLessons.length === 0) {
@@ -103,22 +119,22 @@ export function openPrintTimetable(params: PrintTimetableParams): void {
         if (l.groupLabel) badges += `<span class="badge" style="background:${l.subject.colorHex}30;color:${l.subject.colorHex}">Gr.${escapeHtml(l.groupLabel)}</span> `
         if (l.weekType) badges += `<span class="badge badge-week">S${l.weekType === 'A' ? '1' : '2'}</span>`
 
-        tableRows += `<td class="lesson-cell" style="background:${bgColor};border-${isRtl ? 'right' : 'left'}:3px solid ${borderColor}">`
+        tableRows += `<td class="lesson-cell" style="background:${bgColor};border-${borderSide}:3px solid ${borderColor}">`
         tableRows += `<div class="subject">${escapeHtml(subName)}</div>`
         tableRows += `<div class="teacher">${escapeHtml(l.teacher.name)}</div>`
         if (l.room) tableRows += `<div class="room">${escapeHtml(l.room.name)}</div>`
         if (badges) tableRows += `<div class="badges">${badges}</div>`
         tableRows += '</td>'
       } else {
-        // Multiple lessons in same cell (group/biweekly)
+        // Multiple lessons in same cell (group/biweekly) — flex layout, equal height
         const parts = cellLessons.map(l => {
           const subName = getSubjectName(l.subject, locale)
           let badges = ''
           if (l.groupLabel) badges += `<span class="badge" style="background:${l.subject.colorHex}30;color:${l.subject.colorHex}">Gr.${escapeHtml(l.groupLabel)}</span> `
           if (l.weekType) badges += `<span class="badge badge-week">S${l.weekType === 'A' ? '1' : '2'}</span>`
-          return `<div class="multi-lesson" style="border-${isRtl ? 'right' : 'left'}:2px solid ${l.subject.colorHex};background:${l.subject.colorHex}15"><span class="subject-sm">${escapeHtml(subName)}</span> <span class="teacher-sm">${escapeHtml(l.teacher.name)}</span>${badges ? ` ${badges}` : ''}</div>`
+          return `<div class="multi-lesson" style="border-${borderSide}:2px solid ${l.subject.colorHex};background:${l.subject.colorHex}15"><div class="subject-sm">${escapeHtml(subName)}</div><div class="teacher-sm">${escapeHtml(l.teacher.name)}${l.room ? ` · ${escapeHtml(l.room.name)}` : ''}${badges ? ` ${badges}` : ''}</div></div>`
         })
-        tableRows += `<td class="multi-cell">${parts.join('')}</td>`
+        tableRows += `<td class="multi-cell"><div class="multi-cell-inner">${parts.join('')}</div></td>`
       }
     }
     tableRows += '</tr>'
@@ -210,16 +226,40 @@ export function openPrintTimetable(params: PrintTimetableParams): void {
 
   .empty-cell { background: #fafafa; }
 
-  .multi-cell { padding: 1px 2px; }
-  .multi-lesson {
-    padding: 1px 3px;
-    margin-bottom: 1px;
-    border-radius: 2px;
-    font-size: 8px;
-    line-height: 1.3;
+  /* Blocked cell: period not active on this day (e.g. Fri/Sat afternoon) */
+  .blocked-cell {
+    background: repeating-linear-gradient(
+      135deg,
+      rgba(220, 50, 50, 0.06),
+      rgba(220, 50, 50, 0.06) 4px,
+      rgba(220, 50, 50, 0.12) 4px,
+      rgba(220, 50, 50, 0.12) 8px
+    );
   }
-  .subject-sm { font-weight: 600; }
-  .teacher-sm { color: #666; }
+
+  /* Multi-lesson cells: flex column with equal-height children */
+  .multi-cell {
+    padding: 1px;
+    height: 100%;
+  }
+  .multi-cell-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    height: 100%;
+  }
+  .multi-lesson {
+    flex: 1;
+    padding: 2px 4px;
+    border-radius: 2px;
+    font-size: 9px;
+    line-height: 1.3;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .subject-sm { font-weight: 600; font-size: 9px; }
+  .teacher-sm { font-size: 8px; color: #666; }
 
   .break-row td {
     background: #f5f5f5;
