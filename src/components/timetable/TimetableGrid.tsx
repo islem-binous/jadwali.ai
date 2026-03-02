@@ -279,7 +279,7 @@ export function TimetableGrid({
       <MobileDayTabs days={days} activeDay={mobileDay} weekStartDate={weekStartDate} holidays={holidays} onDayChange={setMobileDay} />
 
       {/* ============ DESKTOP GRID ============ */}
-      <div className="hidden lg:block rounded-xl border border-border-subtle bg-bg-card overflow-hidden">
+      <div className="hidden lg:block rounded-xl border border-border-subtle bg-bg-card overflow-clip">
         <div
           className="grid"
           style={{ gridTemplateColumns: gridCols }}

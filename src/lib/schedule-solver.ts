@@ -88,6 +88,20 @@ interface SessionPairing {
   role: 'primary' | 'secondary'
 }
 
+export type UnplacedReason = 'NO_TEACHER' | 'NO_ROOM' | 'NO_CONSECUTIVE_PERIODS' | 'ALL_SLOTS_FULL'
+
+export interface UnplacedSession {
+  classId: string
+  className: string
+  subjectId: string
+  subjectName: string
+  duration: number
+  sessionTypeCode: number
+  isGroup: boolean
+  isBiweekly: boolean
+  reason: UnplacedReason
+}
+
 function buildSessionPairings(sessions: SchedulableSession[]): Map<number, SessionPairing> {
   const pairings = new Map<number, SessionPairing>()
   const used = new Set<number>()
@@ -149,12 +163,16 @@ function buildSessionPairings(sessions: SchedulableSession[]): Map<number, Sessi
 
 export interface SolverResult {
   lessons: GeneratedLesson[]
+  unplacedSessions: UnplacedSession[]
   stats: {
     totalSlots: number
     filledSlots: number
     emptySlots: number
     conflictsAvoided: number
     teacherUtilization: Record<string, number>
+    totalSessions: number
+    placedSessions: number
+    unplacedCount: number
   }
 }
 
@@ -168,7 +186,8 @@ export function solveTimetable(constraints: ScheduleConstraints): SolverResult {
   if (!classes.length || !teachers.length || !subjects.length || !periods.length || !days.length) {
     return {
       lessons: [],
-      stats: { totalSlots: 0, filledSlots: 0, emptySlots: 0, conflictsAvoided: 0, teacherUtilization: {} },
+      unplacedSessions: [],
+      stats: { totalSlots: 0, filledSlots: 0, emptySlots: 0, conflictsAvoided: 0, teacherUtilization: {}, totalSessions: 0, placedSessions: 0, unplacedCount: 0 },
     }
   }
 
@@ -188,6 +207,7 @@ export function solveTimetable(constraints: ScheduleConstraints): SolverResult {
   // Lookups
   const subjectById = new Map(subjects.map((s) => [s.id, s]))
   const teacherById = new Map(teachers.map((t) => [t.id, t]))
+  const classById = new Map(classes.map((c) => [c.id, c]))
 
   // Build teacher → subjects index
   const teachersBySubject = new Map<string, typeof teachers>()
@@ -350,25 +370,6 @@ export function solveTimetable(constraints: ScheduleConstraints): SolverResult {
     return classSubjectDay.get(`${cid}:${day}`)?.get(sid) ?? 0
   }
 
-  function assign(classId: string, teacherId: string, roomId: string, subjectId: string, day: number, periodId: string) {
-    const key = sk(day, periodId)
-    if (!teacherBusy.has(key)) teacherBusy.set(key, new Set())
-    teacherBusy.get(key)!.add(teacherId)
-    if (!roomBusy.has(key)) roomBusy.set(key, new Set())
-    roomBusy.get(key)!.add(roomId)
-    if (!classBusy.has(key)) classBusy.set(key, new Set())
-    classBusy.get(key)!.add(classId)
-
-    teacherDayUsage.get(teacherId)![day]++
-    teacherWeekUsage.set(teacherId, (teacherWeekUsage.get(teacherId) ?? 0) + 1)
-
-    const csdKey = `${classId}:${day}`
-    if (!classSubjectDay.has(csdKey)) classSubjectDay.set(csdKey, new Map())
-    const csd = classSubjectDay.get(csdKey)!
-    csd.set(subjectId, (csd.get(subjectId) ?? 0) + 1)
-    classLastSubject.set(csdKey, subjectId)
-  }
-
   // ---------------------------------------------------------------------------
   // H1: Find consecutive teaching periods (no breaks between them)
   // ---------------------------------------------------------------------------
@@ -439,7 +440,222 @@ export function solveTimetable(constraints: ScheduleConstraints): SolverResult {
   }
 
   // ---------------------------------------------------------------------------
-  // Main scheduling loop
+  // Teacher finder (extracted to outer scope for use in repair pass)
+  // ---------------------------------------------------------------------------
+
+  function findTeacherFor(
+    cls: typeof classes[0], subjectId: string, day: number, pids: string[], dur: number, exclude?: string | null
+  ): typeof teachers[0] | null {
+    const lockedId = classTeacherLock.get(`${cls.id}:${subjectId}`)
+    if (lockedId && lockedId !== exclude) {
+      const t = teacherById.get(lockedId)!
+      const allFree = pids.every((pid) => isTeacherFree(t.id, day, pid))
+      if (allFree && canTeacherWork(t.id, day, dur)) {
+        if (!cls.gradeId || !t.grades?.length || t.grades.includes(cls.gradeId)) return t
+      }
+    }
+    const eligible = (teachersBySubject.get(subjectId) ?? []).filter((t) => {
+      if (exclude && t.id === exclude) return false
+      if (!pids.every((pid) => isTeacherFree(t.id, day, pid))) return false
+      if (!canTeacherWork(t.id, day, dur)) return false
+      if (cls.gradeId && t.grades && t.grades.length > 0 && !t.grades.includes(cls.gradeId)) return false
+      return true
+    })
+    if (eligible.length === 0) return null
+    eligible.sort((a, b) => (teacherWeekUsage.get(a.id) ?? 0) - (teacherWeekUsage.get(b.id) ?? 0))
+    return eligible[0]
+  }
+
+  // ---------------------------------------------------------------------------
+  // Placement helper — commits lessons + updates tracking state
+  // ---------------------------------------------------------------------------
+
+  function placeLessons(generatedLessons: GeneratedLesson[], sessions: SchedulableSession[], sessionIndices: number[]) {
+    const teacherCounted = new Set<string>()
+    const subjectCounted = new Set<string>()
+
+    for (const lesson of generatedLessons) {
+      lessons.push(lesson)
+      const key = sk(lesson.dayOfWeek, lesson.periodId)
+
+      // Busy maps (Sets — idempotent)
+      if (!teacherBusy.has(key)) teacherBusy.set(key, new Set())
+      teacherBusy.get(key)!.add(lesson.teacherId)
+      if (!roomBusy.has(key)) roomBusy.set(key, new Set())
+      roomBusy.get(key)!.add(lesson.roomId!)
+      if (!classBusy.has(key)) classBusy.set(key, new Set())
+      classBusy.get(key)!.add(lesson.classId)
+
+      // Teacher counters — once per (teacher, slot)
+      const tcKey = `${lesson.teacherId}:${lesson.dayOfWeek}:${lesson.periodId}`
+      if (!teacherCounted.has(tcKey)) {
+        teacherCounted.add(tcKey)
+        teacherDayUsage.get(lesson.teacherId)![lesson.dayOfWeek]++
+        teacherWeekUsage.set(lesson.teacherId, (teacherWeekUsage.get(lesson.teacherId) ?? 0) + 1)
+      }
+
+      // Subject day count — once per (subject, slot)
+      const scKey = `${lesson.classId}:${lesson.dayOfWeek}:${lesson.subjectId}:${lesson.periodId}`
+      if (!subjectCounted.has(scKey)) {
+        subjectCounted.add(scKey)
+        const csdKey = `${lesson.classId}:${lesson.dayOfWeek}`
+        if (!classSubjectDay.has(csdKey)) classSubjectDay.set(csdKey, new Map())
+        classSubjectDay.get(csdKey)!.set(lesson.subjectId, (classSubjectDay.get(csdKey)!.get(lesson.subjectId) ?? 0) + 1)
+        classLastSubject.set(csdKey, lesson.subjectId)
+      }
+    }
+
+    // Mark sessions as assigned
+    for (const idx of sessionIndices) {
+      sessions[idx].assigned = true
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Try to place a single session (or paired session) at a specific (day, pIdx)
+  // Returns generated lessons + session indices if successful, null otherwise
+  // ---------------------------------------------------------------------------
+
+  function tryPlaceSession(
+    cls: typeof classes[0],
+    sessions: SchedulableSession[],
+    pairMap: Map<number, SessionPairing>,
+    sIdx: number,
+    day: number,
+    pIdx: number,
+  ): { lessons: GeneratedLesson[]; indices: number[]; score: number } | null {
+    const session = sessions[sIdx]
+    const sub = subjectById.get(session.subjectId)
+    if (!sub) return null
+
+    // H9: Pedagogic day
+    const pedDay = sub.pedagogicDay ?? 0
+    if (pedDay > 0 && pedDay === day + 1) return null
+
+    // H5: PE not first period
+    if (sub.category === 'PE' && pIdx === 0) return null
+
+    // Check day count: max 1 session per subject per day
+    if (getClassSubjectDayCount(cls.id, day, session.subjectId) >= 1) return null
+
+    // H1: Find consecutive periods for multi-hour sessions
+    const period = teachingPeriods[pIdx]
+    let periodIds: string[]
+    if (session.duration > 1) {
+      const consecutive = findConsecutivePeriods(day, pIdx, session.duration)
+      if (!consecutive) return null
+      periodIds = consecutive
+      // Verify class is free for ALL consecutive periods
+      if (!periodIds.every((pid) => isClassFree(cls.id, day, pid))) return null
+    } else {
+      if (!isClassFree(cls.id, day, period.id)) return null
+      periodIds = [period.id]
+    }
+
+    // Find teacher for primary session
+    const teacher = findTeacherFor(cls, session.subjectId, day, periodIds, session.duration)
+    if (!teacher) return null
+
+    // Find room for primary session (H3)
+    const room = findRoom(day, periodIds, session.sessionTypeCode, sub.category)
+    if (!room) return null
+
+    // ---- Handle partner session if paired ----
+    const pairing = pairMap.get(sIdx)
+    let partnerSession: SchedulableSession | null = null
+    let partnerSub: typeof subjects[0] | undefined
+    let teacherB: typeof teachers[0] | null = null
+    let roomB: (typeof rooms)[0] | null = null
+
+    if (pairing && pairing.partner >= 0) {
+      partnerSession = sessions[pairing.partner]
+      if (partnerSession.assigned) return null
+      partnerSub = subjectById.get(partnerSession.subjectId)
+      if (!partnerSub) return null
+
+      // H9 for partner
+      const pPedDay = partnerSub.pedagogicDay ?? 0
+      if (pPedDay > 0 && pPedDay === day + 1) return null
+
+      // Day count for partner
+      if (getClassSubjectDayCount(cls.id, day, partnerSession.subjectId) >= 1) return null
+
+      // Duration must match for same slot
+      if (partnerSession.duration !== session.duration) return null
+
+      // Find teacher for partner (groups: must be different teacher)
+      const isGroupPair = pairing.type === 'group'
+      teacherB = findTeacherFor(
+        cls, partnerSession.subjectId, day, periodIds, partnerSession.duration,
+        isGroupPair ? teacher.id : null
+      )
+      if (!teacherB) return null
+
+      // Find room for partner (groups: must be different room)
+      const excludeRooms = isGroupPair ? new Set([room.id]) : undefined
+      roomB = findRoom(day, periodIds, partnerSession.sessionTypeCode, partnerSub.category, excludeRooms)
+      if (!roomB) return null
+    }
+
+    // ---- Score ----
+    let score = 0
+    const weekUsage = teacherWeekUsage.get(teacher.id) ?? 0
+    score += session.duration * 15
+    if (session.isGroup || session.isBiweekly) score += 10
+    score += (10 - countEligibleTeachers(session.subjectId, cls)) * 5
+    if ((sub.category === 'CORE' || sub.category === 'SCIENCE') && pIdx < 3) score += 3
+    const lastSub = classLastSubject.get(`${cls.id}:${day}`)
+    if (lastSub === session.subjectId) score -= 20
+    if ((sub.category === 'ARTS' || sub.category === 'SPORTS') && pIdx >= 3) score += 2
+    score -= weekUsage
+    if (partnerSession) score += 15
+
+    // ---- Generate lessons ----
+    const blockId = session.duration > 1 ? `block-${++blockCounter}` : null
+    let generatedLessons: GeneratedLesson[]
+    let sessionIndices: number[]
+
+    if (pairing?.type === 'group' && partnerSession && teacherB && roomB) {
+      generatedLessons = periodIds.flatMap((pid) => [
+        { classId: cls.id, subjectId: session.subjectId, teacherId: teacher!.id, roomId: room.id, periodId: pid, dayOfWeek: day, sessionTypeCode: session.sessionTypeCode, groupLabel: 'A', blockId, weekType: 'A' },
+        { classId: cls.id, subjectId: partnerSession!.subjectId, teacherId: teacherB!.id, roomId: roomB!.id, periodId: pid, dayOfWeek: day, sessionTypeCode: partnerSession!.sessionTypeCode, groupLabel: 'B', blockId, weekType: 'A' },
+        { classId: cls.id, subjectId: partnerSession!.subjectId, teacherId: teacherB!.id, roomId: roomB!.id, periodId: pid, dayOfWeek: day, sessionTypeCode: partnerSession!.sessionTypeCode, groupLabel: 'A', blockId, weekType: 'B' },
+        { classId: cls.id, subjectId: session.subjectId, teacherId: teacher!.id, roomId: room.id, periodId: pid, dayOfWeek: day, sessionTypeCode: session.sessionTypeCode, groupLabel: 'B', blockId, weekType: 'B' },
+      ])
+      sessionIndices = [sIdx, pairing.partner]
+    } else if (pairing?.type === 'group' && pairing.partner === -1) {
+      generatedLessons = periodIds.flatMap((pid) => [
+        { classId: cls.id, subjectId: session.subjectId, teacherId: teacher!.id, roomId: room.id, periodId: pid, dayOfWeek: day, sessionTypeCode: session.sessionTypeCode, groupLabel: 'A', blockId, weekType: 'A' },
+        { classId: cls.id, subjectId: session.subjectId, teacherId: teacher!.id, roomId: room.id, periodId: pid, dayOfWeek: day, sessionTypeCode: session.sessionTypeCode, groupLabel: 'B', blockId, weekType: 'B' },
+      ])
+      sessionIndices = [sIdx]
+    } else if (pairing?.type === 'biweekly' && partnerSession && teacherB && roomB) {
+      generatedLessons = periodIds.flatMap((pid) => [
+        { classId: cls.id, subjectId: session.subjectId, teacherId: teacher!.id, roomId: room.id, periodId: pid, dayOfWeek: day, sessionTypeCode: session.sessionTypeCode, groupLabel: null as string | null, blockId, weekType: 'A' },
+        { classId: cls.id, subjectId: partnerSession!.subjectId, teacherId: teacherB!.id, roomId: roomB!.id, periodId: pid, dayOfWeek: day, sessionTypeCode: partnerSession!.sessionTypeCode, groupLabel: null as string | null, blockId, weekType: 'B' },
+      ])
+      sessionIndices = [sIdx, pairing.partner]
+    } else if (pairing?.type === 'biweekly' && pairing.partner === -1) {
+      generatedLessons = periodIds.map((pid) => ({
+        classId: cls.id, subjectId: session.subjectId, teacherId: teacher!.id, roomId: room.id,
+        periodId: pid, dayOfWeek: day, sessionTypeCode: session.sessionTypeCode,
+        groupLabel: null as string | null, blockId, weekType: 'A' as string | null,
+      }))
+      sessionIndices = [sIdx]
+    } else {
+      generatedLessons = periodIds.map((pid) => ({
+        classId: cls.id, subjectId: session.subjectId, teacherId: teacher!.id, roomId: room.id,
+        periodId: pid, dayOfWeek: day, sessionTypeCode: session.sessionTypeCode,
+        groupLabel: null as string | null, blockId, weekType: null as string | null,
+      }))
+      sessionIndices = [sIdx]
+    }
+
+    return { lessons: generatedLessons, indices: sessionIndices, score }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Main scheduling loop (Pass 1: slot-first greedy)
   // ---------------------------------------------------------------------------
 
   const lessons: GeneratedLesson[] = []
@@ -460,33 +676,7 @@ export function solveTimetable(constraints: ScheduleConstraints): SolverResult {
 
         const sessions = classSessions.get(cls.id) ?? []
         const pairMap = classPairMaps.get(cls.id) ?? new Map()
-        let bestLesson: GeneratedLesson[] | null = null
-        let bestScore = -Infinity
-        let bestSessionIndices: number[] = []
-
-        // Helper: find a teacher for a given subject, excluding specific teacher IDs
-        function findTeacherFor(
-          subjectId: string, pids: string[], dur: number, exclude?: string | null
-        ): typeof teachers[0] | null {
-          const lockedId = classTeacherLock.get(`${cls.id}:${subjectId}`)
-          if (lockedId && lockedId !== exclude) {
-            const t = teacherById.get(lockedId)!
-            const allFree = pids.every((pid) => isTeacherFree(t.id, day, pid))
-            if (allFree && canTeacherWork(t.id, day, dur)) {
-              if (!cls.gradeId || !t.grades?.length || t.grades.includes(cls.gradeId)) return t
-            }
-          }
-          const eligible = (teachersBySubject.get(subjectId) ?? []).filter((t) => {
-            if (exclude && t.id === exclude) return false
-            if (!pids.every((pid) => isTeacherFree(t.id, day, pid))) return false
-            if (!canTeacherWork(t.id, day, dur)) return false
-            if (cls.gradeId && t.grades && t.grades.length > 0 && !t.grades.includes(cls.gradeId)) return false
-            return true
-          })
-          if (eligible.length === 0) return null
-          eligible.sort((a, b) => (teacherWeekUsage.get(a.id) ?? 0) - (teacherWeekUsage.get(b.id) ?? 0))
-          return eligible[0]
-        }
+        let bestResult: { lessons: GeneratedLesson[]; indices: number[]; score: number } | null = null
 
         for (let sIdx = 0; sIdx < sessions.length; sIdx++) {
           const session = sessions[sIdx]
@@ -496,183 +686,101 @@ export function solveTimetable(constraints: ScheduleConstraints): SolverResult {
           const pairing = pairMap.get(sIdx)
           if (pairing && pairing.role === 'secondary') continue
 
-          const sub = subjectById.get(session.subjectId)
-          if (!sub) continue
+          const result = tryPlaceSession(cls, sessions, pairMap, sIdx, day, pIdx)
+          if (!result) { conflictsAvoided++; continue }
 
-          // H9: Pedagogic day
-          const pedDay = sub.pedagogicDay ?? 0
-          if (pedDay > 0 && pedDay === day + 1) continue
-
-          // H5: PE not first period
-          if (sub.category === 'PE' && pIdx === 0) continue
-
-          // Check day count: max 1 session per subject per day
-          const dayCount = getClassSubjectDayCount(cls.id, day, session.subjectId)
-          if (dayCount >= 1) continue
-
-          // H1: Find consecutive periods for multi-hour sessions
-          let periodIds: string[]
-          if (session.duration > 1) {
-            const consecutive = findConsecutivePeriods(day, pIdx, session.duration)
-            if (!consecutive) continue
-            periodIds = consecutive
-          } else {
-            periodIds = [period.id]
-          }
-
-          // Find teacher for primary session
-          const teacher = findTeacherFor(session.subjectId, periodIds, session.duration)
-          if (!teacher) { conflictsAvoided++; continue }
-
-          // Find room for primary session (H3)
-          const room = findRoom(day, periodIds, session.sessionTypeCode, sub.category)
-          if (!room) { conflictsAvoided++; continue }
-
-          // ---- Handle partner session if paired ----
-          let partnerSession: SchedulableSession | null = null
-          let partnerSub: typeof subjects[0] | undefined
-          let teacherB: typeof teachers[0] | null = null
-          let roomB: (typeof rooms)[0] | null = null
-
-          if (pairing && pairing.partner >= 0) {
-            partnerSession = sessions[pairing.partner]
-            if (partnerSession.assigned) continue
-            partnerSub = subjectById.get(partnerSession.subjectId)
-            if (!partnerSub) continue
-
-            // H9 for partner
-            const pPedDay = partnerSub.pedagogicDay ?? 0
-            if (pPedDay > 0 && pPedDay === day + 1) continue
-
-            // Day count for partner
-            if (getClassSubjectDayCount(cls.id, day, partnerSession.subjectId) >= 1) continue
-
-            // Duration must match for same slot
-            if (partnerSession.duration !== session.duration) continue
-
-            // Find teacher for partner (groups: must be different teacher)
-            const isGroupPair = pairing.type === 'group'
-            teacherB = findTeacherFor(
-              partnerSession.subjectId, periodIds, partnerSession.duration,
-              isGroupPair ? teacher.id : null
-            )
-            if (!teacherB) { conflictsAvoided++; continue }
-
-            // Find room for partner (groups: must be different room)
-            const excludeRooms = isGroupPair ? new Set([room.id]) : undefined
-            roomB = findRoom(day, periodIds, partnerSession.sessionTypeCode, partnerSub.category, excludeRooms)
-            if (!roomB) { conflictsAvoided++; continue }
-          }
-
-          // ---- Score ----
-          let score = 0
-          const weekUsage = teacherWeekUsage.get(teacher.id) ?? 0
-          score += session.duration * 15
-          if (session.isGroup || session.isBiweekly) score += 10
-          score += (10 - countEligibleTeachers(session.subjectId, cls)) * 5
-          if ((sub.category === 'CORE' || sub.category === 'SCIENCE') && pIdx < 3) score += 3
-          const lastSub = classLastSubject.get(`${cls.id}:${day}`)
-          if (lastSub === session.subjectId) score -= 20
-          if ((sub.category === 'ARTS' || sub.category === 'SPORTS') && pIdx >= 3) score += 2
-          score -= weekUsage
-          if (partnerSession) score += 15 // bonus for successful pairing
-
-          if (score > bestScore) {
-            bestScore = score
-            const blockId = session.duration > 1 ? `block-${++blockCounter}` : null
-
-            let generatedLessons: GeneratedLesson[]
-            let sessionIndices: number[]
-
-            if (pairing?.type === 'group' && partnerSession && teacherB && roomB) {
-              // PAIRED GROUP: Group A → Subject X, Group B → Subject Y, swap next week
-              generatedLessons = periodIds.flatMap((pid) => [
-                { classId: cls.id, subjectId: session.subjectId, teacherId: teacher!.id, roomId: room.id, periodId: pid, dayOfWeek: day, sessionTypeCode: session.sessionTypeCode, groupLabel: 'A', blockId, weekType: 'A' },
-                { classId: cls.id, subjectId: partnerSession!.subjectId, teacherId: teacherB!.id, roomId: roomB!.id, periodId: pid, dayOfWeek: day, sessionTypeCode: partnerSession!.sessionTypeCode, groupLabel: 'B', blockId, weekType: 'A' },
-                { classId: cls.id, subjectId: partnerSession!.subjectId, teacherId: teacherB!.id, roomId: roomB!.id, periodId: pid, dayOfWeek: day, sessionTypeCode: partnerSession!.sessionTypeCode, groupLabel: 'A', blockId, weekType: 'B' },
-                { classId: cls.id, subjectId: session.subjectId, teacherId: teacher!.id, roomId: room.id, periodId: pid, dayOfWeek: day, sessionTypeCode: session.sessionTypeCode, groupLabel: 'B', blockId, weekType: 'B' },
-              ])
-              sessionIndices = [sIdx, pairing.partner]
-            } else if (pairing?.type === 'group' && pairing.partner === -1) {
-              // UNPAIRED GROUP: alternating groups, same subject
-              generatedLessons = periodIds.flatMap((pid) => [
-                { classId: cls.id, subjectId: session.subjectId, teacherId: teacher!.id, roomId: room.id, periodId: pid, dayOfWeek: day, sessionTypeCode: session.sessionTypeCode, groupLabel: 'A', blockId, weekType: 'A' },
-                { classId: cls.id, subjectId: session.subjectId, teacherId: teacher!.id, roomId: room.id, periodId: pid, dayOfWeek: day, sessionTypeCode: session.sessionTypeCode, groupLabel: 'B', blockId, weekType: 'B' },
-              ])
-              sessionIndices = [sIdx]
-            } else if (pairing?.type === 'biweekly' && partnerSession && teacherB && roomB) {
-              // PAIRED BIWEEKLY: whole class, alternating weeks
-              generatedLessons = periodIds.flatMap((pid) => [
-                { classId: cls.id, subjectId: session.subjectId, teacherId: teacher!.id, roomId: room.id, periodId: pid, dayOfWeek: day, sessionTypeCode: session.sessionTypeCode, groupLabel: null as string | null, blockId, weekType: 'A' },
-                { classId: cls.id, subjectId: partnerSession!.subjectId, teacherId: teacherB!.id, roomId: roomB!.id, periodId: pid, dayOfWeek: day, sessionTypeCode: partnerSession!.sessionTypeCode, groupLabel: null as string | null, blockId, weekType: 'B' },
-              ])
-              sessionIndices = [sIdx, pairing.partner]
-            } else if (pairing?.type === 'biweekly' && pairing.partner === -1) {
-              // UNPAIRED BIWEEKLY: week A only
-              generatedLessons = periodIds.map((pid) => ({
-                classId: cls.id, subjectId: session.subjectId, teacherId: teacher!.id, roomId: room.id,
-                periodId: pid, dayOfWeek: day, sessionTypeCode: session.sessionTypeCode,
-                groupLabel: null as string | null, blockId, weekType: 'A' as string | null,
-              }))
-              sessionIndices = [sIdx]
-            } else {
-              // REGULAR session
-              generatedLessons = periodIds.map((pid) => ({
-                classId: cls.id, subjectId: session.subjectId, teacherId: teacher!.id, roomId: room.id,
-                periodId: pid, dayOfWeek: day, sessionTypeCode: session.sessionTypeCode,
-                groupLabel: null as string | null, blockId, weekType: null as string | null,
-              }))
-              sessionIndices = [sIdx]
-            }
-
-            bestLesson = generatedLessons
-            bestSessionIndices = sessionIndices
+          if (!bestResult || result.score > bestResult.score) {
+            bestResult = result
           }
         }
 
-        // ---- Place the best candidate ----
-        if (bestLesson && bestLesson.length > 0) {
-          // Deduplicate teacher counter increments for paired lessons at same slot
-          const teacherCounted = new Set<string>()
-          const subjectCounted = new Set<string>()
+        if (bestResult) {
+          placeLessons(bestResult.lessons, sessions, bestResult.indices)
+        }
+      }
+    }
+  }
 
-          for (const lesson of bestLesson) {
-            lessons.push(lesson)
-            const key = sk(lesson.dayOfWeek, lesson.periodId)
+  // ---------------------------------------------------------------------------
+  // Repair pass (Pass 2: session-first, exhaustive search for unplaced sessions)
+  // ---------------------------------------------------------------------------
 
-            // Busy maps (Sets — idempotent)
-            if (!teacherBusy.has(key)) teacherBusy.set(key, new Set())
-            teacherBusy.get(key)!.add(lesson.teacherId)
-            if (!roomBusy.has(key)) roomBusy.set(key, new Set())
-            roomBusy.get(key)!.add(lesson.roomId!)
-            if (!classBusy.has(key)) classBusy.set(key, new Set())
-            classBusy.get(key)!.add(lesson.classId)
+  for (const cls of classes) {
+    const sessions = classSessions.get(cls.id) ?? []
+    const pairMap = classPairMaps.get(cls.id) ?? new Map()
 
-            // Teacher counters — once per (teacher, slot)
-            const tcKey = `${lesson.teacherId}:${lesson.dayOfWeek}:${lesson.periodId}`
-            if (!teacherCounted.has(tcKey)) {
-              teacherCounted.add(tcKey)
-              teacherDayUsage.get(lesson.teacherId)![lesson.dayOfWeek]++
-              teacherWeekUsage.set(lesson.teacherId, (teacherWeekUsage.get(lesson.teacherId) ?? 0) + 1)
-            }
+    for (let sIdx = 0; sIdx < sessions.length; sIdx++) {
+      const session = sessions[sIdx]
+      if (session.assigned) continue
 
-            // Subject day count — once per (subject, slot)
-            const scKey = `${lesson.classId}:${lesson.dayOfWeek}:${lesson.subjectId}:${lesson.periodId}`
-            if (!subjectCounted.has(scKey)) {
-              subjectCounted.add(scKey)
-              const csdKey = `${lesson.classId}:${lesson.dayOfWeek}`
-              if (!classSubjectDay.has(csdKey)) classSubjectDay.set(csdKey, new Map())
-              classSubjectDay.get(csdKey)!.set(lesson.subjectId, (classSubjectDay.get(csdKey)!.get(lesson.subjectId) ?? 0) + 1)
-              classLastSubject.set(csdKey, lesson.subjectId)
-            }
-          }
+      // Skip secondary — will be placed with primary
+      const pairing = pairMap.get(sIdx)
+      if (pairing && pairing.role === 'secondary') continue
 
-          // Mark all sessions in this placement as assigned
-          for (const idx of bestSessionIndices) {
-            sessions[idx].assigned = true
+      // Try every possible (day, period) combination
+      let placed = false
+      for (const day of sortedDays) {
+        if (placed) break
+        for (let pIdx = 0; pIdx < teachingPeriods.length; pIdx++) {
+          if (placed) break
+          const period = teachingPeriods[pIdx]
+          if (period.applicableDays?.length && !period.applicableDays.includes(day)) continue
+
+          const result = tryPlaceSession(cls, sessions, pairMap, sIdx, day, pIdx)
+          if (result) {
+            placeLessons(result.lessons, sessions, result.indices)
+            placed = true
           }
         }
       }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Collect unplaced sessions
+  // ---------------------------------------------------------------------------
+
+  const unplacedSessions: UnplacedSession[] = []
+
+  for (const cls of classes) {
+    const sessions = classSessions.get(cls.id) ?? []
+    const pairMap = classPairMaps.get(cls.id) ?? new Map()
+
+    for (let sIdx = 0; sIdx < sessions.length; sIdx++) {
+      const session = sessions[sIdx]
+      if (session.assigned) continue
+
+      // Skip secondary sessions whose primary is also unplaced (avoid double-reporting)
+      const pairing = pairMap.get(sIdx)
+      if (pairing && pairing.role === 'secondary') {
+        const primarySession = sessions[pairing.partner]
+        if (primarySession && !primarySession.assigned) continue
+      }
+
+      const sub = subjectById.get(session.subjectId)
+
+      // Determine reason by checking constraints
+      let reason: UnplacedReason = 'ALL_SLOTS_FULL'
+      const hasTeachers = (teachersBySubject.get(session.subjectId) ?? []).length > 0
+      if (!hasTeachers) {
+        reason = 'NO_TEACHER'
+      } else if (session.sessionTypeCode >= 2) {
+        const requiredTypes = SESSION_TYPE_ROOM_MAP[session.sessionTypeCode] ?? []
+        const hasRoom = rooms.some((r) => requiredTypes.includes(r.type))
+        if (!hasRoom) reason = 'NO_ROOM'
+      }
+
+      unplacedSessions.push({
+        classId: cls.id,
+        className: cls.name,
+        subjectId: session.subjectId,
+        subjectName: sub?.name ?? 'Unknown',
+        duration: session.duration,
+        sessionTypeCode: session.sessionTypeCode,
+        isGroup: session.isGroup,
+        isBiweekly: session.isBiweekly,
+        reason,
+      })
     }
   }
 
@@ -682,14 +790,23 @@ export function solveTimetable(constraints: ScheduleConstraints): SolverResult {
     teacherUtilization[t.name] = teacherWeekUsage.get(t.id) ?? 0
   }
 
+  const totalSessions = [...classSessions.values()].reduce((sum, s) => sum + s.length, 0)
+  const placedSessions = totalSessions - [...classSessions.values()].reduce(
+    (sum, s) => sum + s.filter((sess) => !sess.assigned).length, 0
+  )
+
   return {
     lessons,
+    unplacedSessions,
     stats: {
       totalSlots: classes.length * totalSlotsPerClass,
       filledSlots: lessons.length,
       emptySlots: classes.length * totalSlotsPerClass - lessons.length,
       conflictsAvoided,
       teacherUtilization,
+      totalSessions,
+      placedSessions,
+      unplacedCount: unplacedSessions.length,
     },
   }
 }

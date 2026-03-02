@@ -582,7 +582,7 @@ export async function POST(req: NextRequest) {
     // Run deterministic solver
     const result = solveTimetable(constraints)
     const solveMs = Date.now() - startTime
-    console.log(`[Generate] Solved in ${solveMs}ms — ${result.lessons.length} lessons, ${result.stats.conflictsAvoided} conflicts avoided`)
+    console.log(`[Generate] Solved in ${solveMs}ms — ${result.lessons.length} lessons, ${result.stats.placedSessions}/${result.stats.totalSessions} sessions placed, ${result.stats.unplacedCount} unplaced`)
 
     // Detect remaining conflicts (double-bookings the solver couldn't avoid)
     const lessonsWithTempIds = result.lessons.map((l, idx) => ({
@@ -652,6 +652,7 @@ export async function POST(req: NextRequest) {
       conflictsFound: conflicts.length,
       solveTimeMs: solveMs,
       stats: result.stats,
+      unplacedSessions: result.unplacedSessions.length > 0 ? result.unplacedSessions : undefined,
       readinessReport: readinessReport.warnings.length > 0 ? readinessReport : undefined,
     })
   } catch (err) {
