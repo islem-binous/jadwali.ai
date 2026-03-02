@@ -339,6 +339,7 @@
     "gen_view_timetable": "Voir l'emploi du temps",
     "report_title": "Rapport de préparation de l'emploi du temps",
     "report_resources": "Ressources",
+    "report_classes": "classes",
     "report_teachers_ratio": "{have}/{need} enseignants (existants/requis)",
     "report_rooms_ratio": "{have}/{need} salles (existantes/requises)",
     "report_teacher_capacity": "Capacité enseignants : {available}h disponibles / {needed}h requises",
@@ -754,7 +755,12 @@
     "rejection_reason": "Motif du rejet",
     "approved_success": "Autorisation approuvée",
     "rejected_success": "Autorisation rejetée",
-    "request_submitted": "Demande d'autorisation soumise"
+    "request_submitted": "Demande d'autorisation soumise",
+    "unjustified_absences": "Absences non justifiées",
+    "no_unjustified": "Aucune absence non justifiée",
+    "periods_count": "{count} séance(s)",
+    "request_for_selected": "Demande pour la sélection",
+    "request_for_absence": "Demander une autorisation"
   },
   "errors": {
     "conflict_teacher": "L'enseignant {name} est déjà assigné à ce créneau",

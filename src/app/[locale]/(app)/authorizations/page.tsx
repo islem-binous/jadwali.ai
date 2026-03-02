@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Plus, FileCheck, Check, X, Search } from 'lucide-react'
+import { Plus, FileCheck, Check, X, Search, AlertTriangle, ArrowRight } from 'lucide-react'
 import { useUserStore } from '@/store/userStore'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -37,6 +37,23 @@ interface ClassAuthorization {
   student: AuthorizationStudent
 }
 
+interface StudentAbsence {
+  id: string
+  schoolId: string
+  studentId: string
+  date: string
+  periodIds: string
+  type: string
+  reason: string | null
+  createdAt: string
+  student: {
+    id: string
+    name: string
+    classId: string
+    class: { id: string; name: string }
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
@@ -64,6 +81,19 @@ function formatDateRange(start: string, end: string | null): string {
 function canReview(role: string | undefined): boolean {
   if (!role) return false
   return ['DIRECTOR', 'ADMIN', 'STAFF'].includes(role)
+}
+
+function toDateString(dateStr: string): string {
+  return new Date(dateStr).toISOString().split('T')[0]
+}
+
+function parsePeriodCount(periodIds: string): number {
+  try {
+    const arr = JSON.parse(periodIds)
+    return Array.isArray(arr) ? arr.length : 0
+  } catch {
+    return 0
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -108,6 +138,14 @@ export default function AuthorizationsPage() {
 
   const [authorizations, setAuthorizations] = useState<ClassAuthorization[]>([])
   const [loading, setLoading] = useState(true)
+
+  /* ---------------------------------------------------------------- */
+  /*  Unjustified Absences State                                       */
+  /* ---------------------------------------------------------------- */
+
+  const [absences, setAbsences] = useState<StudentAbsence[]>([])
+  const [absencesLoading, setAbsencesLoading] = useState(true)
+  const [selectedAbsenceIds, setSelectedAbsenceIds] = useState<Set<string>>(new Set())
 
   /* ---------------------------------------------------------------- */
   /*  Filter State                                                     */
@@ -165,11 +203,34 @@ export default function AuthorizationsPage() {
     }
   }, [schoolId, isStudent, user?.studentId, statusFilter, t, toast])
 
+  const fetchAbsences = useCallback(async () => {
+    if (!schoolId) return
+    try {
+      const params = new URLSearchParams({ schoolId, type: 'UNJUSTIFIED' })
+      if (isStudent && user?.studentId) {
+        params.set('studentId', user.studentId)
+      }
+      const res = await fetch(`/api/student-absences?${params.toString()}`)
+      if (res.ok) {
+        const data = await res.json()
+        setAbsences(data)
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setAbsencesLoading(false)
+    }
+  }, [schoolId, isStudent, user?.studentId])
+
   useEffect(() => {
     if (!schoolId) return
     setLoading(true)
-    fetchAuthorizations().finally(() => setLoading(false))
-  }, [schoolId, fetchAuthorizations])
+    setAbsencesLoading(true)
+    Promise.all([
+      fetchAuthorizations(),
+      fetchAbsences(),
+    ]).finally(() => setLoading(false))
+  }, [schoolId, fetchAuthorizations, fetchAbsences])
 
   /* ---------------------------------------------------------------- */
   /*  Request Modal Helpers                                            */
@@ -186,9 +247,48 @@ export default function AuthorizationsPage() {
     setRequestModalOpen(true)
   }
 
+  /** Open modal pre-filled from a single absence */
+  const openRequestFromAbsence = (absence: StudentAbsence) => {
+    setReqAbsenceDate(toDateString(absence.date))
+    setReqEndDate('')
+    setReqReason(absence.reason || '')
+    setRequestModalOpen(true)
+  }
+
+  /** Open modal pre-filled from selected absences (date range) */
+  const openRequestFromSelected = () => {
+    const selected = absences.filter(a => selectedAbsenceIds.has(a.id))
+    if (selected.length === 0) return
+
+    const dates = selected.map(a => new Date(a.date).getTime()).sort((a, b) => a - b)
+    const earliest = new Date(dates[0]).toISOString().split('T')[0]
+    const latest = new Date(dates[dates.length - 1]).toISOString().split('T')[0]
+
+    setReqAbsenceDate(earliest)
+    setReqEndDate(earliest !== latest ? latest : '')
+    setReqReason('')
+    setRequestModalOpen(true)
+  }
+
   const closeRequestModal = () => {
     setRequestModalOpen(false)
     resetRequestForm()
+  }
+
+  /* ---------------------------------------------------------------- */
+  /*  Absence selection helpers                                        */
+  /* ---------------------------------------------------------------- */
+
+  const toggleAbsenceSelection = (id: string) => {
+    setSelectedAbsenceIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
   }
 
   /* ---------------------------------------------------------------- */
@@ -218,6 +318,7 @@ export default function AuthorizationsPage() {
       if (res.ok) {
         toast.success(t('authorizations.request_submitted'))
         closeRequestModal()
+        setSelectedAbsenceIds(new Set())
         await fetchAuthorizations()
       } else {
         toast.error(t('app.error'))
@@ -244,7 +345,7 @@ export default function AuthorizationsPage() {
 
       if (res.ok) {
         toast.success(t('authorizations.approved_success'))
-        await fetchAuthorizations()
+        await Promise.all([fetchAuthorizations(), fetchAbsences()])
       } else {
         toast.error(t('app.error'))
       }
@@ -317,6 +418,8 @@ export default function AuthorizationsPage() {
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     })
 
+  const hasSelectedAbsences = selectedAbsenceIds.size > 0
+
   /* ---------------------------------------------------------------- */
   /*  Render                                                           */
   /* ---------------------------------------------------------------- */
@@ -335,6 +438,101 @@ export default function AuthorizationsPage() {
           </Button>
         )}
       </div>
+
+      {/* ============================================================ */}
+      {/*  Unjustified Absences Section                                 */}
+      {/* ============================================================ */}
+      {!absencesLoading && absences.length > 0 && (
+        <div className="rounded-xl border border-danger/20 bg-danger/5 p-4">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <AlertTriangle size={16} className="text-danger" />
+              <h2 className="text-sm font-semibold text-text-primary">
+                {t('authorizations.unjustified_absences')} ({absences.length})
+              </h2>
+            </div>
+            {isStudent && hasSelectedAbsences && (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={openRequestFromSelected}
+              >
+                <ArrowRight size={14} />
+                {t('authorizations.request_for_selected')} ({selectedAbsenceIds.size})
+              </Button>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            {absences.map((abs) => {
+              const periodCount = parsePeriodCount(abs.periodIds)
+              const isSelected = selectedAbsenceIds.has(abs.id)
+
+              return (
+                <div
+                  key={abs.id}
+                  className={`flex items-center gap-3 rounded-lg border bg-bg-card p-3 transition ${
+                    isSelected
+                      ? 'border-accent bg-accent/5'
+                      : 'border-border-subtle hover:border-border-default'
+                  }`}
+                >
+                  {/* Checkbox for students */}
+                  {isStudent && (
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleAbsenceSelection(abs.id)}
+                      className="h-4 w-4 shrink-0 rounded border-border-default text-accent focus:ring-accent"
+                    />
+                  )}
+
+                  {/* Absence info */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                      {/* Student name (for staff) */}
+                      {!isStudent && (
+                        <span className="text-sm font-semibold text-text-primary">
+                          {abs.student.name}
+                          <span className="ml-1 font-normal text-text-muted">
+                            ({abs.student.class.name})
+                          </span>
+                        </span>
+                      )}
+                      <span className="text-sm text-text-primary">
+                        {formatDate(abs.date)}
+                      </span>
+                      {periodCount > 0 && (
+                        <span className="text-xs text-text-muted">
+                          {t('authorizations.periods_count', { count: String(periodCount) })}
+                        </span>
+                      )}
+                      <Badge variant="danger" size="sm">
+                        {abs.type}
+                      </Badge>
+                    </div>
+                    {abs.reason && (
+                      <p className="mt-0.5 truncate text-xs text-text-muted">
+                        {abs.reason}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Quick request button for students */}
+                  {isStudent && (
+                    <button
+                      onClick={() => openRequestFromAbsence(abs)}
+                      className="shrink-0 rounded-lg border border-accent/30 bg-accent-dim px-3 py-1.5 text-xs font-medium text-accent transition hover:bg-accent/20"
+                    >
+                      {t('authorizations.request_for_absence')}
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="space-y-3">

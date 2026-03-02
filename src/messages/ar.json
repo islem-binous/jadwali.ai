@@ -339,6 +339,7 @@
     "gen_view_timetable": "عرض جدول الحصص",
     "report_title": "تقرير جاهزية جدول الحصص",
     "report_resources": "الموارد",
+    "report_classes": "فصول",
     "report_teachers_ratio": "{have}/{need} معلمين (متوفر/مطلوب)",
     "report_rooms_ratio": "{have}/{need} قاعات (متوفر/مطلوب)",
     "report_teacher_capacity": "سعة المعلمين: {available} ساعة متاحة / {needed} ساعة مطلوبة",
@@ -754,7 +755,12 @@
     "rejection_reason": "سبب الرفض",
     "approved_success": "تمت الموافقة على بطاقة العودة",
     "rejected_success": "تم رفض بطاقة العودة",
-    "request_submitted": "تم تقديم طلب بطاقة العودة"
+    "request_submitted": "تم تقديم طلب بطاقة العودة",
+    "unjustified_absences": "الغيابات غير المبررة",
+    "no_unjustified": "لا توجد غيابات غير مبررة",
+    "periods_count": "{count} حصة (حصص)",
+    "request_for_selected": "طلب للمحدد",
+    "request_for_absence": "طلب بطاقة عودة"
   },
   "errors": {
     "conflict_teacher": "المعلم {name} معيّن بالفعل في هذا الوقت",

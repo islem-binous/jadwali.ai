@@ -11,10 +11,14 @@ interface ReadinessIssue {
   type: string
   message: string
   details: string[]
+  detailsAr?: string[]
+  detailsFr?: string[]
 }
 
 interface SubjectEstimate {
   subject: string
+  nameAr?: string | null
+  nameFr?: string | null
   hoursNeeded: number
   teachersNeeded: number
   teachersAvailable: number
@@ -81,6 +85,8 @@ function validateReadiness(
   gradeCurriculum: Record<string, { subjectId: string; hoursPerWeek: number }[]>,
   gradeNameMap: Map<string, string>,
   gradeSessions?: Record<string, SessionInfo[]>,
+  gradeNameArMap?: Map<string, string>,
+  gradeNameFrMap?: Map<string, string>,
 ): ReadinessReport {
   const critical: ReadinessIssue[] = []
   const warnings: ReadinessIssue[] = []
@@ -96,49 +102,64 @@ function validateReadiness(
   }
 
   const subjectNameMap = new Map(subjects.map((s: any) => [s.id, s.name]))
+  const subjectNameArMap = new Map(subjects.map((s: any) => [s.id, s.nameAr || s.name]))
+  const subjectNameFrMap = new Map(subjects.map((s: any) => [s.id, s.nameFr || s.name]))
   const hasCurriculum = Object.keys(gradeCurriculum).length > 0
 
   if (hasCurriculum) {
     // Check curriculum-based coverage: each grade's subjects need a teacher
-    const uncoveredByGrade = new Map<string, Set<string>>()
+    // Track by gradeId so we can build locale-specific detail lines
+    const uncoveredByGradeId = new Map<string, Set<string>>() // gradeId → Set<subjectId>
     for (const [gradeId, curriculum] of Object.entries(gradeCurriculum)) {
       for (const gc of curriculum) {
         const teachersForSubject = teacherSubjectMap.get(gc.subjectId)
         if (!teachersForSubject || teachersForSubject.size === 0) {
-          const gradeName = gradeNameMap.get(gradeId) || gradeId
-          const subjectName = subjectNameMap.get(gc.subjectId) || gc.subjectId
-          if (!uncoveredByGrade.has(gradeName)) uncoveredByGrade.set(gradeName, new Set())
-          uncoveredByGrade.get(gradeName)!.add(subjectName)
+          if (!uncoveredByGradeId.has(gradeId)) uncoveredByGradeId.set(gradeId, new Set())
+          uncoveredByGradeId.get(gradeId)!.add(gc.subjectId)
         }
       }
     }
 
-    if (uncoveredByGrade.size > 0) {
+    if (uncoveredByGradeId.size > 0) {
       const details: string[] = []
-      for (const [gradeName, subjectNames] of uncoveredByGrade) {
-        details.push(`${gradeName}: ${[...subjectNames].join(', ')}`)
+      const detailsAr: string[] = []
+      const detailsFr: string[] = []
+      for (const [gradeId, subjectIds] of uncoveredByGradeId) {
+        const gName = gradeNameMap.get(gradeId) || gradeId
+        const gNameAr = gradeNameArMap?.get(gradeId) || gName
+        const gNameFr = gradeNameFrMap?.get(gradeId) || gName
+        const sNames = [...subjectIds].map(id => subjectNameMap.get(id) || id)
+        const sNamesAr = [...subjectIds].map(id => subjectNameArMap.get(id) || subjectNameMap.get(id) || id)
+        const sNamesFr = [...subjectIds].map(id => subjectNameFrMap.get(id) || subjectNameMap.get(id) || id)
+        details.push(`${gName}: ${sNames.join(', ')}`)
+        detailsAr.push(`${gNameAr}: ${sNamesAr.join('، ')}`)
+        detailsFr.push(`${gNameFr}: ${sNamesFr.join(', ')}`)
       }
       critical.push({
         type: 'MISSING_TEACHERS',
         message: 'Some curriculum subjects have no assigned teachers',
         details,
+        detailsAr,
+        detailsFr,
       })
     }
   } else {
     // No grade curriculum: solver assigns ALL subjects to ALL classes (fallback mode)
-    const uncoveredSubjects: string[] = []
+    const uncoveredSubjectIds: string[] = []
     for (const sub of subjects) {
       const teachersForSubject = teacherSubjectMap.get(sub.id)
       if (!teachersForSubject || teachersForSubject.size === 0) {
-        uncoveredSubjects.push(sub.name)
+        uncoveredSubjectIds.push(sub.id)
       }
     }
 
-    if (uncoveredSubjects.length > 0) {
+    if (uncoveredSubjectIds.length > 0) {
       critical.push({
         type: 'MISSING_TEACHERS',
-        message: `${uncoveredSubjects.length} subject(s) have no assigned teachers`,
-        details: uncoveredSubjects.map(name => `${name}: no teacher assigned`),
+        message: `${uncoveredSubjectIds.length} subject(s) have no assigned teachers`,
+        details: uncoveredSubjectIds.map(id => `${subjectNameMap.get(id) || id}: no teacher assigned`),
+        detailsAr: uncoveredSubjectIds.map(id => `${subjectNameArMap.get(id) || id}: لا يوجد معلم مُعيّن`),
+        detailsFr: uncoveredSubjectIds.map(id => `${subjectNameFrMap.get(id) || id}: aucun enseignant assigné`),
       })
     }
   }
@@ -191,6 +212,8 @@ function validateReadiness(
 
     estimates.push({
       subject: sub.name,
+      nameAr: sub.nameAr || null,
+      nameFr: sub.nameFr || null,
       hoursNeeded: Math.round(hoursNeeded * 10) / 10, // round for biweekly fractions
       teachersNeeded,
       teachersAvailable,
@@ -200,15 +223,15 @@ function validateReadiness(
 
   estimates.sort((a, b) => b.deficit - a.deficit)
 
-  const subjectCapacityIssues = estimates
-    .filter(e => e.deficit > 0)
-    .map(e => `${e.subject}: needs ${e.teachersNeeded} teacher(s) (${e.hoursNeeded}h/week), has ${e.teachersAvailable} — need ${e.deficit} more`)
+  const deficitEstimates = estimates.filter(e => e.deficit > 0)
 
-  if (subjectCapacityIssues.length > 0) {
+  if (deficitEstimates.length > 0) {
     warnings.push({
       type: 'SUBJECT_CAPACITY',
       message: 'Some subjects need more teachers',
-      details: subjectCapacityIssues,
+      details: deficitEstimates.map(e => `${e.subject}: needs ${e.teachersNeeded} teacher(s) (${e.hoursNeeded}h/week), has ${e.teachersAvailable} — need ${e.deficit} more`),
+      detailsAr: deficitEstimates.map(e => `${e.nameAr || e.subject}: يحتاج ${e.teachersNeeded} معلم(ين) (${e.hoursNeeded} ساعة/أسبوع)، لديه ${e.teachersAvailable} — يحتاج ${e.deficit} إضافي`),
+      detailsFr: deficitEstimates.map(e => `${e.nameFr || e.subject}: besoin de ${e.teachersNeeded} enseignant(s) (${e.hoursNeeded}h/sem), a ${e.teachersAvailable} — besoin de ${e.deficit} de plus`),
     })
   }
 
@@ -262,6 +285,12 @@ function validateReadiness(
         details: missingRoomTypes.map(r =>
           `${r.sessionTypeName} (type ${r.sessionType}): ${r.sessionsNeeded} session(s) need ${r.requiredRoomTypes.join(' or ')} — 0 available`
         ),
+        detailsAr: missingRoomTypes.map(r =>
+          `${r.sessionTypeName} (نوع ${r.sessionType}): ${r.sessionsNeeded} حصة تحتاج ${r.requiredRoomTypes.join(' أو ')} — 0 متاح`
+        ),
+        detailsFr: missingRoomTypes.map(r =>
+          `${r.sessionTypeName} (type ${r.sessionType}): ${r.sessionsNeeded} séance(s) nécessitent ${r.requiredRoomTypes.join(' ou ')} — 0 disponible`
+        ),
       })
     }
 
@@ -274,31 +303,47 @@ function validateReadiness(
         details: lowCapacityRooms.map(r =>
           `${r.sessionTypeName}: ${r.sessionsNeeded} sessions/week, only ${r.roomsAvailable} room(s) available`
         ),
+        detailsAr: lowCapacityRooms.map(r =>
+          `${r.sessionTypeName}: ${r.sessionsNeeded} حصة/أسبوع، فقط ${r.roomsAvailable} قاعة متاحة`
+        ),
+        detailsFr: lowCapacityRooms.map(r =>
+          `${r.sessionTypeName}: ${r.sessionsNeeded} séances/sem, seulement ${r.roomsAvailable} salle(s) disponible(s)`
+        ),
       })
     }
   } else {
     // Fallback: category-based room checks
     const roomTypes = new Set(rooms.map((r: any) => r.type))
 
-    const missingRoomTypes: string[] = []
+    const missingRoomEn: string[] = []
+    const missingRoomAr: string[] = []
+    const missingRoomFr: string[] = []
     const hasScience = subjects.some((s: any) => s.category === 'SCIENCE')
     if (hasScience && !roomTypes.has('LAB_SCIENCE') && !roomTypes.has('LAB') && !roomTypes.has('LAB_PHYSICS') && !roomTypes.has('LAB_BIOLOGY') && !roomTypes.has('LAB_CHEMISTRY')) {
-      missingRoomTypes.push('Science Lab (needed for science subjects)')
+      missingRoomEn.push('Science Lab (needed for science subjects)')
+      missingRoomAr.push('مخبر علوم (مطلوب لمواد العلوم)')
+      missingRoomFr.push('Laboratoire de sciences (requis pour les matières scientifiques)')
     }
     const hasPE = subjects.some((s: any) => s.category === 'PE')
     if (hasPE && !roomTypes.has('GYM') && !roomTypes.has('GYMNASIUM')) {
-      missingRoomTypes.push('Gymnasium / Sports facility (needed for PE)')
+      missingRoomEn.push('Gymnasium / Sports facility (needed for PE)')
+      missingRoomAr.push('قاعة رياضة / ملعب (مطلوب للتربية البدنية)')
+      missingRoomFr.push('Gymnase / Salle de sport (requis pour l\'EPS)')
     }
     const hasTech = subjects.some((s: any) => s.category === 'TECH')
     if (hasTech && !roomTypes.has('LAB_COMPUTER')) {
-      missingRoomTypes.push('Computer Lab (needed for technology/computer subjects)')
+      missingRoomEn.push('Computer Lab (needed for technology/computer subjects)')
+      missingRoomAr.push('مخبر حاسوب (مطلوب لمواد التكنولوجيا/الإعلامية)')
+      missingRoomFr.push('Salle informatique (requise pour les matières technologiques)')
     }
 
-    if (missingRoomTypes.length > 0) {
+    if (missingRoomEn.length > 0) {
       warnings.push({
         type: 'MISSING_ROOMS',
         message: 'Some specialized room types are missing',
-        details: missingRoomTypes,
+        details: missingRoomEn,
+        detailsAr: missingRoomAr,
+        detailsFr: missingRoomFr,
       })
     }
   }
@@ -319,10 +364,13 @@ function validateReadiness(
 
   const classroomsAvailable = rooms.length
   if (classroomsAvailable < classroomsNeeded) {
+    const deficit = classroomsNeeded - classroomsAvailable
     warnings.push({
       type: 'INSUFFICIENT_ROOMS',
       message: `Not enough rooms: ${classroomsAvailable} available, ~${classroomsNeeded} needed (accounting for group sessions)`,
-      details: [`Need ~${classroomsNeeded - classroomsAvailable} more room(s) to avoid scheduling gaps`],
+      details: [`Need ~${deficit} more room(s) to avoid scheduling gaps`],
+      detailsAr: [`يحتاج ~${deficit} قاعة إضافية لتجنب فجوات في الجدول`],
+      detailsFr: [`Besoin de ~${deficit} salle(s) supplémentaire(s) pour éviter les lacunes`],
     })
   }
 
@@ -332,10 +380,13 @@ function validateReadiness(
   const totalTeachersNeeded = estimates.reduce((sum, e) => sum + e.teachersNeeded, 0)
 
   if (totalDemand > 0 && totalCapacity < totalDemand) {
+    const deficit = totalDemand - totalCapacity
     warnings.push({
       type: 'CAPACITY_SHORTAGE',
       message: `Overall teacher capacity insufficient`,
-      details: [`Available: ${totalCapacity}h/week — Required: ${totalDemand}h/week (deficit: ${totalDemand - totalCapacity}h)`],
+      details: [`Available: ${totalCapacity}h/week — Required: ${totalDemand}h/week (deficit: ${deficit}h)`],
+      detailsAr: [`المتاح: ${totalCapacity} ساعة/أسبوع — المطلوب: ${totalDemand} ساعة/أسبوع (عجز: ${deficit} ساعة)`],
+      detailsFr: [`Disponible: ${totalCapacity}h/sem — Requis: ${totalDemand}h/sem (déficit: ${deficit}h)`],
     })
   }
 
@@ -346,6 +397,8 @@ function validateReadiness(
       type: 'NO_CURRICULUM',
       message: `${classesWithoutCurriculum.length} class(es) have no grade curriculum defined`,
       details: classesWithoutCurriculum.map((c: any) => `${c.name}: will use fallback subject hours`),
+      detailsAr: classesWithoutCurriculum.map((c: any) => `${c.name}: سيستخدم ساعات المواد الافتراضية`),
+      detailsFr: classesWithoutCurriculum.map((c: any) => `${c.name}: utilisera les heures par défaut`),
     })
   }
 
@@ -427,7 +480,7 @@ export async function POST(req: NextRequest) {
       prisma.teacherGrade.findMany({
         where: { grade: { schoolId } },
       }),
-      prisma.grade.findMany({ where: { schoolId }, select: { id: true, name: true } }),
+      prisma.grade.findMany({ where: { schoolId }, select: { id: true, name: true, nameAr: true, nameFr: true } }),
       prisma.curriculumSession.findMany({
         where: { curriculum: { grade: { schoolId } } },
         include: { curriculum: { select: { gradeId: true, subjectId: true } } },
@@ -488,7 +541,9 @@ export async function POST(req: NextRequest) {
 
     // ---- Pre-validation: readiness report ----
     const gradeNameMap = new Map<string, string>(grades.map((g: any) => [g.id, g.name]))
-    const readinessReport = validateReadiness(classes, teachers, subjects, rooms, gradeCurriculum, gradeNameMap, gradeSessions)
+    const gradeNameArMap = new Map<string, string>(grades.map((g: any) => [g.id, g.nameAr || g.name]))
+    const gradeNameFrMap = new Map<string, string>(grades.map((g: any) => [g.id, g.nameFr || g.name]))
+    const readinessReport = validateReadiness(classes, teachers, subjects, rooms, gradeCurriculum, gradeNameMap, gradeSessions, gradeNameArMap, gradeNameFrMap)
 
     if (!readinessReport.ready) {
       return Response.json({

@@ -254,10 +254,15 @@ export default function AiPage() {
 
         // Append warnings from readiness report if present
         if (data.readinessReport?.warnings?.length > 0) {
+          const pickWarnDetails = (w: { details: string[]; detailsAr?: string[]; detailsFr?: string[] }): string[] => {
+            if (locale === 'ar' && w.detailsAr?.length) return w.detailsAr
+            if (locale === 'fr' && w.detailsFr?.length) return w.detailsFr
+            return w.details
+          }
           summary += `\n\n**${t('ai.report_warnings')}:**\n`
           for (const w of data.readinessReport.warnings) {
             summary += `\n**${translateServerMsg(w.message, t)}**\n`
-            for (const d of w.details) {
+            for (const d of pickWarnDetails(w)) {
               summary += `- ${d}\n`
             }
           }
@@ -273,7 +278,21 @@ export default function AiPage() {
         const capParts = cap.match(/(\d+)h.*?(\d+)h/) || []
         let reportText = `**${t('ai.report_title')}**\n\n`
 
-        reportText += `**${t('ai.report_resources')}:** ${report.summary.totalClasses} ${t('resources.classes')}, ${t('ai.report_teachers_ratio', { have: String(report.summary.totalTeachers), need: String(report.summary.totalTeachersNeeded) })}, ${t('ai.report_rooms_ratio', { have: String(report.summary.totalRooms), need: String(report.summary.classroomsNeeded) })}\n`
+        // Helper: pick locale-appropriate details array
+        const pickDetails = (issue: { details: string[]; detailsAr?: string[]; detailsFr?: string[] }): string[] => {
+          if (locale === 'ar' && issue.detailsAr?.length) return issue.detailsAr
+          if (locale === 'fr' && issue.detailsFr?.length) return issue.detailsFr
+          return issue.details
+        }
+
+        // Helper: pick locale-appropriate subject name
+        const pickSubjectName = (est: { subject: string; nameAr?: string | null; nameFr?: string | null }): string => {
+          if (locale === 'ar' && est.nameAr) return est.nameAr
+          if (locale === 'fr' && est.nameFr) return est.nameFr
+          return est.subject
+        }
+
+        reportText += `**${t('ai.report_resources')}:** ${report.summary.totalClasses} ${t('ai.report_classes')}, ${t('ai.report_teachers_ratio', { have: String(report.summary.totalTeachers), need: String(report.summary.totalTeachersNeeded) })}, ${t('ai.report_rooms_ratio', { have: String(report.summary.totalRooms), need: String(report.summary.classroomsNeeded) })}\n`
         reportText += `**${t('ai.report_teacher_capacity', { available: capParts[1] || '0', needed: capParts[2] || '0' })}**\n`
 
         // Teacher estimates per subject
@@ -283,7 +302,7 @@ export default function AiPage() {
             const status = est.deficit > 0
               ? t('ai.report_need_more', { count: String(est.deficit) })
               : t('ai.report_status_ok')
-            reportText += `- ${t('ai.report_subject_line', { subject: est.subject, hours: String(est.hoursNeeded), needed: String(est.teachersNeeded), available: String(est.teachersAvailable), status })}\n`
+            reportText += `- ${t('ai.report_subject_line', { subject: pickSubjectName(est), hours: String(est.hoursNeeded), needed: String(est.teachersNeeded), available: String(est.teachersAvailable), status })}\n`
           }
         }
 
@@ -291,7 +310,7 @@ export default function AiPage() {
           reportText += `\n**${t('ai.report_critical')}:**\n`
           for (const issue of report.critical) {
             reportText += `\n**${translateServerMsg(issue.message, t)}**\n`
-            for (const detail of issue.details) {
+            for (const detail of pickDetails(issue)) {
               reportText += `- ${detail}\n`
             }
           }
@@ -301,7 +320,7 @@ export default function AiPage() {
           reportText += `\n**${t('ai.report_warnings')}:**\n`
           for (const w of report.warnings) {
             reportText += `\n**${translateServerMsg(w.message, t)}**\n`
-            for (const d of w.details) {
+            for (const d of pickDetails(w)) {
               reportText += `- ${d}\n`
             }
           }

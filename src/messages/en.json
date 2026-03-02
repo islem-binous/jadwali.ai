@@ -339,6 +339,7 @@
     "gen_view_timetable": "View Timetable",
     "report_title": "Timetable Readiness Report",
     "report_resources": "Resources",
+    "report_classes": "classes",
     "report_teachers_ratio": "{have}/{need} teachers (have/need)",
     "report_rooms_ratio": "{have}/{need} rooms (have/need)",
     "report_teacher_capacity": "Teacher capacity: {available}h available / {needed}h needed",
@@ -754,7 +755,12 @@
     "rejection_reason": "Rejection Reason",
     "approved_success": "Authorization approved",
     "rejected_success": "Authorization rejected",
-    "request_submitted": "Authorization request submitted"
+    "request_submitted": "Authorization request submitted",
+    "unjustified_absences": "Unjustified Absences",
+    "no_unjustified": "No unjustified absences",
+    "periods_count": "{count} period(s)",
+    "request_for_selected": "Request for Selected",
+    "request_for_absence": "Request Authorization"
   },
   "errors": {
     "conflict_teacher": "Teacher {name} is already assigned at this time",
