@@ -253,7 +253,12 @@
     "create_timetable": "إنشاء جدول حصص",
     "reset": "إعادة تعيين",
     "reset_confirm": "سيؤدي هذا إلى حذف الجدول الزمني الحالي وجميع حصصه. لا يمكن التراجع عن هذا الإجراء.",
-    "reset_success": "تمت إعادة تعيين الجدول الزمني"
+    "reset_success": "تمت إعادة تعيين الجدول الزمني",
+    "week_view": "عرض أسبوعي",
+    "template_view": "نموذج",
+    "week_number": "الأسبوع {number}",
+    "today_btn": "اليوم",
+    "holiday_label": "عطلة رسمية"
   },
   "teachers": {
     "title": "المعلمون",
@@ -474,7 +479,12 @@
     "deselect_all": "إلغاء تحديد الكل",
     "load_selected": "تحميل {count} مختارة",
     "grades_loaded": "تم تحميل {created} مستويات، تم تجاهل {skipped}",
-    "loading_reference": "جاري تحميل البيانات المرجعية..."
+    "loading_reference": "جاري تحميل البيانات المرجعية...",
+    "school_year": "السنة الدراسية",
+    "year_start": "تاريخ البداية",
+    "year_end": "تاريخ النهاية",
+    "school_year_desc": "تحديد تاريخ بداية ونهاية السنة الدراسية",
+    "year_saved": "تم حفظ تواريخ السنة الدراسية"
   },
   "billing": {
     "title": "الفواتير والاشتراك",

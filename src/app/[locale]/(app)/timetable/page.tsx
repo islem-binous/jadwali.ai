@@ -12,6 +12,8 @@ import {
   DoorOpen,
   Trash2,
   Loader2,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 import { useUserStore } from '@/store/userStore'
 import { isAdmin as checkIsAdmin } from '@/lib/permissions'
@@ -25,6 +27,7 @@ import {
   TimetableGrid,
   Lesson,
   Period,
+  HolidayEvent,
 } from '@/components/timetable/TimetableGrid'
 import { ImportModal } from '@/components/ui/ImportModal'
 import { triggerExport } from '@/lib/export-helpers'
@@ -71,6 +74,50 @@ type ViewMode = 'class' | 'teacher' | 'room'
 const DAY_KEYS = ['day_mon', 'day_tue', 'day_wed', 'day_thu', 'day_fri', 'day_sat'] as const
 
 /* ------------------------------------------------------------------ */
+/*  Week navigation helpers                                            */
+/* ------------------------------------------------------------------ */
+
+function getMondayOfWeek(date: Date): Date {
+  const d = new Date(date)
+  const dow = d.getDay() // 0=Sun, 1=Mon
+  const diff = dow === 0 ? -6 : 1 - dow
+  d.setDate(d.getDate() + diff)
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
+function addDays(date: Date, n: number): Date {
+  const d = new Date(date)
+  d.setDate(d.getDate() + n)
+  return d
+}
+
+function getWeekParity(weekStart: Date, yearStart: Date): 'A' | 'B' {
+  const diffMs = weekStart.getTime() - yearStart.getTime()
+  const weekNum = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000))
+  return weekNum % 2 === 0 ? 'A' : 'B'
+}
+
+function getWeekNumber(weekStart: Date, yearStart: Date): number {
+  const diffMs = weekStart.getTime() - yearStart.getTime()
+  return Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000)) + 1
+}
+
+/** Get default academic year start (Sept 15) */
+function getDefaultYearStart(): Date {
+  const now = new Date()
+  const year = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1
+  return new Date(year, 8, 15) // Sept 15
+}
+
+/** Get default academic year end (June 30) */
+function getDefaultYearEnd(): Date {
+  const now = new Date()
+  const year = now.getMonth() >= 8 ? now.getFullYear() + 1 : now.getFullYear()
+  return new Date(year, 5, 30) // June 30
+}
+
+/* ------------------------------------------------------------------ */
 /*  Page                                                               */
 /* ------------------------------------------------------------------ */
 
@@ -105,6 +152,13 @@ export default function TimetablePage() {
   const [creating, setCreating] = useState(false)
   const [showImportModal, setShowImportModal] = useState(false)
   const [days, setDays] = useState<number[]>([0, 1, 2, 3, 4])
+
+  /* ---------- Week navigation state ---------- */
+  const [weekMode, setWeekMode] = useState<'template' | 'week'>('template')
+  const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => getMondayOfWeek(new Date()))
+  const [holidays, setHolidays] = useState<HolidayEvent[]>([])
+  const [yearStartDate, setYearStartDate] = useState<Date>(() => getDefaultYearStart())
+  const [yearEndDate, setYearEndDate] = useState<Date>(() => getDefaultYearEnd())
 
   /* ---------- Lesson modal state ---------- */
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -168,7 +222,7 @@ export default function TimetablePage() {
     setRooms(r)
     setSubjects(s)
 
-    // Parse school days from school settings
+    // Parse school days + year dates from school settings
     if (schoolRes.ok) {
       const schoolData = await schoolRes.json()
       try {
@@ -177,6 +231,8 @@ export default function TimetablePage() {
           setDays(parsed.sort((a: number, b: number) => a - b))
         }
       } catch { /* keep default */ }
+      if (schoolData.yearStartDate) setYearStartDate(new Date(schoolData.yearStartDate))
+      if (schoolData.yearEndDate) setYearEndDate(new Date(schoolData.yearEndDate))
     }
   }, [schoolId])
 
@@ -202,6 +258,35 @@ export default function TimetablePage() {
     })
   }, [schoolId, fetchTimetable, fetchMeta, fetchLessons])
 
+  /* ---------- Fetch holidays when week mode is active ---------- */
+  useEffect(() => {
+    if (weekMode !== 'week' || !schoolId) return
+    fetch(`/api/events?schoolId=${schoolId}&type=HOLIDAY`)
+      .then(res => res.json())
+      .then((data: HolidayEvent[]) => setHolidays(data))
+      .catch(() => setHolidays([]))
+  }, [weekMode, schoolId])
+
+  /* ---------- Week navigation computed values ---------- */
+  const weekParity = getWeekParity(currentWeekStart, yearStartDate)
+  const weekNumber = getWeekNumber(currentWeekStart, yearStartDate)
+  const canGoPrev = currentWeekStart > yearStartDate
+  const canGoNext = addDays(currentWeekStart, 7) <= yearEndDate
+
+  const handlePrevWeek = () => {
+    setCurrentWeekStart(prev => addDays(prev, -7))
+  }
+  const handleNextWeek = () => {
+    setCurrentWeekStart(prev => addDays(prev, 7))
+  }
+  const handleToday = () => {
+    setCurrentWeekStart(getMondayOfWeek(new Date()))
+  }
+
+  const dateLocale = locale === 'ar' ? 'ar-TN' : locale === 'fr' ? 'fr-FR' : 'en-US'
+  const weekEndDate = addDays(currentWeekStart, days.length > 0 ? days[days.length - 1] : 5)
+  const weekRangeLabel = `${currentWeekStart.toLocaleDateString(dateLocale, { month: 'short', day: 'numeric' })} – ${weekEndDate.toLocaleDateString(dateLocale, { month: 'short', day: 'numeric' })}`
+
   /* ---------- Filter lessons by viewMode + selectedFilter ---------- */
   const filteredLessons = selectedFilter
     ? lessons.filter((l) => {
@@ -211,6 +296,14 @@ export default function TimetablePage() {
         return true
       })
     : lessons
+
+  /* ---------- Week-type filtering ---------- */
+  const displayLessons = weekMode === 'week'
+    ? filteredLessons.filter(l => {
+        if (!l.weekType) return true // regular lessons always show
+        return l.weekType === weekParity // biweekly: only matching parity
+      })
+    : filteredLessons
 
   /* ---------- Filter pill items ---------- */
   const filterItems: { id: string; name: string; nameAr?: string | null; nameFr?: string | null }[] =
@@ -632,6 +725,74 @@ export default function TimetablePage() {
         </div>
       )}
 
+      {/* ====== TEMPLATE / WEEK TOGGLE + NAVIGATION ====== */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        {/* Toggle */}
+        <div className="flex gap-1 p-1 rounded-lg bg-bg-surface border border-border-subtle w-fit">
+          <button
+            type="button"
+            onClick={() => setWeekMode('template')}
+            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors cursor-pointer ${
+              weekMode === 'template'
+                ? 'bg-accent text-white shadow-sm'
+                : 'text-text-secondary hover:text-text-primary hover:bg-bg-surface2'
+            }`}
+          >
+            {t('template_view')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setWeekMode('week')}
+            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors cursor-pointer ${
+              weekMode === 'week'
+                ? 'bg-accent text-white shadow-sm'
+                : 'text-text-secondary hover:text-text-primary hover:bg-bg-surface2'
+            }`}
+          >
+            {t('week_view')}
+          </button>
+        </div>
+
+        {/* Week navigation (only in week mode) */}
+        {weekMode === 'week' && (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handlePrevWeek}
+              disabled={!canGoPrev}
+              className="rounded-lg border border-border-subtle p-1.5 text-text-secondary hover:bg-bg-surface2 hover:text-text-primary transition disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <div className="text-sm font-medium text-text-primary text-center min-w-[200px]">
+              <span>{t('week_number', { number: weekNumber })}</span>
+              <span className="text-text-muted mx-1.5">&middot;</span>
+              <span className="text-text-secondary">{weekRangeLabel}</span>
+              <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${
+                weekParity === 'A' ? 'bg-accent/15 text-accent' : 'bg-success/15 text-success'
+              }`}>
+                S{weekParity === 'A' ? '1' : '2'}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={handleNextWeek}
+              disabled={!canGoNext}
+              className="rounded-lg border border-border-subtle p-1.5 text-text-secondary hover:bg-bg-surface2 hover:text-text-primary transition disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <ChevronRight size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={handleToday}
+              className="rounded-lg border border-border-subtle px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-surface2 hover:text-text-primary transition"
+            >
+              {t('today_btn')}
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* ====== FILTER PILLS (admin only) ====== */}
       {adminUser && filterItems.length > 0 && (
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
@@ -670,12 +831,14 @@ export default function TimetablePage() {
 
       {/* ====== TIMETABLE GRID ====== */}
       <TimetableGrid
-        lessons={filteredLessons}
+        lessons={displayLessons}
         periods={periods}
         days={days}
         viewMode={viewMode}
         selectedFilter={selectedFilter}
         readOnly={readOnly}
+        weekStartDate={weekMode === 'week' ? currentWeekStart : null}
+        holidays={weekMode === 'week' ? holidays : []}
         onLessonMove={readOnly ? () => {} : handleLessonMove}
         onLessonClick={readOnly ? () => {} : handleLessonClick}
         onEmptyCellClick={readOnly ? () => {} : handleEmptyCellClick}

@@ -253,7 +253,12 @@
     "create_timetable": "Créer un emploi du temps",
     "reset": "Réinitialiser",
     "reset_confirm": "Cela supprimera l'emploi du temps actuel et tous ses cours. Cette action est irréversible.",
-    "reset_success": "L'emploi du temps a été réinitialisé"
+    "reset_success": "L'emploi du temps a été réinitialisé",
+    "week_view": "Vue semaine",
+    "template_view": "Modèle",
+    "week_number": "Semaine {number}",
+    "today_btn": "Aujourd'hui",
+    "holiday_label": "Jour férié"
   },
   "teachers": {
     "title": "Enseignants",
@@ -474,7 +479,12 @@
     "deselect_all": "Tout désélectionner",
     "load_selected": "Charger {count} sélectionnés",
     "grades_loaded": "{created} niveaux chargés, {skipped} ignorés",
-    "loading_reference": "Chargement des données de référence..."
+    "loading_reference": "Chargement des données de référence...",
+    "school_year": "Année scolaire",
+    "year_start": "Date de début",
+    "year_end": "Date de fin",
+    "school_year_desc": "Définir les dates de début et de fin de l'année scolaire",
+    "year_saved": "Dates de l'année scolaire enregistrées"
   },
   "billing": {
     "title": "Facturation & Abonnement",

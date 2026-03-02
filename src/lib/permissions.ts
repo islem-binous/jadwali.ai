@@ -20,7 +20,7 @@ const NAV_PERMISSIONS: NavPermission[] = [
   { key: 'resources',        roles: ['DIRECTOR', 'ADMIN'] },
   { key: 'reports',          roles: ['DIRECTOR', 'ADMIN'] },
   { key: 'users',            roles: ['DIRECTOR', 'ADMIN'] },
-  { key: 'ai',               roles: ['DIRECTOR', 'ADMIN', 'TEACHER'] },
+  { key: 'ai',               roles: ['DIRECTOR', 'ADMIN'] },
   { key: 'settings',         roles: ['DIRECTOR', 'ADMIN', 'STAFF', 'TEACHER', 'STUDENT'] },
   { key: 'billing',          roles: ['DIRECTOR', 'ADMIN'] },
   { key: 'help',             roles: ['DIRECTOR', 'ADMIN', 'STAFF', 'TEACHER', 'STUDENT'] },
@@ -50,7 +50,7 @@ export function getBottomNavKeys(role: string): string[] {
     return ['dashboard', 'timetable', 'marks', 'authorizations', 'settings']
   }
   if (role === 'TEACHER') {
-    return ['dashboard', 'timetable', 'marks', 'student-absences', 'ai']
+    return ['dashboard', 'timetable', 'marks', 'student-absences', 'settings']
   }
   if (role === 'STAFF') {
     return ['dashboard', 'students', 'student-absences', 'authorizations', 'settings']

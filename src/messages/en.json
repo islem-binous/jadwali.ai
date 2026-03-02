@@ -253,7 +253,12 @@
     "lesson_deleted": "Lesson deleted",
     "lesson_delete_failed": "Failed to delete lesson",
     "empty_state": "No timetable yet. Create one to get started.",
-    "create_timetable": "Create Timetable"
+    "create_timetable": "Create Timetable",
+    "week_view": "Week View",
+    "template_view": "Template",
+    "week_number": "Week {number}",
+    "today_btn": "Today",
+    "holiday_label": "Holiday"
   },
   "teachers": {
     "title": "Teachers",
@@ -474,7 +479,12 @@
     "deselect_all": "Deselect All",
     "load_selected": "Load {count} Selected",
     "grades_loaded": "{created} grades loaded, {skipped} skipped",
-    "loading_reference": "Loading reference data..."
+    "loading_reference": "Loading reference data...",
+    "school_year": "School Year",
+    "year_start": "Start Date",
+    "year_end": "End Date",
+    "school_year_desc": "Set the start and end dates of the school year",
+    "year_saved": "School year dates saved"
   },
   "billing": {
     "title": "Billing & Plan",

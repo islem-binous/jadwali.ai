@@ -20,6 +20,8 @@ model School {
   paymentProvider      String?
   subscriptionStatus   String    @default("INACTIVE")
   subscriptionEndsAt   DateTime?
+  yearStartDate        DateTime?
+  yearEndDate          DateTime?
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 

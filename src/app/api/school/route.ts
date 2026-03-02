@@ -39,7 +39,7 @@ export async function PUT(req: NextRequest) {
   try {
     const prisma = await getPrisma()
     const body = await req.json()
-    const { id, name, country, timezone, language, schoolDays, tunisianSchoolId } = body
+    const { id, name, country, timezone, language, schoolDays, tunisianSchoolId, yearStartDate, yearEndDate } = body
 
     if (!id) {
       return NextResponse.json({ error: 'Missing school id' }, { status: 400 })
@@ -53,6 +53,8 @@ export async function PUT(req: NextRequest) {
     if (timezone !== undefined) data.timezone = timezone
     if (language !== undefined) data.language = language
     if (schoolDays !== undefined) data.schoolDays = JSON.stringify(schoolDays)
+    if (yearStartDate !== undefined) data.yearStartDate = yearStartDate ? new Date(yearStartDate) : null
+    if (yearEndDate !== undefined) data.yearEndDate = yearEndDate ? new Date(yearEndDate) : null
 
     // Handle TunisianSchool linking/unlinking
     if (tunisianSchoolId !== undefined) {

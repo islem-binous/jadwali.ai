@@ -19,6 +19,10 @@ export async function GET(req: NextRequest) {
     // Build date range filter if month & year are provided
     const where: Record<string, unknown> = { schoolId }
 
+    // Filter by event type
+    const type = req.nextUrl.searchParams.get('type')
+    if (type) where.type = type
+
     // Filter recurring holidays only
     if (recurring === 'true') {
       where.isRecurring = true

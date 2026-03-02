@@ -12,7 +12,7 @@ import {
   useSensors,
 } from '@dnd-kit/core'
 import { useDroppable } from '@dnd-kit/core'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import { Plus } from 'lucide-react'
 import { LessonPill, LessonPillData } from './LessonPill'
 import { isPeriodActiveOnDay } from '@/lib/period-utils'
@@ -47,6 +47,15 @@ export interface Lesson {
   weekType?: string | null
 }
 
+export interface HolidayEvent {
+  id: string
+  title: string
+  titleAr?: string | null
+  titleFr?: string | null
+  startDate: string
+  endDate: string
+}
+
 interface TimetableGridProps {
   lessons: Lesson[]
   periods: Period[]
@@ -54,6 +63,8 @@ interface TimetableGridProps {
   viewMode: 'class' | 'teacher' | 'room'
   selectedFilter?: string
   readOnly?: boolean
+  weekStartDate?: Date | null
+  holidays?: HolidayEvent[]
   onLessonMove: (lessonId: string, newDay: number, newPeriodId: string) => void
   onLessonClick: (lesson: Lesson) => void
   onEmptyCellClick: (day: number, periodId: string) => void
@@ -67,6 +78,32 @@ const DAY_KEYS = ['day_mon', 'day_tue', 'day_wed', 'day_thu', 'day_fri', 'day_sa
 const DAY_SHORT_KEYS = ['day_mon_short', 'day_tue_short', 'day_wed_short', 'day_thu_short', 'day_fri_short', 'day_sat_short'] as const
 
 /* ------------------------------------------------------------------ */
+/*  Date helpers                                                       */
+/* ------------------------------------------------------------------ */
+
+function addDays(date: Date, n: number): Date {
+  const d = new Date(date)
+  d.setDate(d.getDate() + n)
+  return d
+}
+
+function getHolidayForDay(weekStart: Date, dayIndex: number, holidays: HolidayEvent[]): HolidayEvent | undefined {
+  const date = addDays(weekStart, dayIndex)
+  const ds = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+  return holidays.find(h => {
+    const ss = h.startDate.slice(0, 10)
+    const es = h.endDate.slice(0, 10)
+    return ds >= ss && ds <= es
+  })
+}
+
+function getLocaleName(locale: string, item: { title: string; titleAr?: string | null; titleFr?: string | null }): string {
+  if (locale === 'ar' && item.titleAr) return item.titleAr
+  if (locale === 'fr' && item.titleFr) return item.titleFr
+  return item.title
+}
+
+/* ------------------------------------------------------------------ */
 /*  Droppable Cell                                                     */
 /* ------------------------------------------------------------------ */
 
@@ -75,10 +112,11 @@ interface DroppableCellProps {
   children: React.ReactNode
   isEmpty: boolean
   readOnly?: boolean
+  isHoliday?: boolean
   onEmptyClick: () => void
 }
 
-function DroppableCell({ id, children, isEmpty, readOnly, onEmptyClick }: DroppableCellProps) {
+function DroppableCell({ id, children, isEmpty, readOnly, isHoliday, onEmptyClick }: DroppableCellProps) {
   const { setNodeRef, isOver } = useDroppable({ id })
 
   return (
@@ -88,11 +126,14 @@ function DroppableCell({ id, children, isEmpty, readOnly, onEmptyClick }: Droppa
         border-t border-l border-border-subtle p-1 min-h-[64px]
         transition-colors duration-150
         ${isOver && !readOnly ? 'bg-accent/10 border-accent/30' : ''}
-        ${isEmpty && !readOnly ? 'group' : ''}
+        ${isEmpty && !readOnly && !isHoliday ? 'group' : ''}
+        ${isHoliday ? 'bg-warning/5' : ''}
       `}
     >
-      {children}
-      {isEmpty && !readOnly && (
+      <div className={isHoliday ? 'opacity-30' : ''}>
+        {children}
+      </div>
+      {isEmpty && !readOnly && !isHoliday && (
         <button
           type="button"
           onClick={onEmptyClick}
@@ -121,32 +162,45 @@ function DroppableCell({ id, children, isEmpty, readOnly, onEmptyClick }: Droppa
 interface MobileDayTabsProps {
   days: number[]
   activeDay: number
+  weekStartDate?: Date | null
+  holidays?: HolidayEvent[]
   onDayChange: (day: number) => void
 }
 
-function MobileDayTabs({ days, activeDay, onDayChange }: MobileDayTabsProps) {
+function MobileDayTabs({ days, activeDay, weekStartDate, holidays = [], onDayChange }: MobileDayTabsProps) {
   const t = useTranslations('timetable')
+  const locale = useLocale()
+  const dateLocale = locale === 'ar' ? 'ar-TN' : locale === 'fr' ? 'fr-FR' : 'en-US'
 
   return (
     <div className="flex gap-1 overflow-x-auto pb-2 scrollbar-hide lg:hidden">
-      {days.map((day) => (
-        <button
-          key={day}
-          type="button"
-          onClick={() => onDayChange(day)}
-          className={`
-            shrink-0 px-3.5 py-1.5 text-sm font-medium rounded-full border
-            transition-colors duration-150 cursor-pointer
-            ${
-              activeDay === day
-                ? 'bg-accent-dim text-accent border-accent'
-                : 'bg-transparent text-text-secondary border-border-subtle hover:border-border-default hover:text-text-primary'
-            }
-          `}
-        >
-          {t(DAY_SHORT_KEYS[day])}
-        </button>
-      ))}
+      {days.map((day) => {
+        const holiday = weekStartDate ? getHolidayForDay(weekStartDate, day, holidays) : null
+        const colDate = weekStartDate ? addDays(weekStartDate, day) : null
+        return (
+          <button
+            key={day}
+            type="button"
+            onClick={() => onDayChange(day)}
+            className={`
+              shrink-0 px-3.5 py-1.5 text-sm font-medium rounded-full border
+              transition-colors duration-150 cursor-pointer
+              ${
+                activeDay === day
+                  ? holiday ? 'bg-warning/20 text-warning border-warning' : 'bg-accent-dim text-accent border-accent'
+                  : holiday ? 'bg-warning/5 text-warning/70 border-warning/30' : 'bg-transparent text-text-secondary border-border-subtle hover:border-border-default hover:text-text-primary'
+              }
+            `}
+          >
+            <span>{t(DAY_SHORT_KEYS[day])}</span>
+            {colDate && (
+              <span className="text-[10px] ml-1 opacity-70">
+                {colDate.toLocaleDateString(dateLocale, { day: 'numeric' })}
+              </span>
+            )}
+          </button>
+        )
+      })}
     </div>
   )
 }
@@ -160,11 +214,15 @@ export function TimetableGrid({
   periods,
   days,
   readOnly = false,
+  weekStartDate,
+  holidays = [],
   onLessonMove,
   onLessonClick,
   onEmptyCellClick,
 }: TimetableGridProps) {
   const t = useTranslations('timetable')
+  const locale = useLocale()
+  const dateLocale = locale === 'ar' ? 'ar-TN' : locale === 'fr' ? 'fr-FR' : 'en-US'
   const [activeLesson, setActiveLesson] = useState<Lesson | null>(null)
   const [mobileDay, setMobileDay] = useState(days[0] ?? 0)
 
@@ -218,7 +276,7 @@ export function TimetableGrid({
       onDragEnd={handleDragEnd}
     >
       {/* Mobile day tabs */}
-      <MobileDayTabs days={days} activeDay={mobileDay} onDayChange={setMobileDay} />
+      <MobileDayTabs days={days} activeDay={mobileDay} weekStartDate={weekStartDate} holidays={holidays} onDayChange={setMobileDay} />
 
       {/* ============ DESKTOP GRID ============ */}
       <div className="hidden lg:block rounded-xl border border-border-subtle bg-bg-card overflow-hidden">
@@ -230,14 +288,30 @@ export function TimetableGrid({
           <div className="bg-bg-surface px-3 py-2 text-xs font-medium uppercase text-text-muted text-center border-b border-border-subtle">
             {t('period')}
           </div>
-          {days.map((day) => (
-            <div
-              key={day}
-              className="bg-bg-surface px-3 py-2 text-xs font-medium uppercase text-text-muted text-center border-b border-l border-border-subtle"
-            >
-              {t(DAY_KEYS[day])}
-            </div>
-          ))}
+          {days.map((day) => {
+            const holiday = weekStartDate ? getHolidayForDay(weekStartDate, day, holidays) : null
+            const colDate = weekStartDate ? addDays(weekStartDate, day) : null
+            return (
+              <div
+                key={day}
+                className={`bg-bg-surface px-3 py-2 text-center border-b border-l border-border-subtle ${holiday ? 'bg-warning/10' : ''}`}
+              >
+                <div className="text-xs font-medium uppercase text-text-muted">
+                  {t(DAY_KEYS[day])}
+                </div>
+                {colDate && (
+                  <div className="text-[10px] text-text-muted mt-0.5">
+                    {colDate.toLocaleDateString(dateLocale, { month: 'short', day: 'numeric' })}
+                  </div>
+                )}
+                {holiday && (
+                  <div className="text-[9px] text-warning font-medium truncate mt-0.5">
+                    {getLocaleName(locale, holiday)}
+                  </div>
+                )}
+              </div>
+            )
+          })}
 
           {/* ---- Period rows ---- */}
           {periods.map((period) => {
@@ -278,6 +352,7 @@ export function TimetableGrid({
                     )
                   }
 
+                  const holiday = weekStartDate ? getHolidayForDay(weekStartDate, day, holidays) : null
                   const cellLessons = getLessonsForCell(day, period.id)
                   const cId = cellId(day, period.id)
 
@@ -287,6 +362,7 @@ export function TimetableGrid({
                       id={cId}
                       isEmpty={cellLessons.length === 0}
                       readOnly={readOnly}
+                      isHoliday={!!holiday}
                       onEmptyClick={() => onEmptyCellClick(day, period.id)}
                     >
                       {cellLessons.map((lesson) => (
@@ -324,6 +400,7 @@ export function TimetableGrid({
             return null
           }
 
+          const mobileHoliday = weekStartDate ? getHolidayForDay(weekStartDate, mobileDay, holidays) : null
           const cellLessons = getLessonsForCell(mobileDay, period.id)
           const cId = cellId(mobileDay, period.id)
 
@@ -344,6 +421,7 @@ export function TimetableGrid({
                 id={cId}
                 isEmpty={cellLessons.length === 0}
                 readOnly={readOnly}
+                isHoliday={!!mobileHoliday}
                 onEmptyClick={() => onEmptyCellClick(mobileDay, period.id)}
               >
                 <div className="px-2 py-1">

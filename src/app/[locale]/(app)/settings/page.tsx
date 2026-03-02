@@ -59,6 +59,8 @@ interface SchoolData {
   schoolDays: string
   periods: PeriodData[]
   tunisianSchoolId: string | null
+  yearStartDate: string | null
+  yearEndDate: string | null
   tunisianSchool: { id: string; code: string; nameAr: string; zipCode: string; governorate: { nameAr: string } } | null
 }
 
@@ -187,6 +189,11 @@ export default function SettingsPage() {
   const [pBreakLabel, setPBreakLabel] = useState('')
   const [pApplicableDays, setPApplicableDays] = useState<number[]>([])
   const [academicSaving, setAcademicSaving] = useState(false)
+
+  // School year dates
+  const [yearStart, setYearStart] = useState('')
+  const [yearEnd, setYearEnd] = useState('')
+  const [yearSaving, setYearSaving] = useState(false)
 
   // Grades & Curriculum
   interface GradeItem {
@@ -340,6 +347,9 @@ export default function SettingsPage() {
             const days = JSON.parse(data.schoolDays || '[0,1,2,3,4,5]')
             setSelectedDays(Array.isArray(days) ? days : [0,1,2,3,4,5])
           } catch { setSelectedDays([0,1,2,3,4,5]) }
+          // School year dates
+          if (data.yearStartDate) setYearStart(data.yearStartDate.slice(0, 10))
+          if (data.yearEndDate) setYearEnd(data.yearEndDate.slice(0, 10))
         }
       } catch {
         // Silently fail
@@ -428,6 +438,29 @@ export default function SettingsPage() {
       else toast.error('Failed to save')
     } catch { toast.error('Failed to save') }
     finally { setAcademicSaving(false) }
+  }
+
+  // Save school year dates
+  const handleSaveYear = async () => {
+    if (!school) return
+    setYearSaving(true)
+    try {
+      const res = await fetch('/api/school', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: school.id,
+          yearStartDate: yearStart || null,
+          yearEndDate: yearEnd || null,
+        }),
+      })
+      if (res.ok) {
+        const updated = await res.json()
+        setSchool(updated)
+        toast.success(t('settings.year_saved'))
+      } else toast.error('Failed to save')
+    } catch { toast.error('Failed to save') }
+    finally { setYearSaving(false) }
   }
 
   // Period CRUD
@@ -1117,6 +1150,42 @@ export default function SettingsPage() {
                       <p className="text-sm text-text-muted">No periods configured yet</p>
                     </div>
                   )}
+                </div>
+
+                {/* School Year dates */}
+                <div className="border-t border-border-subtle pt-5">
+                  <label className="block text-sm font-medium text-text-secondary mb-1">
+                    {t('settings.school_year')}
+                  </label>
+                  <p className="text-xs text-text-muted mb-3">{t('settings.school_year_desc')}</p>
+                  <div className="flex flex-wrap items-end gap-3">
+                    <div>
+                      <label className="block text-xs text-text-muted mb-1">{t('settings.year_start')}</label>
+                      <input
+                        type="date"
+                        value={yearStart}
+                        onChange={(e) => setYearStart(e.target.value)}
+                        className="rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-text-muted mb-1">{t('settings.year_end')}</label>
+                      <input
+                        type="date"
+                        value={yearEnd}
+                        onChange={(e) => setYearEnd(e.target.value)}
+                        className="rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none"
+                      />
+                    </div>
+                    <button
+                      onClick={handleSaveYear}
+                      disabled={yearSaving}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition hover:bg-accent-hover disabled:opacity-50"
+                    >
+                      {yearSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                      {t('app.save')}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Save academic setup */}

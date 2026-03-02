@@ -494,3 +494,23 @@ When feeding curriculum data to the AI timetable generator, each grade-class sho
 | 4th Year (Bac) | 7 | ~26-34 | 3-6 (labs, IT, engineering) | 2-4 |
 
 **Key takeaway**: A typical Tunisian secondary class has 28-34 session slots per week, of which 3-6 are group-based (requiring room splits and pairing) and 2-4 are biweekly (alternating weeks).
+
+---
+
+## School Calendar
+
+### Academic Year
+- The school year in Tunisia starts **September 15** and finishes **June 30** every year
+- The year is divided into **3 trimesters**:
+  - Trimester 1: September 15 – December 15
+  - Trimester 2: January 5 – March 15
+  - Trimester 3: March 25 – June 30
+
+### Biweekly Alternation
+- Weeks alternate between **Semaine 1 (S1)** and **Semaine 2 (S2)** starting from the first week of the school year
+- S1/S2 determines which biweekly (parQuinzaine) and group (parGroupe) sessions are active
+
+### Official Holidays (12 per year)
+- New Year (Jan 1), Independence Day (Mar 20), Martyrs' Day (Apr 9), Labour Day (May 1)
+- Republic Day (Jul 25), Women's Day (Aug 13), Evacuation Day (Oct 15), Revolution Day (Dec 17)
+- Eid al-Fitr (2-3 days, lunar), Eid al-Adha (2 days, lunar), Islamic New Year (1 day, lunar), Mouled (1 day, lunar)
